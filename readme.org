@@ -1,0 +1,17 @@
+* About
+#+begin_quote
+This has no official relationship to either ~xtensor~ or ~scipy~!!!
+#+end_quote
+
+Part of the larger ~xtsci~ project, which iteratively implements parts of
+~scipy~ using ~xtensor~ and modern C++ based on my needs. At some point (or with
+funding) this might cover all of ~scipy~, but its really more of a rapid
+prototyping thing.
+
+** Components
+The heart of the library is the ~xts~ namespace, with functions further
+demarcated according to the relevant ~scipy~ modules e.g.
+~xts::optimize~.
+
+** License
+MIT.
