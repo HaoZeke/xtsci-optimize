@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
   xts::optimize::trial_functions::Rosenbrock<double> rosen;
   xts::optimize::trial_functions::QuadraticFunction<double> quadratic;
   xts::optimize::OptimizeControl<double> control;
+  control.tol = 1e-6;
   xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
   xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
       strongwolfe(0.1, 0.1);
@@ -61,11 +62,11 @@ int main(int argc, char *argv[]) {
       backtracking(armijo);
   xts::optimize::linesearch::step_size::BisectionStep<double> bisectionStep;
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
-      bisectionStep);
+      bisectionStep, 1e-4, 0.9);
   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(zoom);
 
-  xt::xarray<double> initial_guess = {3.0, 4.0};
-  xt::xarray<double> direction = {-1.0, -1.0};
+  xt::xarray<double> initial_guess = {-1.0, 2.0};
+  xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
       optimizer.optimize(rosen, cstate, control);
