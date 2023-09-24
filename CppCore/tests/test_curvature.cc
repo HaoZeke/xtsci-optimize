@@ -13,6 +13,8 @@ TEST_CASE("Curvature condition is validated", "[LineSearch]") {
   using Scalar = double;
   xts::optimize::linesearch::conditions::CurvatureCondition<Scalar>
       curvature_condition(0.9); // c'=0.9 for demonstration
+  xts::optimize::linesearch::conditions::StrongCurvatureCondition<Scalar>
+      strong_curvature_condition(0.9); // c'=0.9 for demonstration
   xts::optimize::trial_functions::QuadraticFunction<Scalar> func;
 
   xt::xarray<Scalar> x = xt::xarray<Scalar>::from_shape({2});
@@ -22,16 +24,19 @@ TEST_CASE("Curvature condition is validated", "[LineSearch]") {
   SECTION("Condition holds for valid step size") {
     Scalar alpha = 0.5;
     REQUIRE(curvature_condition(alpha, func, x, direction) == true);
+    REQUIRE(strong_curvature_condition(alpha, func, x, direction) == true);
   }
 
   SECTION("Condition does not hold for small step size") {
     Scalar alpha = 0.01;
     REQUIRE(curvature_condition(alpha, func, x, direction) == false);
+    REQUIRE(strong_curvature_condition(alpha, func, x, direction) == false);
   }
 
   SECTION("Condition holds at boundary") {
     Scalar alpha =
         1.0; // This should be just at the boundary for the quadratic function
     REQUIRE(curvature_condition(alpha, func, x, direction) == true);
+    REQUIRE(strong_curvature_condition(alpha, func, x, direction) == true);
   }
 }

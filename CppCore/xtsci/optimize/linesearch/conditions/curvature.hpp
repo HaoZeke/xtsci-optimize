@@ -35,6 +35,23 @@ public:
   };
 };
 
+template <typename ScalarType>
+class StrongCurvatureCondition : public LineSearchCondition<ScalarType> {
+    ScalarType c;
+
+public:
+    explicit StrongCurvatureCondition(ScalarType c_val = 0.9) : c(c_val) {}
+
+    bool operator()(ScalarType alpha,
+                    const ObjectiveFunction<ScalarType>& func,
+                    const xt::xarray<ScalarType>& x,
+                    const xt::xarray<ScalarType>& direction) const override {
+        auto grad_phi_alpha = xt::linalg::dot(*func.gradient(x + alpha * direction), direction)();
+        auto grad_phi_0 = xt::linalg::dot(*func.gradient(x), direction)();
+        return std::abs(grad_phi_alpha) <= c * std::abs(grad_phi_0);
+    }
+};
+
 } // namespace conditions
 } // namespace linesearch
 } // namespace optimize
