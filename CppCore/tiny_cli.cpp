@@ -58,14 +58,15 @@ int main(int argc, char *argv[]) {
   control.tol = 1e-6;
   xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
   xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
-      strongwolfe(0.1, 0.1);
+      strongwolfe(1e-4, 0.9);
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
-      backtracking(armijo);
+      backtracking(strongwolfe);
   xts::optimize::linesearch::step_size::BisectionStep<double> bisectionStep;
   xts::optimize::linesearch::step_size::CubicStep<double> cubicStep;
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
       bisectionStep, 1e-4, 0.9);
-  xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(zoom);
+  xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+      backtracking);
 
   xt::xarray<double> initial_guess = {-1.3, 1.8};
   xt::xarray<double> direction = {0.0, 0.0};

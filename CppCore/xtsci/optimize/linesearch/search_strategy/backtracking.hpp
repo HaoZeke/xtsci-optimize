@@ -27,7 +27,6 @@ public:
 
   ScalarType search(const ObjectiveFunction<ScalarType> &func,
                     const SearchState<ScalarType> &cstate) override {
-    auto [x, direction] = cstate;
     ScalarType alpha = 1.0;
     while (!m_cond(alpha, func, cstate)) {
       alpha *= beta;
