@@ -73,7 +73,7 @@ public:
   // Pure virtual function for optimization
   virtual OptimizeResult<ScalarType>
   optimize(const ObjectiveFunction<ScalarType> &func,
-           const xt::xexpression<ScalarType> &initial_guess,
+           const SearchState<ScalarType> &initial_guess,
            const OptimizeControl<ScalarType> &control) const = 0;
 };
 

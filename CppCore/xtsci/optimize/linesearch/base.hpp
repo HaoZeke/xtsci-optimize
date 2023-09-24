@@ -35,14 +35,17 @@ template <typename ScalarType>
 class LineSearchOptimizer : public AbstractOptimizer<ScalarType> {
   virtual OptimizeResult<ScalarType>
   optimize(const ObjectiveFunction<ScalarType> &func,
-           const xt::xexpression<ScalarType> &initial_guess,
+           const SearchState<ScalarType> &initial_guess,
            const OptimizeControl<ScalarType> &control) const = 0;
-
 protected:
-  const LineSearchCondition<ScalarType>
-      m_ls_cond; // Condition for step size acceptance
-  const LineSearchStrategy<ScalarType>
-      m_ls_strat; // Strategy for finding optimal step size
+  LineSearchCondition<ScalarType>
+      &m_ls_cond; // Condition for step size acceptance
+  LineSearchStrategy<ScalarType>
+      &m_ls_strat; // Strategy for finding optimal step size
+public:
+    LineSearchOptimizer(LineSearchCondition<ScalarType>& condition,
+                        LineSearchStrategy<ScalarType>& strategy)
+        : m_ls_cond(condition), m_ls_strat(strategy) {}
 };
 
 } // namespace linesearch
