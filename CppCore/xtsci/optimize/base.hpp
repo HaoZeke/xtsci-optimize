@@ -49,7 +49,11 @@ public:
 template <typename ScalarType = double> struct OptimizeControl {
   const size_t max_iterations = 1000; // Maximum number of iterations
   const ScalarType tol = 1e-6;        // Tolerance for termination
-  const bool verbose = false;          // Whether or not to print progress
+  const bool verbose = false;         // Whether or not to print progress
+  OptimizeControl(const size_t miter_val, const ScalarType tol_val,
+                  const bool verb_val)
+      : max_iterations{miter_val}, tol{tol_val}, verbose{verb_val} {}
+  OptimizeControl() {}
   // TODO: Should have a TerminateStrategy or something here
 };
 
