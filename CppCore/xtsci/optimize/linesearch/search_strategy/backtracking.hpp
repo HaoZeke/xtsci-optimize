@@ -17,19 +17,19 @@ namespace search_strategy {
 template <typename ScalarType>
 class BacktrackingSearch : public LineSearchStrategy<ScalarType> {
   ScalarType beta;
+  std::reference_wrapper<LineSearchCondition<ScalarType>> m_cond;
 
 public:
   explicit BacktrackingSearch(
-      ScalarType b = 0.5,
+      LineSearchCondition<ScalarType> &cond, ScalarType b = 0.5,
       OptimizeControl<ScalarType> optim = OptimizeControl<ScalarType>())
-      : LineSearchStrategy<ScalarType>(optim), beta(b) {}
+      : LineSearchStrategy<ScalarType>(optim), m_cond(cond), beta(b) {}
 
   ScalarType search(const ObjectiveFunction<ScalarType> &func,
-                    const SearchState<ScalarType> &cstate,
-                    const LineSearchCondition<ScalarType> &condition) override {
+                    const SearchState<ScalarType> &cstate) override {
     auto [x, direction] = cstate;
     ScalarType alpha = 1.0;
-    while (!condition(alpha, func, {x, direction})) {
+    while (!m_cond(alpha, func, cstate)) {
       alpha *= beta;
     }
     return alpha;

@@ -22,34 +22,33 @@ namespace conditions {
 
 template <typename ScalarType>
 class WeakWolfeCondition : public LineSearchCondition<ScalarType> {
-    ArmijoCondition<ScalarType> armijo;
-    CurvatureCondition<ScalarType> curvature;
+  ArmijoCondition<ScalarType> armijo;
+  CurvatureCondition<ScalarType> curvature;
 
 public:
-    WeakWolfeCondition(ScalarType c_armijo = 0.0001, ScalarType c_curvature = 0.9)
-        : armijo(c_armijo), curvature(c_curvature) {}
+  WeakWolfeCondition(ScalarType c_armijo = 0.0001, ScalarType c_curvature = 0.9)
+      : armijo(c_armijo), curvature(c_curvature) {}
 
-    bool operator()(ScalarType alpha,
-                    const ObjectiveFunction<ScalarType>& func,
-                    const SearchState<ScalarType>& cstate) const override {
-        return armijo(alpha, func, cstate) && curvature(alpha, func, cstate);
-    }
+  bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
+                  const SearchState<ScalarType> &cstate) const override {
+    return armijo(alpha, func, cstate) && curvature(alpha, func, cstate);
+  }
 };
 
 template <typename ScalarType>
 class StrongWolfeCondition : public LineSearchCondition<ScalarType> {
-    ArmijoCondition<ScalarType> armijo;
-    StrongCurvatureCondition<ScalarType> curvature;
+  ArmijoCondition<ScalarType> armijo;
+  StrongCurvatureCondition<ScalarType> curvature;
 
 public:
-    StrongWolfeCondition(ScalarType c_armijo = 0.0001, ScalarType c_curvature = 0.9)
-        : armijo(c_armijo), curvature(c_curvature) {}
+  StrongWolfeCondition(ScalarType c_armijo = 0.0001,
+                       ScalarType c_curvature = 0.9)
+      : armijo(c_armijo), curvature(c_curvature) {}
 
-    bool operator()(ScalarType alpha,
-                    const ObjectiveFunction<ScalarType>& func,
-                    const SearchState<ScalarType>& cstate) const override {
-        return armijo(alpha, func, cstate) && curvature(alpha, func, cstate);
-    }
+  bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
+                  const SearchState<ScalarType> &cstate) const override {
+    return armijo(alpha, func, cstate) && curvature(alpha, func, cstate);
+  }
 };
 
 } // namespace conditions

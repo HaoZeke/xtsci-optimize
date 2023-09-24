@@ -54,7 +54,7 @@ template <typename ScalarType = double> struct OptimizeControl {
                   const bool verb_val)
       : max_iterations{miter_val}, tol{tol_val}, verbose{verb_val} {}
   OptimizeControl() {}
-  // TODO: Should have a TerminateStrategy or something here
+  // TODO(rg): Should have a TerminateStrategy or something here
 };
 
 template <typename ScalarType = double> struct SearchState {

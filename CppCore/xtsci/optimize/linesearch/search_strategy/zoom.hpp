@@ -21,6 +21,7 @@ class ZoomLineSearch : public LineSearchStrategy<ScalarType> {
 private:
   conditions::ArmijoCondition<ScalarType> armijo;
   conditions::StrongCurvatureCondition<ScalarType> strong_curvature;
+
 public:
   ZoomLineSearch(
       ScalarType c_armijo = 0.01, ScalarType c_curv = 0.9,
@@ -29,9 +30,7 @@ public:
         strong_curvature(c_curv) {}
 
   ScalarType search(const ObjectiveFunction<ScalarType> &func,
-                    const SearchState<ScalarType> &cstate,
-                    const LineSearchCondition<ScalarType> &condition) override {
-    static_cast<void>(condition); // unused
+                    const SearchState<ScalarType> &cstate) override {
     ScalarType alpha_lo = 0.0;
     ScalarType alpha_hi = 1.0;
     ScalarType alpha =
@@ -50,7 +49,7 @@ public:
         break;
       }
       alpha = 0.5 * (alpha_lo + alpha_hi); // Update alpha to be the midpoint
-      // TODO: Use more sophisticated methods for Zoom
+      // TODO(rg): Use more sophisticated methods for Zoom
     }
     return alpha;
   }

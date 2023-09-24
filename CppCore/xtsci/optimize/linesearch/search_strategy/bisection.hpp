@@ -18,16 +18,18 @@ template <typename ScalarType>
 class BisectionSearch : public LineSearchStrategy<ScalarType> {
   ScalarType alpha_min, alpha_max;
   using LineSearchStrategy<ScalarType>::m_control;
+  std::reference_wrapper<LineSearchCondition<ScalarType>> m_cond;
+
 public:
   BisectionSearch(
-      ScalarType alpha_min_val = 0.0, ScalarType alpha_max_val = 1.0,
+      LineSearchCondition<ScalarType> &cond, ScalarType alpha_min_val = 0.0,
+      ScalarType alpha_max_val = 1.0,
       OptimizeControl<ScalarType> optim = OptimizeControl<ScalarType>())
-      : LineSearchStrategy<ScalarType>(optim), alpha_min(alpha_min_val),
-        alpha_max(alpha_max_val) {}
+      : LineSearchStrategy<ScalarType>(optim), m_cond(cond),
+        alpha_min(alpha_min_val), alpha_max(alpha_max_val) {}
 
   ScalarType search(const ObjectiveFunction<ScalarType> &func,
-                    const SearchState<ScalarType> &cstate,
-                    const LineSearchCondition<ScalarType> &condition) override {
+                    const SearchState<ScalarType> &cstate) override {
     auto [x, direction] = cstate;
     ScalarType alpha = (alpha_min + alpha_max) / 2.0;
     size_t iter = 0;
@@ -35,7 +37,7 @@ public:
       if (iter > m_control.max_iterations) {
         break;
       }
-      if (condition(alpha, func, {x, direction})) {
+      if (m_cond(alpha, func, cstate)) {
         alpha_min = alpha;
       } else {
         alpha_max = alpha;
