@@ -26,7 +26,8 @@ class WeakWolfeCondition : public LineSearchCondition<ScalarType> {
   CurvatureCondition<ScalarType> curvature;
 
 public:
-  WeakWolfeCondition(ScalarType c_armijo = 0.0001, ScalarType c_curvature = 0.9)
+  explicit WeakWolfeCondition(ScalarType c_armijo = 1e-4,
+                              ScalarType c_curvature = 0.9)
       : armijo(c_armijo), curvature(c_curvature) {}
 
   bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
@@ -41,8 +42,8 @@ class StrongWolfeCondition : public LineSearchCondition<ScalarType> {
   StrongCurvatureCondition<ScalarType> curvature;
 
 public:
-  StrongWolfeCondition(ScalarType c_armijo = 0.0001,
-                       ScalarType c_curvature = 0.9)
+  explicit StrongWolfeCondition(ScalarType c_armijo = 1e-4,
+                                ScalarType c_curvature = 0.9)
       : armijo(c_armijo), curvature(c_curvature) {}
 
   bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,

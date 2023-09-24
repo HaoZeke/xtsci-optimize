@@ -23,20 +23,23 @@ private:
   conditions::ArmijoCondition<ScalarType> armijo;
   conditions::StrongCurvatureCondition<ScalarType> strong_curvature;
   std::reference_wrapper<StepSizeStrategy<ScalarType>> m_step_strategy;
+  ScalarType m_alpha_lo, m_alpha_hi, m_alpha;
 
 public:
   ZoomLineSearch(
-      StepSizeStrategy<ScalarType> &stepStrat, ScalarType c_armijo = 0.01,
+      StepSizeStrategy<ScalarType> &stepStrat, ScalarType c_armijo = 1e-4,
       ScalarType c_curv = 0.9,
-      OptimizeControl<ScalarType> optim = OptimizeControl<ScalarType>())
+      OptimizeControl<ScalarType> optim = OptimizeControl<ScalarType>(),
+      ScalarType alpha_lo_val = 0.0, ScalarType alpha_hi_val = 1.0,
+      ScalarType alpha_val = 0.5)
       : LineSearchStrategy<ScalarType>(optim), armijo(c_armijo),
-        strong_curvature(c_curv), m_step_strategy(stepStrat) {}
+        strong_curvature(c_curv), m_step_strategy(stepStrat),
+        m_alpha_lo(alpha_lo_val), m_alpha_hi(alpha_hi_val), m_alpha(alpha_val) {
+  }
 
   ScalarType search(const ObjectiveFunction<ScalarType> &func,
                     const SearchState<ScalarType> &cstate) override {
-    ScalarType alpha_lo = 0.0;
-    ScalarType alpha_hi = 1.0;
-    ScalarType alpha = (alpha_lo + alpha_hi) / 2.0;
+    ScalarType alpha_lo{m_alpha_lo}, alpha_hi{m_alpha_hi}, alpha{m_alpha};
     while (true) {
       if (!(armijo(alpha, func, cstate))) {
         alpha_hi = alpha;
