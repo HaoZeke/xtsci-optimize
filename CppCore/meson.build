@@ -20,6 +20,7 @@ if get_option('with_tests')
     test_array = [#
       ['test_armijo', 'test_armijo.cc', ''],
       ['test_curvature', 'test_curvature.cc', ''],
+      ['test_wolfe', 'test_wolfe.cc', ''],
     ]
     foreach test : test_array
       test(test.get(0),
