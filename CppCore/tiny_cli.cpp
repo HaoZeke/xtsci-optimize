@@ -61,9 +61,10 @@ int main(int argc, char *argv[]) {
       armijo, -1.5, 1.5);
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
       backtracking(armijo);
-  xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom;
-  xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-      bisection);
+  xts::optimize::linesearch::step_size::BisectionStep<double> bisectionStep;
+  xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
+      bisectionStep);
+  xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(zoom);
 
   xt::xarray<double> initial_guess = {3.0, 4.0};
   xt::xarray<double> direction = {-1.0, -1.0};

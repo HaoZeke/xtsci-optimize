@@ -46,6 +46,12 @@ public:
       : m_ls_strat(strategy) {}
 };
 
+template <typename ScalarType> class StepSizeStrategy {
+public:
+  virtual ScalarType nextStep(ScalarType alpha_lo,
+                              ScalarType alpha_hi) const = 0;
+};
+
 } // namespace linesearch
 } // namespace optimize
 } // namespace xts
