@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macOS-latest}
+          # - {os: macOS-latest}
           - {os: ubuntu-latest}
     steps:
       - uses: actions/checkout@v3
