@@ -27,6 +27,12 @@ public:
   gradient(const xt::xarray<ScalarType> &x) const override {
     return 2.0 * x; // 2x
   }
+
+  std::optional<xt::xarray<ScalarType>>
+  hessian(const xt::xarray<ScalarType> &x) const override {
+     // For a quadratic function, the Hessian is constant: 2I where I is the identity matrix.
+     return 2.0 * xt::eye(x.size());
+  }
 };
 
 } // namespace trial_functions
