@@ -8,6 +8,17 @@ Part of the larger ~xtsci~ project, which iteratively implements parts of
 funding) this might cover all of ~scipy~, but its really more of a rapid
 prototyping thing.
 
+** Usage
+Until bindings are ready, ~tiny_cli.cpp~ can be edited and run with output piped
+to get a visual for the Rosenbrock function.
+
+#+begin_src bash
+meson setup bbdir
+meson compile -C bbdir
+./bbdir/CppCore/tiny_cli > output.txt
+python scripts/plot_cpp.py
+#+end_src
+
 ** Components
 The heart of the library is the ~xts~ namespace, with functions further
 demarcated according to the relevant ~scipy~ modules e.g.
