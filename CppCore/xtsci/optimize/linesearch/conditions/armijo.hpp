@@ -25,8 +25,8 @@ public:
   explicit ArmijoCondition(ScalarType c_val = 0.0001) : c(c_val) {}
 
   bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
-                  const xt::xarray<ScalarType> &x,
-                  const xt::xarray<ScalarType> &direction) const override {
+                  const SearchState<ScalarType> &cstate) const override {
+    auto [x, direction] = cstate;
     ScalarType lhs = func(x + alpha * direction);
     ScalarType rhs =
         func(x) + c * alpha * xt::linalg::dot(*func.gradient(x), direction)();

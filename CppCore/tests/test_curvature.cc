@@ -23,20 +23,20 @@ TEST_CASE("Curvature condition is validated", "[LineSearch]") {
 
   SECTION("Condition holds for valid step size") {
     Scalar alpha = 0.5;
-    REQUIRE(curvature_condition(alpha, func, x, direction) == true);
-    REQUIRE(strong_curvature_condition(alpha, func, x, direction) == true);
+    REQUIRE(curvature_condition(alpha, func, { x, direction }) == true);
+    REQUIRE(strong_curvature_condition(alpha, func, { x, direction }) == true);
   }
 
   SECTION("Condition does not hold for small step size") {
     Scalar alpha = 0.01;
-    REQUIRE(curvature_condition(alpha, func, x, direction) == false);
-    REQUIRE(strong_curvature_condition(alpha, func, x, direction) == false);
+    REQUIRE(curvature_condition(alpha, func, { x, direction }) == false);
+    REQUIRE(strong_curvature_condition(alpha, func, { x, direction }) == false);
   }
 
   SECTION("Condition holds at boundary") {
     Scalar alpha =
         1.0; // This should be just at the boundary for the quadratic function
-    REQUIRE(curvature_condition(alpha, func, x, direction) == true);
-    REQUIRE(strong_curvature_condition(alpha, func, x, direction) == true);
+    REQUIRE(curvature_condition(alpha, func, { x, direction }) == true);
+    REQUIRE(strong_curvature_condition(alpha, func, { x, direction }) == true);
   }
 }

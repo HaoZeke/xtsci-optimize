@@ -17,12 +17,12 @@ TEST_CASE("WeakWolfeCondition Test", "[WeakWolfeCondition]") {
 
     SECTION("Should satisfy conditions for small step size") {
         xts::optimize::linesearch::conditions::WeakWolfeCondition<double> condition;
-        REQUIRE(condition(0.1, quadratic, x, direction) == true);
+        REQUIRE(condition(0.1, quadratic, { x, direction }) == true);
     }
 
     SECTION("Should not satisfy conditions for large step size") {
         xts::optimize::linesearch::conditions::WeakWolfeCondition<double> condition;
-        REQUIRE(condition(2.0, quadratic, x, direction) == false);
+        REQUIRE(condition(2.0, quadratic, { x, direction }) == false);
     }
 }
 
@@ -34,11 +34,11 @@ TEST_CASE("StrongWolfeCondition Test", "[StrongWolfeCondition]") {
 
     SECTION("Should satisfy conditions for small step size") {
         xts::optimize::linesearch::conditions::StrongWolfeCondition<double> condition;
-        REQUIRE(condition(0.1, quadratic, x, direction) == true);
+        REQUIRE(condition(0.1, quadratic, { x, direction }) == true);
     }
 
     SECTION("Should not satisfy conditions for large step size") {
         xts::optimize::linesearch::conditions::StrongWolfeCondition<double> condition;
-        REQUIRE(condition(2.0, quadratic, x, direction) == false);
+        REQUIRE(condition(2.0, quadratic, { x, direction }) == false);
     }
 }

@@ -21,16 +21,16 @@ TEST_CASE("Armijo condition is validated", "[LineSearch]") {
 
   SECTION("Condition holds for valid step size") {
     Scalar alpha = 0.1;
-    REQUIRE(armijo_condition(alpha, func, x, direction) == true);
+    REQUIRE(armijo_condition(alpha, func, { x, direction }) == true);
   }
 
   SECTION("Condition does not hold for large step size") {
     Scalar alpha = 2.0;
-    REQUIRE(armijo_condition(alpha, func, x, direction) == false);
+    REQUIRE(armijo_condition(alpha, func, { x, direction }) == false);
   }
 
   SECTION("Condition holds at boundary") {
     Scalar alpha = 1.0; // This is just at the boundary
-    REQUIRE(armijo_condition(alpha, func, x, direction) == true);
+    REQUIRE(armijo_condition(alpha, func, { x, direction }) == true);
   }
 }

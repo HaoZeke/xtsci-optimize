@@ -17,17 +17,15 @@ template <typename ScalarType> class LineSearchCondition {
 public:
   virtual bool operator()(ScalarType alpha,
                           const ObjectiveFunction<ScalarType> &func,
-                          const xt::xarray<ScalarType> &x,
-                          const xt::xarray<ScalarType> &direction) const = 0;
+                          const SearchState<ScalarType> &cstate) const = 0;
 };
 
 template <typename ScalarType> class LineSearchStrategy {
 public:
   virtual ScalarType
   search(const ObjectiveFunction<ScalarType> &func,
-         const xt::xarray<ScalarType> &x,
-         const xt::xarray<ScalarType> &direction,
-         const LineSearchCondition<ScalarType> &condition) const = 0;
+         const SearchState<ScalarType> &cstate,
+         const LineSearchCondition<ScalarType> &condition) = 0;
 };
 
 template <typename ScalarType>
@@ -36,6 +34,7 @@ class LineSearchOptimizer : public AbstractOptimizer<ScalarType> {
   optimize(const ObjectiveFunction<ScalarType> &func,
            const xt::xexpression<ScalarType> &initial_guess,
            const OptimizeControl<ScalarType> &control) const = 0;
+
 protected:
   const LineSearchCondition<ScalarType>
       m_ls_cond; // Condition for step size acceptance

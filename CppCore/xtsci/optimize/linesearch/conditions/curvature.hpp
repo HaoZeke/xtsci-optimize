@@ -27,8 +27,8 @@ public:
       : c_prime(c_prime_val) {}
 
   bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
-                  const xt::xarray<ScalarType> &x,
-                  const xt::xarray<ScalarType> &direction) const override {
+                  const SearchState<ScalarType>& cstate) const override {
+      auto [x, direction] = cstate;
       auto lhs = xt::linalg::dot(*func.gradient(x + alpha * direction), direction)();
       auto rhs = c_prime * xt::linalg::dot(*func.gradient(x), direction)();
       return lhs >= rhs;
@@ -44,8 +44,8 @@ public:
 
     bool operator()(ScalarType alpha,
                     const ObjectiveFunction<ScalarType>& func,
-                    const xt::xarray<ScalarType>& x,
-                    const xt::xarray<ScalarType>& direction) const override {
+                    const SearchState<ScalarType>& cstate) const override {
+        auto [x, direction] = cstate;
         auto grad_phi_alpha = xt::linalg::dot(*func.gradient(x + alpha * direction), direction)();
         auto grad_phi_0 = xt::linalg::dot(*func.gradient(x), direction)();
         return std::abs(grad_phi_alpha) <= c * std::abs(grad_phi_0);

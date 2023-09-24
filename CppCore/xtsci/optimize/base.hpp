@@ -52,6 +52,14 @@ template <typename ScalarType = double> struct OptimizeControl {
   const bool verbose;          // Whether or not to print progress
 };
 
+template <typename ScalarType = double> struct SearchState {
+  xt::xarray<ScalarType> x;         // Current point
+  xt::xarray<ScalarType> direction; // Current search direction
+  SearchState(const xt::xarray<ScalarType> &x,
+              const xt::xarray<ScalarType> &direction)
+      : x(x), direction(direction) {}
+};
+
 template <typename ScalarType = double> class AbstractOptimizer {
 public:
   // Virtual destructor

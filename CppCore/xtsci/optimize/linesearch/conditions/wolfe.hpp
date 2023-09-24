@@ -31,9 +31,8 @@ public:
 
     bool operator()(ScalarType alpha,
                     const ObjectiveFunction<ScalarType>& func,
-                    const xt::xarray<ScalarType>& x,
-                    const xt::xarray<ScalarType>& direction) const override {
-        return armijo(alpha, func, x, direction) && curvature(alpha, func, x, direction);
+                    const SearchState<ScalarType>& cstate) const override {
+        return armijo(alpha, func, cstate) && curvature(alpha, func, cstate);
     }
 };
 
