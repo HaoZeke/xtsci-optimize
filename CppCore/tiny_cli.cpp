@@ -27,6 +27,7 @@
 #include "xtsci/optimize/linesearch/step_size/geom.hpp"
 #include "xtsci/optimize/linesearch/step_size/golden.hpp"
 
+#include "xtsci/optimize/minimize/adam.hpp"
 #include "xtsci/optimize/minimize/bfgs.hpp"
 #include "xtsci/optimize/minimize/cg.hpp"
 #include "xtsci/optimize/minimize/lbfgs.hpp"
@@ -93,12 +94,13 @@ int main(int argc, char *argv[]) {
       backtracking);
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
   xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(backtracking, 10);
+  xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
 
   xt::xarray<double> initial_guess = {-1.3, 1.8};
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      lbfgsopt.optimize(rosen, cstate, control);
+      adaopt.optimize(rosen, cstate, control);
 
   std::cout << "Optimized x: " << result.x << "\n";
   std::cout << "Function value: " << result.fun << "\n";
