@@ -21,7 +21,7 @@ template <typename ScalarType>
 class LBFGSOptimizer : public linesearch::LineSearchOptimizer<ScalarType> {
 public:
   explicit LBFGSOptimizer(linesearch::LineSearchStrategy<ScalarType> &strategy,
-                          size_t m)
+                          size_t m = 2 /* Typically 5 to 20 */)
       : linesearch::LineSearchOptimizer<ScalarType>(strategy), m(m) {}
 
   OptimizeResult<ScalarType>

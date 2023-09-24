@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
       backtracking);
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
-  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(backtracking, 5);
+  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(backtracking, 10);
 
   xt::xarray<double> initial_guess = {-1.3, 1.8};
   xt::xarray<double> direction = {0.0, 0.0};
