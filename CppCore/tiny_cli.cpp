@@ -17,6 +17,7 @@
 #include "xtsci/optimize/linesearch/conditions/goldstein.hpp"
 #include "xtsci/optimize/linesearch/conditions/wolfe.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/backtracking.hpp"
+#include "xtsci/optimize/linesearch/search_strategy/moore_thuente.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
 #include "xtsci/optimize/linesearch/step_size/bisect.hpp"
 #include "xtsci/optimize/linesearch/step_size/cubic.hpp"
@@ -68,8 +69,10 @@ int main(int argc, char *argv[]) {
   xts::optimize::linesearch::step_size::CubicStep<double> cubicStep;
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
       bisectionStep, 1e-4, 0.9);
+  xts::optimize::linesearch::search_strategy::MooreThuenteLineSearch<double>
+      moorethuente(bisectionStep, 1e-3, 0.3);
   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-      backtracking);
+      moorethuente);
 
   xt::xarray<double> initial_guess = {-1.3, 1.8};
   xt::xarray<double> direction = {0.0, 0.0};

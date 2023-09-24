@@ -60,7 +60,6 @@ public:
       if (alpha_hi - alpha_lo < this->m_control.tol) {
         break;
       }
-      // Update alpha using interpolation or other step strategy
       alpha = m_step_strategy.get().nextStep(alpha_lo, alpha_hi, func, cstate);
     }
     return alpha;
