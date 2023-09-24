@@ -24,6 +24,7 @@
 #include "xtsci/optimize/linesearch/step_size/cubic.hpp"
 #include "xtsci/optimize/linesearch/step_size/geom.hpp"
 #include "xtsci/optimize/linesearch/step_size/golden.hpp"
+#include "xtsci/optimize/minimize/bfgs.hpp"
 #include "xtsci/optimize/minimize/cg.hpp"
 #include "xtsci/optimize/trial_functions/quadratic.hpp"
 #include "xtsci/optimize/trial_functions/rosenbrock.hpp"
@@ -77,7 +78,7 @@ int main(int argc, char *argv[]) {
       geomStep;
 
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
-      backtracking(strongwolfe, geomStep);
+      backtracking(strongwolfe, goldenStep);
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
       bisectionStep, 1e-4, 0.9);
   xts::optimize::linesearch::search_strategy::MooreThuenteLineSearch<double>
@@ -85,12 +86,13 @@ int main(int argc, char *argv[]) {
 
   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
       backtracking);
+  xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
 
   xt::xarray<double> initial_guess = {-1.3, 1.8};
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      optimizer.optimize(rosen, cstate, control);
+      bfgsopt.optimize(rosen, cstate, control);
 
   std::cout << "Optimized x: " << result.x << "\n";
   std::cout << "Function value: " << result.fun << "\n";
