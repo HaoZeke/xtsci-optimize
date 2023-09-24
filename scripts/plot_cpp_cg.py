@@ -19,7 +19,7 @@ num_evaluations_func = num_evaluations_grad  # Use gradient evaluations as a pro
 
 # Create meshgrid
 x = np.linspace(-2, 4, 400)
-y = np.linspace(-2, 6, 400)
+y = np.linspace(-2, 8, 400)
 X, Y = np.meshgrid(x, y)
 Z = (1.0 - X) ** 2 + 100.0 * (Y - X**2) ** 2
 
