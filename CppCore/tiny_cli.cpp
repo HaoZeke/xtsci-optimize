@@ -14,6 +14,7 @@
 
 #include "xtsci/optimize/base.hpp"
 #include "xtsci/optimize/linesearch/conditions/armijo.hpp"
+#include "xtsci/optimize/linesearch/conditions/goldstein.hpp"
 #include "xtsci/optimize/linesearch/conditions/wolfe.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/backtracking.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
@@ -59,8 +60,10 @@ int main(int argc, char *argv[]) {
   xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
   xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
       strongwolfe(1e-4, 0.9);
+  xts::optimize::linesearch::conditions::GoldsteinCondition<double> goldstein(
+      1e-2, 1e-4);
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
-      backtracking(strongwolfe);
+      backtracking(goldstein);
   xts::optimize::linesearch::step_size::BisectionStep<double> bisectionStep;
   xts::optimize::linesearch::step_size::CubicStep<double> cubicStep;
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
