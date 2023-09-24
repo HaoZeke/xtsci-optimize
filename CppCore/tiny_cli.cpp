@@ -18,6 +18,8 @@
 #include "xtsci/optimize/linesearch/search_strategy/backtracking.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/bisection.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
+#include "xtsci/optimize/linesearch/step_size/bisect.hpp"
+#include "xtsci/optimize/linesearch/step_size/cubic.hpp"
 #include "xtsci/optimize/minimize/cg.hpp"
 #include "xtsci/optimize/trial_functions/quadratic.hpp"
 #include "xtsci/optimize/trial_functions/rosenbrock.hpp"
@@ -62,6 +64,8 @@ int main(int argc, char *argv[]) {
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
       backtracking(armijo);
   xts::optimize::linesearch::step_size::BisectionStep<double> bisectionStep;
+  xts::optimize::linesearch::step_size::CubicInterpolationStep<double>
+      cubicStep;
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
       bisectionStep);
   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(zoom);

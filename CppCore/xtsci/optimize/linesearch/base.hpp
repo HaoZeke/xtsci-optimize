@@ -48,8 +48,9 @@ public:
 
 template <typename ScalarType> class StepSizeStrategy {
 public:
-  virtual ScalarType nextStep(ScalarType alpha_lo,
-                              ScalarType alpha_hi) const = 0;
+  virtual ScalarType nextStep(ScalarType alpha_lo, ScalarType alpha_hi,
+                              const ObjectiveFunction<ScalarType> &func,
+                              const SearchState<ScalarType> &state) const = 0;
 };
 
 } // namespace linesearch

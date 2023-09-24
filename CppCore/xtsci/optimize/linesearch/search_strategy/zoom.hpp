@@ -36,12 +36,12 @@ public:
                     const SearchState<ScalarType> &cstate) override {
     ScalarType alpha_lo = 0.0;
     ScalarType alpha_hi = 1.0;
-    ScalarType alpha = m_step_strategy.get().nextStep(alpha_lo, alpha_hi);
-    auto [x, direction] = cstate;
+    ScalarType alpha =
+        m_step_strategy.get().nextStep(alpha_lo, alpha_hi, func, cstate);
     while (true) {
-      if (!(armijo(alpha, func, {x, direction}))) {
+      if (!(armijo(alpha, func, cstate))) {
         alpha_hi = alpha;
-      } else if (!(strong_curvature(alpha, func, {x, direction}))) {
+      } else if (!(strong_curvature(alpha, func, cstate))) {
         alpha_lo = alpha;
       } else {
         // Both conditions are satisfied
@@ -50,7 +50,7 @@ public:
       if (alpha_hi - alpha_lo < this->m_control.tol) {
         break;
       }
-      alpha = m_step_strategy.get().nextStep(alpha_lo, alpha_hi);
+      alpha = m_step_strategy.get().nextStep(alpha_lo, alpha_hi, func, cstate);
     }
     return alpha;
   }
