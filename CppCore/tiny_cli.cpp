@@ -17,15 +17,20 @@
 #include "xtsci/optimize/linesearch/conditions/armijo.hpp"
 #include "xtsci/optimize/linesearch/conditions/goldstein.hpp"
 #include "xtsci/optimize/linesearch/conditions/wolfe.hpp"
+
 #include "xtsci/optimize/linesearch/search_strategy/backtracking.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/moore_thuente.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
+
 #include "xtsci/optimize/linesearch/step_size/bisect.hpp"
 #include "xtsci/optimize/linesearch/step_size/cubic.hpp"
 #include "xtsci/optimize/linesearch/step_size/geom.hpp"
 #include "xtsci/optimize/linesearch/step_size/golden.hpp"
+
 #include "xtsci/optimize/minimize/bfgs.hpp"
 #include "xtsci/optimize/minimize/cg.hpp"
+#include "xtsci/optimize/minimize/lbfgs.hpp"
+
 #include "xtsci/optimize/trial_functions/quadratic.hpp"
 #include "xtsci/optimize/trial_functions/rosenbrock.hpp"
 
@@ -87,12 +92,13 @@ int main(int argc, char *argv[]) {
   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
       backtracking);
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
+  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(backtracking, 5);
 
   xt::xarray<double> initial_guess = {-1.3, 1.8};
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      bfgsopt.optimize(rosen, cstate, control);
+      lbfgsopt.optimize(rosen, cstate, control);
 
   std::cout << "Optimized x: " << result.x << "\n";
   std::cout << "Function value: " << result.fun << "\n";
