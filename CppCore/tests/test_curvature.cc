@@ -5,27 +5,15 @@
 
 #include "include/xtensor_fmt.hpp"
 #include "xtsci/optimize/linesearch/conditions/curvature.hpp"
+#include "xtsci/optimize/trial_functions/quadratic.hpp"
 
 #include <catch2/catch_all.hpp>
-// Mock objective function for testing purposes
-template <typename ScalarType>
-class QuadraticFunction : public xts::optimize::ObjectiveFunction<ScalarType> {
-public:
-  ScalarType operator()(const xt::xarray<ScalarType> &x) const override {
-    return xt::linalg::dot(x, x)(0); // x^T x
-  }
-
-  std::optional<xt::xarray<ScalarType>>
-  gradient(const xt::xarray<ScalarType> &x) const override {
-    return 2.0 * x; // 2x
-  }
-};
 
 TEST_CASE("Curvature condition is validated", "[LineSearch]") {
   using Scalar = double;
   xts::optimize::linesearch::conditions::CurvatureCondition<Scalar>
       curvature_condition(0.9); // c'=0.9 for demonstration
-  QuadraticFunction<Scalar> func;
+  xts::optimize::trial_functions::QuadraticFunction<Scalar> func;
 
   xt::xarray<Scalar> x = xt::xarray<Scalar>::from_shape({2});
   x.fill(1.0);                                 // start at point [1, 1]
