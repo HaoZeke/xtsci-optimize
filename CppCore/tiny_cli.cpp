@@ -92,10 +92,10 @@ int main(int argc, char *argv[]) {
   xts::optimize::linesearch::search_strategy::MooreThuenteLineSearch<double>
       moorethuente(goldenStep, 1e-3, 0.3);
 
-  xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+  xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
       backtracking);
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
-  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(backtracking, 10);
+  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 30);
   xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
   xts::optimize::minimize::SR1Optimizer<double> sr1opt(zoom);
   xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);

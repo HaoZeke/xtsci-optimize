@@ -3,6 +3,11 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 
+# Initialize counters
+num_iterations = 0
+num_evaluations_func = 0
+num_evaluations_grad = 0
+
 # Extract path values from output.txt
 path = []
 with open("output.txt", "r") as f:
@@ -10,12 +15,20 @@ with open("output.txt", "r") as f:
         if "x: [" in line:
             x_values = re.findall(r"x: \[(.*?), (.*?)\]", line)
             path.append([float(x) for x in x_values[0]])
+        elif "Number of iterations:" in line:
+            num_iterations = int(
+                re.search(r"Number of iterations: (\d+)", line).group(1)
+            )
+        elif "Number of function evaluations:" in line:
+            num_evaluations_func = int(
+                re.search(r"Number of function evaluations: (\d+)", line).group(1)
+            )
+        elif "Number of gradient evaluations:" in line:
+            num_evaluations_grad = int(
+                re.search(r"Number of gradient evaluations: (\d+)", line).group(1)
+            )
 
 path = np.array(path)
-
-# Estimate the number of evaluations
-num_evaluations_grad = len(path)  # Based on the number of lines in the output
-num_evaluations_func = num_evaluations_grad  # Use gradient evaluations as a proxy
 
 # Create meshgrid
 x = np.linspace(-2, 2, 400)
@@ -48,8 +61,9 @@ plt.scatter(1, 1, marker="*", color="yellow", s=150, label="True Minimum")
 
 # Display number of evaluations
 plt.text(
-    1.5,
     -1.5,
+    -1.8,
+    f"Iterations: {num_iterations}\n"
     f"Function evaluations: {num_evaluations_func}\n"
     f"Gradient evaluations: {num_evaluations_grad}",
     bbox=dict(facecolor="white", alpha=0.5),
