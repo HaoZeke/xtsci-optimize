@@ -22,6 +22,7 @@ if get_option('with_tests')
       ['test_curvature', 'test_curvature.cc', ''],
       ['test_wolfe', 'test_wolfe.cc', ''],
       ['test_bisection', 'test_bisection.cc', ''],
+      ['test_trial_funcs', 'test_trial_funcs.cc', ''],
     ]
     foreach test : test_array
       test(test.get(0),
