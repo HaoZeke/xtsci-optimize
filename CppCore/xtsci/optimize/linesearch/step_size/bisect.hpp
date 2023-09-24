@@ -15,7 +15,7 @@ namespace optimize {
 namespace linesearch {
 namespace step_size {
 template <typename ScalarType>
-class BisectionStep : public StepSizeStrategy<ScalarType> {
+class BisectionStepSize : public StepSizeStrategy<ScalarType> {
 public:
   ScalarType
   nextStep(ScalarType alpha_lo, ScalarType alpha_hi,

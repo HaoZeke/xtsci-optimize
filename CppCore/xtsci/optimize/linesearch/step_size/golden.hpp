@@ -15,13 +15,13 @@ namespace optimize {
 namespace linesearch {
 namespace step_size {
 template <typename ScalarType>
-class GoldenStep : public StepSizeStrategy<ScalarType> {
+class GoldenStepSize : public StepSizeStrategy<ScalarType> {
 private:
   ScalarType m_tolerance;
   ScalarType m_golden_ratio;
 
 public:
-  explicit GoldenStep(ScalarType tolerance = 1e-5)
+  explicit GoldenStepSize(ScalarType tolerance = 1e-5)
       : m_tolerance(tolerance), m_golden_ratio((std::sqrt(5.0) - 1.0) / 2.0) {}
 
   ScalarType nextStep(ScalarType alpha_lo, ScalarType alpha_hi,

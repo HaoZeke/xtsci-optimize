@@ -17,7 +17,7 @@ namespace optimize {
 namespace linesearch {
 namespace step_size {
 template <typename ScalarType>
-class CubicStep : public StepSizeStrategy<ScalarType> {
+class CubicStepSize : public StepSizeStrategy<ScalarType> {
 public:
   ScalarType nextStep(ScalarType alpha_lo, ScalarType alpha_hi,
                       const ObjectiveFunction<ScalarType> &func,

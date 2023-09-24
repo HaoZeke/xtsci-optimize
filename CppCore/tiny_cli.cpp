@@ -21,6 +21,7 @@
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
 #include "xtsci/optimize/linesearch/step_size/bisect.hpp"
 #include "xtsci/optimize/linesearch/step_size/cubic.hpp"
+#include "xtsci/optimize/linesearch/step_size/golden.hpp"
 #include "xtsci/optimize/minimize/cg.hpp"
 #include "xtsci/optimize/trial_functions/quadratic.hpp"
 #include "xtsci/optimize/trial_functions/rosenbrock.hpp"
@@ -65,12 +66,13 @@ int main(int argc, char *argv[]) {
       1e-2, 1e-4);
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
       backtracking(goldstein);
-  xts::optimize::linesearch::step_size::BisectionStep<double> bisectionStep;
-  xts::optimize::linesearch::step_size::CubicStep<double> cubicStep;
+  xts::optimize::linesearch::step_size::BisectionStepSize<double> bisectionStep;
+  xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
+  xts::optimize::linesearch::step_size::CubicStepSize<double> cubicStep;
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
       bisectionStep, 1e-4, 0.9);
   xts::optimize::linesearch::search_strategy::MooreThuenteLineSearch<double>
-      moorethuente(bisectionStep, 1e-3, 0.3);
+      moorethuente(goldenStep, 1e-3, 0.3);
   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
       moorethuente);
 
