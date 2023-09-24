@@ -23,8 +23,7 @@ public:
   optimize(const ObjectiveFunction<ScalarType> &func,
            const SearchState<ScalarType> &initial_guess,
            const OptimizeControl<ScalarType> &control) const override {
-    auto [x, dir_] =
-        initial_guess; // Note: BFGS doesn't need an initial direction
+    auto [x, dir_] = initial_guess;
 
     auto grad_opt = func.gradient(x);
     if (!grad_opt) {
@@ -40,6 +39,10 @@ public:
     }
 
     OptimizeResult<ScalarType> result;
+
+    xt::xarray<ScalarType> term1({x.size(), x.size()});
+    xt::xarray<ScalarType> term2({x.size(), x.size()});
+    xt::xarray<ScalarType> tmp_matrix({x.size(), x.size()});
 
     for (result.nit = 0; result.nit < control.max_iterations; ++result.nit) {
       if (control.verbose) {
@@ -70,12 +73,14 @@ public:
 
       auto rho = 1.0 / xt::linalg::dot(y, s)();
 
-      auto term1 =
+      xt::noalias(term1) =
           xt::eye({x.size(), x.size()}, 0) - rho * xt::linalg::outer(s, y);
-      auto term2 =
+      xt::noalias(term2) =
           xt::eye({x.size(), x.size()}, 0) - rho * xt::linalg::outer(y, s);
-      B_inv = xt::linalg::dot(term1, xt::linalg::dot(B_inv, term2)) +
-              rho * xt::linalg::outer(s, s);
+
+      xt::noalias(tmp_matrix) = xt::linalg::dot(B_inv, term2);
+      B_inv =
+          xt::linalg::dot(term1, tmp_matrix) + rho * xt::linalg::outer(s, s);
 
       if (control.verbose) {
         fmt::print("New gradient: {}\n", gradient);
