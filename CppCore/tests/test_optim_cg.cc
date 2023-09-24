@@ -28,28 +28,222 @@
 
 TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
   xts::optimize::trial_functions::Rosenbrock<double> rosen;
-
   xts::optimize::OptimizeControl<double> control;
   control.tol = 1e-6;
-
-  xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
-      strongwolfe(1e-4, 0.9);
-  xts::optimize::linesearch::step_size::GeometricReductionStepSize<double>
-      geomStep;
-  xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
-      backtracking(strongwolfe, geomStep);
-
-  xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-      backtracking);
 
   xt::xarray<double> initial_guess = {-1.3, 1.8};
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
-  xts::optimize::OptimizeResult<double> result =
-      optimizer.optimize(rosen, cstate, control);
 
-  REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
-  REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+  SECTION("With Armijo Condition") {
+    xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
 
-  REQUIRE(result.nit == 90);
+    SECTION("Using Geometric Reduction Step Size") {
+      xts::optimize::linesearch::step_size::GeometricReductionStepSize<double>
+          geomStep;
+      xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+          backtracking(armijo, geomStep);
+      xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+          backtracking);
+
+      xts::optimize::OptimizeResult<double> result =
+          optimizer.optimize(rosen, cstate, control);
+
+      REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+      REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+      REQUIRE(result.nit == 445);
+    }
+
+    SECTION("Using Bisection Step Size") {
+      xts::optimize::linesearch::step_size::BisectionStepSize<double>
+          bisectionStep;
+      xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+          backtracking(armijo, bisectionStep);
+      xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+          backtracking);
+
+      xts::optimize::OptimizeResult<double> result =
+          optimizer.optimize(rosen, cstate, control);
+
+      REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+      REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+      REQUIRE(result.nit == 445);
+    }
+
+    SECTION("Using Golden Step Size") {
+      xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
+      xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+          backtracking(armijo, goldenStep);
+      xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+          backtracking);
+
+      xts::optimize::OptimizeResult<double> result =
+          optimizer.optimize(rosen, cstate, control);
+
+      REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+      REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+      REQUIRE(result.nit == 85);
+    }
+
+    // SECTION("Using Cubic Step Size") {
+    //   xts::optimize::linesearch::step_size::CubicStepSize<double> cubicStep;
+    //   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+    //       backtracking(armijo, cubicStep);
+    //   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+    //       backtracking);
+
+    //   xts::optimize::OptimizeResult<double> result =
+    //       optimizer.optimize(rosen, cstate, control);
+
+    //   REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+    //   REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+    //   REQUIRE(result.nit == 300);
+    // }
+  }
+
+  SECTION("With StrongWolfe Condition") {
+    xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
+        strongwolfe(1e-4, 0.9);
+
+    SECTION("Using Geometric Reduction Step Size") {
+      xts::optimize::linesearch::step_size::GeometricReductionStepSize<double>
+          geomStep;
+      xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+          backtracking(strongwolfe, geomStep);
+      xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+          backtracking);
+
+      xts::optimize::OptimizeResult<double> result =
+          optimizer.optimize(rosen, cstate, control);
+
+      REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+      REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+      REQUIRE(result.nit == 90); // As per your previous test
+    }
+
+    SECTION("Using Bisection Step Size") {
+      xts::optimize::linesearch::step_size::BisectionStepSize<double>
+          bisectionStep;
+      xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+          backtracking(strongwolfe, bisectionStep);
+      xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+          backtracking);
+
+      xts::optimize::OptimizeResult<double> result =
+          optimizer.optimize(rosen, cstate, control);
+
+      REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+      REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+      REQUIRE(result.nit == 90);
+    }
+
+    SECTION("Using Golden Step Size") {
+      xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
+      xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+          backtracking(strongwolfe, goldenStep);
+      xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+          backtracking);
+
+      xts::optimize::OptimizeResult<double> result =
+          optimizer.optimize(rosen, cstate, control);
+
+      REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+      REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+      REQUIRE(result.nit == 85);
+    }
+
+    // SECTION("Using Cubic Step Size") {
+    //   xts::optimize::linesearch::step_size::CubicStepSize<double> cubicStep;
+    //   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+    //       backtracking(strongwolfe, cubicStep);
+    //   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+    //       backtracking);
+
+    //   xts::optimize::OptimizeResult<double> result =
+    //       optimizer.optimize(rosen, cstate, control);
+
+    //   REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+    //   REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+    //   REQUIRE(result.nit == 300);
+    // }
+  }
+
+  SECTION("With Goldstein Condition") {
+    xts::optimize::linesearch::conditions::GoldsteinCondition<double> goldstein(
+        1e-4, 0.4);
+
+    SECTION("Using Geometric Reduction Step Size") {
+      xts::optimize::linesearch::step_size::GeometricReductionStepSize<double>
+          geomStep;
+      xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+          backtracking(goldstein, geomStep);
+      xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+          backtracking);
+
+      xts::optimize::OptimizeResult<double> result =
+          optimizer.optimize(rosen, cstate, control);
+
+      REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+      REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+      REQUIRE(result.nit == 455);
+    }
+
+    SECTION("Using Bisection Step Size") {
+      xts::optimize::linesearch::step_size::BisectionStepSize<double>
+          bisectionStep;
+      xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+          backtracking(goldstein, bisectionStep);
+      xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+          backtracking);
+
+      xts::optimize::OptimizeResult<double> result =
+          optimizer.optimize(rosen, cstate, control);
+
+      REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+      REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+      REQUIRE(result.nit == 455);
+    }
+
+    SECTION("Using Golden Step Size") {
+      xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
+      xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+          backtracking(goldstein, goldenStep);
+      xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+          backtracking);
+
+      xts::optimize::OptimizeResult<double> result =
+          optimizer.optimize(rosen, cstate, control);
+
+      REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+      REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+      REQUIRE(result.nit == 177);
+    }
+
+    // SECTION("Using Cubic Step Size") {
+    //   xts::optimize::linesearch::step_size::CubicStepSize<double> cubicStep;
+    //   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+    //       backtracking(goldstein, cubicStep);
+    //   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+    //       backtracking);
+
+    //   xts::optimize::OptimizeResult<double> result =
+    //       optimizer.optimize(rosen, cstate, control);
+
+    //   REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-4));
+    //   REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-4));
+
+    //   REQUIRE(result.nit == 300);
+    // }
+  }
 }
