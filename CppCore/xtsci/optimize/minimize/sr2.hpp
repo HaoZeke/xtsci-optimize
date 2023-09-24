@@ -14,9 +14,9 @@ namespace optimize {
 namespace minimize {
 
 template <typename ScalarType>
-class SR1Optimizer : public linesearch::LineSearchOptimizer<ScalarType> {
+class SR2Optimizer : public linesearch::LineSearchOptimizer<ScalarType> {
 public:
-  explicit SR1Optimizer(linesearch::LineSearchStrategy<ScalarType> &strategy)
+  explicit SR2Optimizer(linesearch::LineSearchStrategy<ScalarType> &strategy)
       : linesearch::LineSearchOptimizer<ScalarType>(strategy) {}
 
   OptimizeResult<ScalarType>
@@ -27,7 +27,7 @@ public:
 
     auto grad_opt = func.gradient(x);
     if (!grad_opt) {
-      throw std::runtime_error("Gradient required for SR1 method.");
+      throw std::runtime_error("Gradient required for SR2 method.");
     }
 
     auto gradient = *grad_opt;
@@ -47,9 +47,9 @@ public:
         fmt::print("Iteration: {}\n", result.nit);
       }
 
-      auto direction = -xt::linalg::dot(
-          xt::linalg::inv(B),
-          gradient); // TODO(rgoswami): Don't compute the inverse.
+      // TODO(rgoswami): This isn't going to work, need to use an iterative
+      // solver instead
+      auto direction = -xt::linalg::dot(xt::linalg::inv(B), gradient);
       ScalarType alpha = this->m_ls_strat.search(func, {x, direction});
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
@@ -65,17 +65,16 @@ public:
       auto prev_gradient = gradient;
       auto new_grad_opt = func.gradient(x);
       if (!new_grad_opt) {
-        throw std::runtime_error("Gradient required for SR1 method.");
+        throw std::runtime_error("Gradient required for SR2 method.");
       }
 
       gradient = *new_grad_opt;
       auto y = gradient - prev_gradient;
 
-      // TODO(rgoswami): Maybe LDLT or something later?
       auto B_s = xt::linalg::dot(B, s);
       auto delta = y - B_s;
       xt::noalias(term) =
-          xt::linalg::outer(delta, delta) / xt::linalg::dot(delta, s)();
+          xt::linalg::outer(delta, y + B_s) / xt::linalg::dot(delta, s)();
 
       B += term;
 
