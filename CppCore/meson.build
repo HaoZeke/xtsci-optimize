@@ -18,12 +18,12 @@ if get_option('with_tests')
     )
     test_args = _args
     test_array = [#
-      # ['test_armijo', 'test_armijo.cc', ''],
-      # ['test_curvature', 'test_curvature.cc', ''],
-      # ['test_wolfe', 'test_wolfe.cc', ''],
-      # ['test_bisection', 'test_bisection.cc', ''],
-      # ['test_trial_funcs', 'test_trial_funcs.cc', ''],
-      # ['test_backtracking', 'test_backtracking.cc', ''],
+      ['test_armijo', 'test_armijo.cc', ''],
+      ['test_curvature', 'test_curvature.cc', ''],
+      ['test_wolfe', 'test_wolfe.cc', ''],
+      ['test_bisection', 'test_bisection.cc', ''],
+      ['test_trial_funcs', 'test_trial_funcs.cc', ''],
+      ['test_backtracking', 'test_backtracking.cc', ''],
     ]
     foreach test : test_array
       test(test.get(0),

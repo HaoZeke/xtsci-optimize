@@ -18,11 +18,11 @@ TEST_CASE("BisectionSearch Strategy Test", "[BisectionSearch]") {
   xt::xarray<double> x = {1.0, 1.0};
   xt::xarray<double> direction = {-1.0, -1.0}; // Decreasing direction
 
-  xts::optimize::linesearch::search_strategy::BisectionSearch<double> bisection;
-
   SECTION("Using WeakWolfeCondition") {
     xts::optimize::linesearch::conditions::WeakWolfeCondition<double> condition;
-    double alpha = bisection.search(quadratic, {x, direction}, condition);
+    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
+        bisection(condition);
+    double alpha = bisection.search(quadratic, {x, direction});
     // Let's check if the found alpha satisfies the condition
     REQUIRE(condition(alpha, quadratic, {x, direction}) == true);
   }
@@ -30,21 +30,27 @@ TEST_CASE("BisectionSearch Strategy Test", "[BisectionSearch]") {
   SECTION("Using StrongWolfeCondition") {
     xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
         condition;
-    double alpha = bisection.search(quadratic, {x, direction}, condition);
+    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
+        bisection(condition);
+    double alpha = bisection.search(quadratic, {x, direction});
     // Let's check if the found alpha satisfies the condition
     REQUIRE(condition(alpha, quadratic, {x, direction}) == true);
   }
 
   SECTION("Using ArmijoCondition") {
     xts::optimize::linesearch::conditions::ArmijoCondition<double> condition;
-    double alpha = bisection.search(quadratic, {x, direction}, condition);
+    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
+        bisection(condition);
+    double alpha = bisection.search(quadratic, {x, direction});
     // Let's check if the found alpha satisfies the condition
     REQUIRE(condition(alpha, quadratic, {x, direction}) == true);
   }
 
   SECTION("Using CurvatureCondition") {
     xts::optimize::linesearch::conditions::CurvatureCondition<double> condition;
-    double alpha = bisection.search(quadratic, {x, direction}, condition);
+    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
+        bisection(condition);
+    double alpha = bisection.search(quadratic, {x, direction});
     // Let's check if the found alpha satisfies the condition
     REQUIRE(condition(alpha, quadratic, {x, direction}) == true);
   }
@@ -52,7 +58,9 @@ TEST_CASE("BisectionSearch Strategy Test", "[BisectionSearch]") {
   SECTION("Using StrongCurvatureCondition") {
     xts::optimize::linesearch::conditions::StrongCurvatureCondition<double>
         condition;
-    double alpha = bisection.search(quadratic, {x, direction}, condition);
+    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
+        bisection(condition);
+    double alpha = bisection.search(quadratic, {x, direction});
     // Let's check if the found alpha satisfies the condition
     REQUIRE(condition(alpha, quadratic, {x, direction}) == true);
   }
@@ -65,10 +73,10 @@ TEST_CASE("BisectionSearch Strategy Test with Different Initial Bounds",
   xt::xarray<double> direction = {-1.0, -1.0}; // Decreasing direction
 
   SECTION("Using WeakWolfeCondition with alpha_min = 0.2, alpha_max = 0.8") {
-    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
-        bisection(0.2, 0.8);
     xts::optimize::linesearch::conditions::WeakWolfeCondition<double> condition;
-    double alpha = bisection.search(quadratic, {x, direction}, condition);
+    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
+        bisection(condition, 0.2, 0.8);
+    double alpha = bisection.search(quadratic, {x, direction});
     REQUIRE(condition(alpha, quadratic, {x, direction}) == true);
   }
 }
@@ -82,10 +90,10 @@ TEST_CASE(
 
   SECTION("Using WeakWolfeCondition with tol = 1e-3 and max_iterations = 5") {
     xts::optimize::OptimizeControl<double> control(5, 1e-3, false);
-    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
-        bisection(0.0, 1.0, control);
     xts::optimize::linesearch::conditions::WeakWolfeCondition<double> condition;
-    double alpha = bisection.search(quadratic, {x, direction}, condition);
+    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
+        bisection(condition, 0.0, 1.0, control);
+    double alpha = bisection.search(quadratic, {x, direction});
 
     REQUIRE(condition(alpha, quadratic, {x, direction}) == true);
     REQUIRE(quadratic(x + alpha * direction) <
@@ -100,11 +108,12 @@ TEST_CASE("BisectionSearch Convergence Test", "[BisectionSearch]") {
 
   xt::xarray<double> x = {1.0, 1.0};
   xt::xarray<double> direction = {-1.0, -1.0};
-  xts::optimize::linesearch::search_strategy::BisectionSearch<double> bisection;
 
   SECTION("Using WeakWolfeCondition") {
     xts::optimize::linesearch::conditions::WeakWolfeCondition<double> condition;
-    double alpha = bisection.search(quadratic, {x, direction}, condition);
+    xts::optimize::linesearch::search_strategy::BisectionSearch<double>
+        bisection(condition);
+    double alpha = bisection.search(quadratic, {x, direction});
 
     // Check if found alpha satisfies the condition
     REQUIRE(condition(alpha, quadratic, {x, direction}) == true);
