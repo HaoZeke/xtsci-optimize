@@ -7,6 +7,7 @@
 #include <cstdlib>
 
 #include <iostream>
+#include <random>
 
 #include "include/xtensor_fmt.hpp"
 #include "xtensor-io/xnpz.hpp"
@@ -21,6 +22,7 @@
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
 #include "xtsci/optimize/linesearch/step_size/bisect.hpp"
 #include "xtsci/optimize/linesearch/step_size/cubic.hpp"
+#include "xtsci/optimize/linesearch/step_size/geom.hpp"
 #include "xtsci/optimize/linesearch/step_size/golden.hpp"
 #include "xtsci/optimize/minimize/cg.hpp"
 #include "xtsci/optimize/trial_functions/quadratic.hpp"
@@ -57,24 +59,31 @@ int main(int argc, char *argv[]) {
   // Use a minimizer
   xts::optimize::trial_functions::Rosenbrock<double> rosen;
   xts::optimize::trial_functions::QuadraticFunction<double> quadratic;
+
   xts::optimize::OptimizeControl<double> control;
   control.tol = 1e-6;
+
   xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
   xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
       strongwolfe(1e-4, 0.9);
   xts::optimize::linesearch::conditions::GoldsteinCondition<double> goldstein(
       1e-2, 1e-4);
-  xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
-      backtracking(goldstein);
+
   xts::optimize::linesearch::step_size::BisectionStepSize<double> bisectionStep;
   xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
   xts::optimize::linesearch::step_size::CubicStepSize<double> cubicStep;
+  xts::optimize::linesearch::step_size::GeometricReductionStepSize<double>
+      geomStep;
+
+  xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
+      backtracking(strongwolfe, geomStep);
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
       bisectionStep, 1e-4, 0.9);
   xts::optimize::linesearch::search_strategy::MooreThuenteLineSearch<double>
       moorethuente(goldenStep, 1e-3, 0.3);
+
   xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-      moorethuente);
+      backtracking);
 
   xt::xarray<double> initial_guess = {-1.3, 1.8};
   xt::xarray<double> direction = {0.0, 0.0};
