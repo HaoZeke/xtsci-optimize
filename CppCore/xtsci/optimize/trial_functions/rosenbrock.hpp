@@ -18,9 +18,9 @@ namespace trial_functions {
 
 template <typename ScalarType = double>
 class Rosenbrock : public ObjectiveFunction<ScalarType> {
-public:
+private:
   // Function evaluation
-  ScalarType operator()(const xt::xarray<ScalarType> &x) const override {
+  ScalarType compute(const xt::xarray<ScalarType> &x) const override {
     ScalarType x_val = x(0);
     ScalarType y_val = x(1);
     return (1 - x_val) * (1 - x_val) +
@@ -29,7 +29,7 @@ public:
 
   // Gradient computation
   std::optional<xt::xarray<ScalarType>>
-  gradient(const xt::xarray<ScalarType> &x) const override {
+  compute_gradient(const xt::xarray<ScalarType> &x) const override {
     ScalarType x_val = x(0);
     ScalarType y_val = x(1);
 
@@ -41,7 +41,7 @@ public:
 
   // Hessian computation
   std::optional<xt::xarray<ScalarType>>
-  hessian(const xt::xarray<ScalarType> &x) const override {
+  compute_hessian(const xt::xarray<ScalarType> &x) const override {
     ScalarType x_val = x(0);
     ScalarType y_val = x(1);
 

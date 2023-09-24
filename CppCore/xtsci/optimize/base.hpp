@@ -29,19 +29,49 @@ template <typename ScalarType = double> struct OptimizeResult {
   ScalarType maxcv; // the maximum constraint violation
 };
 
+struct EvaluationCounter {
+  size_t function_evals = 0;
+  size_t gradient_evals = 0;
+  size_t hessian_evals = 0;
+};
+
 template <typename ScalarType = double> class ObjectiveFunction {
 public:
+  ObjectiveFunction() = default;
+
   virtual ~ObjectiveFunction() = default;
 
-  virtual ScalarType operator()(const xt::xarray<ScalarType> &x) const = 0;
+  ScalarType operator()(const xt::xarray<ScalarType> &x) const {
+    ++m_counter.function_evals;
+    return this->compute(x);
+  }
 
   virtual std::optional<xt::xarray<ScalarType>>
   gradient(const xt::xarray<ScalarType> &x) const {
-    return std::nullopt;
+    ++m_counter.gradient_evals;
+    return this->compute_gradient(x);
   }
 
   virtual std::optional<xt::xarray<ScalarType>>
   hessian(const xt::xarray<ScalarType> &x) const {
+    ++m_counter.hessian_evals;
+    return this->compute_hessian(x);
+  }
+
+  EvaluationCounter evaluation_counts() const { return m_counter; }
+
+private:
+  mutable EvaluationCounter m_counter;
+
+  virtual ScalarType compute(const xt::xarray<ScalarType> &x) const = 0;
+
+  virtual std::optional<xt::xarray<ScalarType>>
+  compute_gradient(const xt::xarray<ScalarType> &x) const {
+    return std::nullopt;
+  }
+
+  virtual std::optional<xt::xarray<ScalarType>>
+  compute_hessian(const xt::xarray<ScalarType> &x) const {
     return std::nullopt;
   }
 };

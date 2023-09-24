@@ -109,5 +109,8 @@ int main(int argc, char *argv[]) {
   std::cout << "Optimized x: " << result.x << "\n";
   std::cout << "Function value: " << result.fun << "\n";
   std::cout << "Number of iterations: " << result.nit << "\n";
+  std::cout << "Number of function evaluations: " << result.nfev << "\n";
+  std::cout << "Number of gradient evaluations: " << result.njev << "\n";
+  std::cout << "Number of Hessian evaluations: " << result.nhev << "\n";
   return EXIT_SUCCESS;
 }
