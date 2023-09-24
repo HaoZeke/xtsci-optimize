@@ -63,7 +63,20 @@ public:
       xt::xarray<ScalarType> m_hat = m / (1.0 - beta1_pow);
       xt::xarray<ScalarType> v_hat = v / (1.0 - beta2_pow);
 
-      x -= m_lr * m_hat / (xt::sqrt(v_hat) + m_epsilon);
+      // x -= m_lr * m_hat / (xt::sqrt(v_hat) + m_epsilon);
+
+      auto direction = -m_hat / (xt::sqrt(v_hat) + m_epsilon);
+
+      ScalarType alpha = this->m_ls_strat.search(func, {x, direction});
+      if (control.verbose) {
+        fmt::print("Alpha: {}\n", alpha);
+      }
+
+      xt::noalias(x) += alpha * direction;
+
+      if (control.verbose) {
+        fmt::print("x: {}\n", x);
+      }
 
       beta1_pow *= m_beta1;
       beta2_pow *= m_beta2;
