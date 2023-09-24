@@ -18,7 +18,7 @@
 #include "xtsci/optimize/linesearch/step_size/geom.hpp"
 #include "xtsci/optimize/linesearch/step_size/golden.hpp"
 
-#include "xtsci/optimize/minimize/bfgs.hpp"
+#include "xtsci/optimize/minimize/lbfgs.hpp"
 
 #include "xtsci/optimize/trial_functions/quadratic.hpp"
 #include "xtsci/optimize/trial_functions/rosenbrock.hpp"
@@ -26,7 +26,7 @@
 #include <catch2/catch_all.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
-TEST_CASE("BFGSOptimizer with Backtracking Search") {
+TEST_CASE("LBFGSOptimizer with Backtracking Search") {
   xts::optimize::trial_functions::Rosenbrock<double> rosen;
   xts::optimize::OptimizeControl<double> control;
   control.tol = 1e-6;
@@ -43,7 +43,7 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
           geomStep;
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(armijo, geomStep);
-      xts::optimize::minimize::BFGSOptimizer<double> optimizer(backtracking);
+      xts::optimize::minimize::LBFGSOptimizer<double> optimizer(backtracking);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -51,7 +51,7 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
       REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
       REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-      REQUIRE(result.nit == 36);
+      REQUIRE(result.nit == 32);
     }
 
     SECTION("Using Bisection Step Size") {
@@ -59,7 +59,7 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
           bisectionStep;
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(armijo, bisectionStep);
-      xts::optimize::minimize::BFGSOptimizer<double> optimizer(backtracking);
+      xts::optimize::minimize::LBFGSOptimizer<double> optimizer(backtracking);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -67,14 +67,14 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
       REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
       REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-      REQUIRE(result.nit == 36);
+      REQUIRE(result.nit == 32);
     }
 
     SECTION("Using Golden Step Size") {
       xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(armijo, goldenStep);
-      xts::optimize::minimize::BFGSOptimizer<double> optimizer(backtracking);
+      xts::optimize::minimize::LBFGSOptimizer<double> optimizer(backtracking);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -82,14 +82,15 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
       REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
       REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-      REQUIRE(result.nit == 31);
+      REQUIRE(result.nit == 29);
     }
 
     SECTION("Using Cubic Step Size") {
       xts::optimize::linesearch::step_size::CubicStepSize<double> cubicStep;
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(armijo, cubicStep);
-      xts::optimize::minimize::BFGSOptimizer<double> optimizer(backtracking);
+      xts::optimize::minimize::LBFGSOptimizer<double> optimizer(
+          backtracking, 10); // needs to be higher here
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -97,7 +98,7 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
       REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
       REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-      REQUIRE(result.nit == 91);
+      REQUIRE(result.nit == 42);
     }
   }
 
@@ -110,7 +111,7 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
           geomStep;
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(strongwolfe, geomStep);
-      xts::optimize::minimize::BFGSOptimizer<double> optimizer(backtracking);
+      xts::optimize::minimize::LBFGSOptimizer<double> optimizer(backtracking);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -118,7 +119,7 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
       REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
       REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-      REQUIRE(result.nit == 32);
+      REQUIRE(result.nit == 30);
     }
 
     SECTION("Using Bisection Step Size") {
@@ -126,7 +127,7 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
           bisectionStep;
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(strongwolfe, bisectionStep);
-      xts::optimize::minimize::BFGSOptimizer<double> optimizer(backtracking);
+      xts::optimize::minimize::LBFGSOptimizer<double> optimizer(backtracking);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -134,14 +135,14 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
       REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
       REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-      REQUIRE(result.nit == 32);
+      REQUIRE(result.nit == 30);
     }
 
     SECTION("Using Golden Step Size") {
       xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(strongwolfe, goldenStep);
-      xts::optimize::minimize::BFGSOptimizer<double> optimizer(backtracking);
+      xts::optimize::minimize::LBFGSOptimizer<double> optimizer(backtracking);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -149,14 +150,15 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
       REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
       REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-      REQUIRE(result.nit == 31);
+      REQUIRE(result.nit == 27);
     }
 
     SECTION("Using Cubic Step Size") {
       xts::optimize::linesearch::step_size::CubicStepSize<double> cubicStep;
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(strongwolfe, cubicStep);
-      xts::optimize::minimize::BFGSOptimizer<double> optimizer(backtracking);
+      xts::optimize::minimize::LBFGSOptimizer<double> optimizer(backtracking,
+                                                                10);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -164,22 +166,22 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
       REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
       REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-      REQUIRE(result.nit == 34);
+      REQUIRE(result.nit == 36);
     }
   }
 
+  // Still too slow.
   // SECTION("With Goldstein Condition") {
   //   xts::optimize::linesearch::conditions::GoldsteinCondition<double>
   //   goldstein(
   //       1e-6, 0.4);
 
-  // These are too slow
   // SECTION("Using Geometric Reduction Step Size") {
   //   xts::optimize::linesearch::step_size::GeometricReductionStepSize<double>
   //       geomStep;
   //   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
   //       backtracking(goldstein, geomStep);
-  //   xts::optimize::minimize::BFGSOptimizer<double> optimizer(
+  //   xts::optimize::minimize::LBFGSOptimizer<double> optimizer(
   //       backtracking);
 
   //   xts::optimize::OptimizeResult<double> result =
@@ -188,7 +190,7 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
   //   REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
   //   REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-  //   REQUIRE(result.nit == 48);
+  //   REQUIRE(result.nit == 53);
   // }
 
   // SECTION("Using Bisection Step Size") {
@@ -196,7 +198,7 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
   //       bisectionStep;
   //   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
   //       backtracking(goldstein, bisectionStep);
-  //   xts::optimize::minimize::BFGSOptimizer<double> optimizer(
+  //   xts::optimize::minimize::LBFGSOptimizer<double> optimizer(
   //       backtracking);
 
   //   xts::optimize::OptimizeResult<double> result =
@@ -205,14 +207,14 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
   //   REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
   //   REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-  //   REQUIRE(result.nit == 48);
+  //   REQUIRE(result.nit == 53);
   // }
 
   // SECTION("Using Golden Step Size") {
   //   xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
   //   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
   //       backtracking(goldstein, goldenStep);
-  //   xts::optimize::minimize::BFGSOptimizer<double> optimizer(backtracking);
+  //   xts::optimize::minimize::LBFGSOptimizer<double> optimizer(backtracking);
 
   //   xts::optimize::OptimizeResult<double> result =
   //       optimizer.optimize(rosen, cstate, control);
@@ -220,16 +222,16 @@ TEST_CASE("BFGSOptimizer with Backtracking Search") {
   //   REQUIRE_THAT(result.x(0), Catch::Matchers::WithinAbs(1.0, 1e-6));
   //   REQUIRE_THAT(result.x(1), Catch::Matchers::WithinAbs(1.0, 1e-6));
 
-  //   REQUIRE(result.nit == 33);
+  //   REQUIRE(result.nit == 42);
   // }
 
-  // Too slow! Not sure if it ever completes.
+  // Still too slow.
   // SECTION("Using Cubic Step Size") {
   //   xts::optimize::linesearch::step_size::CubicStepSize<double> cubicStep;
   //   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
   //       backtracking(goldstein, cubicStep);
-  //   xts::optimize::minimize::BFGSOptimizer<double> optimizer(
-  //       backtracking);
+  //   xts::optimize::minimize::LBFGSOptimizer<double> optimizer(
+  //       backtracking, 10);
 
   //   xts::optimize::OptimizeResult<double> result =
   //       optimizer.optimize(rosen, cstate, control);
