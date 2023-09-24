@@ -16,7 +16,7 @@ to get a visual for the Rosenbrock function.
 meson setup bbdir
 meson compile -C bbdir
 ./bbdir/CppCore/tiny_cli > output.txt
-python scripts/plot_cpp.py
+python scripts/plot_cpp.py --step-size-method "Wolfe" --line-search-method "Zoom" --minimize-method "LBFGS m(30)"
 #+end_src
 
 ** Components
