@@ -14,6 +14,7 @@
 
 #include "xtsci/optimize/base.hpp"
 #include "xtsci/optimize/linesearch/conditions/armijo.hpp"
+#include "xtsci/optimize/linesearch/conditions/wolfe.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/backtracking.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/bisection.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
@@ -53,13 +54,16 @@ int main(int argc, char *argv[]) {
   xts::optimize::trial_functions::Rosenbrock<double> rosen;
   xts::optimize::trial_functions::QuadraticFunction<double> quadratic;
   xts::optimize::OptimizeControl<double> control;
-  xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo;
+  xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
+  xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
+      strongwolfe(0.1, 0.1);
   xts::optimize::linesearch::search_strategy::BisectionSearch<double> bisection(
-      armijo, 0, 0.5);
+      armijo, -1.5, 1.5);
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
       backtracking(armijo);
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom;
-  xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(zoom);
+  xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
+      bisection);
 
   xt::xarray<double> initial_guess = {3.0, 4.0};
   xt::xarray<double> direction = {-1.0, -1.0};
