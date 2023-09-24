@@ -36,8 +36,7 @@ public:
                     const SearchState<ScalarType> &cstate) override {
     ScalarType alpha_lo = 0.0;
     ScalarType alpha_hi = 1.0;
-    ScalarType alpha =
-        m_step_strategy.get().nextStep(alpha_lo, alpha_hi, func, cstate);
+    ScalarType alpha = (alpha_lo + alpha_hi) / 2.0;
     while (true) {
       if (!(armijo(alpha, func, cstate))) {
         alpha_hi = alpha;
