@@ -1,0 +1,38 @@
+name: Basic consistency tests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  buildmamba:
+    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {os: macOS-latest}
+          - {os: ubuntu-latest}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+          fetch-depth: 0
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.2.1
+        with:
+          pixi-version: v0.3.0
+          cache: true
+      - name: Build and Test
+        shell: pixi run bash {0}
+        run: |
+          meson setup bbdir -Dwith_tests=True
+          meson test -C bbdir -vvv
