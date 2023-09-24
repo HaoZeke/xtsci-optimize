@@ -21,7 +21,10 @@ public:
 };
 
 template <typename ScalarType> class LineSearchStrategy {
+protected:
+    OptimizeControl<ScalarType> m_control;
 public:
+    LineSearchStrategy(const OptimizeControl<ScalarType>& control) : m_control(control) {}
   virtual ScalarType
   search(const ObjectiveFunction<ScalarType> &func,
          const SearchState<ScalarType> &cstate,

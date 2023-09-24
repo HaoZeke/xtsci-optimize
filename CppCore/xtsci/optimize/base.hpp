@@ -47,9 +47,10 @@ public:
 };
 
 template <typename ScalarType = double> struct OptimizeControl {
-  const size_t max_iterations; // Maximum number of iterations
-  const ScalarType tol;        // Tolerance for termination
-  const bool verbose;          // Whether or not to print progress
+  const size_t max_iterations = 1000; // Maximum number of iterations
+  const ScalarType tol = 1e-6;        // Tolerance for termination
+  const bool verbose = false;          // Whether or not to print progress
+  // TODO: Should have a TerminateStrategy or something here
 };
 
 template <typename ScalarType = double> struct SearchState {
