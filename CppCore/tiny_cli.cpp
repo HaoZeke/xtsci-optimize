@@ -62,6 +62,7 @@ int main(int argc, char *argv[]) {
 
   xts::optimize::OptimizeControl<double> control;
   control.tol = 1e-6;
+  control.verbose = true;
 
   xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
   xts::optimize::linesearch::conditions::StrongWolfeCondition<double>

@@ -36,18 +36,26 @@ public:
     auto gradient = *grad_opt;
     direction = -gradient;
 
-    fmt::print("Initial direction: {}\n", direction);
-    fmt::print("Initial x: {}\n", x);
+    if (control.verbose) {
+      fmt::print("Initial x: {}\n", x);
+      fmt::print("Initial gradient: {}\n", gradient);
+    }
 
     OptimizeResult<ScalarType> result;
 
     for (result.nit = 0; result.nit < control.max_iterations; ++result.nit) {
-      fmt::print("Iteration: {}\n", result.nit);
+      if (control.verbose) {
+        fmt::print("Iteration: {}\n", result.nit);
+      }
       ScalarType alpha = this->m_ls_strat.search(func, {x, direction});
-      fmt::print("Alpha: {}\n", alpha);
+      if (control.verbose) {
+        fmt::print("Alpha: {}\n", alpha);
+      }
 
       xt::noalias(x) += alpha * direction;
-      fmt::print("x: {}\n", x);
+      if (control.verbose) {
+        fmt::print("x: {}\n", x);
+      }
 
       auto new_grad_opt = func.gradient(x);
       if (!new_grad_opt) {
@@ -56,7 +64,9 @@ public:
       }
 
       const auto &new_gradient = *new_grad_opt;
-      fmt::print("New gradient: {}\n", new_gradient);
+      if (control.verbose) {
+        fmt::print("New gradient: {}\n", new_gradient);
+      }
 
       if (xt::amax(xt::abs(new_gradient))() < control.tol) {
         break;
@@ -70,7 +80,9 @@ public:
       gradient = new_gradient; // Direct assignment (assumes ownership transfer
                                // if possible)
 
-      fmt::print("New direction: {}\n", direction);
+      if (control.verbose) {
+        fmt::print("New direction: {}\n", direction);
+      }
     }
 
     result.x = x;
