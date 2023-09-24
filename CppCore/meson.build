@@ -23,6 +23,7 @@ if get_option('with_tests')
       ['test_wolfe', 'test_wolfe.cc', ''],
       ['test_trial_funcs', 'test_trial_funcs.cc', ''],
       ['test_backtracking', 'test_backtracking.cc', ''],
+      ['test_optim_cg', 'test_optim_cg.cc', ''],
     ]
     foreach test : test_array
       test(test.get(0),
