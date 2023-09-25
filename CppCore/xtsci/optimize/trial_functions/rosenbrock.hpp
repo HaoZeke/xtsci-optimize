@@ -18,6 +18,8 @@ namespace trial_functions {
 
 template <typename ScalarType = double>
 class Rosenbrock : public ObjectiveFunction<ScalarType> {
+  // Domain is R^2
+  // Global minimum is at x = (1, 1) with f(x) = 0
 private:
   // Function evaluation
   ScalarType compute(const xt::xarray<ScalarType> &x) const override {

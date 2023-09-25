@@ -18,6 +18,8 @@ namespace trial_functions {
 
 template <typename ScalarType>
 class QuadraticFunction : public xts::optimize::ObjectiveFunction<ScalarType> {
+  // Domain is R^n
+  // Global minimum is at x = 0 with f(x) = 0
 private:
   ScalarType compute(const xt::xarray<ScalarType> &x) const override {
     return xt::linalg::dot(x, x)(0); // x^T x
