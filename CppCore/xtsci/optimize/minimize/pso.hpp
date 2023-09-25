@@ -70,8 +70,11 @@ public:
     }
   }
 
-  void update_swarm(const ObjectiveFunction<ScalarType> &func) {
+  void update_swarm(const ObjectiveFunction<ScalarType> &func,
+                    const xt::xarray<ScalarType> &lower_bound,
+                    const xt::xarray<ScalarType> &upper_bound) {
     size_t idx = 0;
+    ScalarType Vmax = 0.5 * xt::linalg::norm(upper_bound - lower_bound);
     for (auto &particle : swarm) {
       // Update velocity
       particle.velocity =
@@ -80,8 +83,26 @@ public:
               (particle.best_position - particle.position) +
           social_comp * random_factor() * (gbest_position - particle.position);
 
+      // Velocity clamping
+      for (size_t i = 0; i < particle.velocity.size(); ++i) {
+        if (std::abs(particle.velocity(i)) > Vmax) {
+          particle.velocity(i) = (particle.velocity(i) > 0 ? 1 : -1) * Vmax;
+        }
+      }
+
       // Update position
       particle.position += particle.velocity;
+
+      // Boundary conditions
+      for (size_t i = 0; i < particle.position.size(); ++i) {
+        if (particle.position(i) < lower_bound(i)) {
+          particle.position(i) = lower_bound(i);
+          particle.velocity(i) = -particle.velocity(i); // Reflective boundary
+        } else if (particle.position(i) > upper_bound(i)) {
+          particle.position(i) = upper_bound(i);
+          particle.velocity(i) = -particle.velocity(i); // Reflective boundary
+        }
+      }
 
       // Evaluate new position
       ScalarType new_value = func(particle.position);
@@ -115,7 +136,7 @@ public:
         fmt::print("Best value: {}\n", gbest_value);
         fmt::print("Best position: {}\n", gbest_position);
       }
-      update_swarm(func);
+      update_swarm(func, lower_bound, upper_bound);
       ScalarType current_avg_velocity = compute_average_velocity();
       if (gbest_value == prev_gbest_value) {
         stagnant_iterations++;
