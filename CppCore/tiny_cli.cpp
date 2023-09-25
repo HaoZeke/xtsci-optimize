@@ -31,6 +31,7 @@
 #include "xtsci/optimize/minimize/bfgs.hpp"
 #include "xtsci/optimize/minimize/cg.hpp"
 #include "xtsci/optimize/minimize/lbfgs.hpp"
+#include "xtsci/optimize/minimize/pso.hpp"
 #include "xtsci/optimize/minimize/sr1.hpp"
 #include "xtsci/optimize/minimize/sr2.hpp"
 
@@ -101,6 +102,7 @@ int main(int argc, char *argv[]) {
   xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
   xts::optimize::minimize::SR1Optimizer<double> sr1opt(zoom);
   xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);
+  xts::optimize::minimize::PSOptim<double> psopt;
 
   // xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen
   xt::xarray<double> initial_guess = {0.0, 0.0}; // himmelblau
@@ -108,6 +110,9 @@ int main(int argc, char *argv[]) {
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
       lbfgsopt.optimize(himmelblau, cstate, control);
+  // control.max_iterations = 100;
+  // xts::optimize::OptimizeResult<double> result =
+  //   psopt.optimize(rosen, {0.0, 0.0}, {5, 5}, control);
 
   std::cout << "Optimized x: " << result.x << "\n";
   std::cout << "Function value: " << result.fun << "\n";
