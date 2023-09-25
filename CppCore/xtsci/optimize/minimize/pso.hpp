@@ -84,25 +84,19 @@ public:
           social_comp * random_factor() * (gbest_position - particle.position);
 
       // Velocity clamping
-      for (size_t i = 0; i < particle.velocity.size(); ++i) {
-        if (std::abs(particle.velocity(i)) > Vmax) {
-          particle.velocity(i) = (particle.velocity(i) > 0 ? 1 : -1) * Vmax;
-        }
-      }
+      particle.velocity = xt::clip(particle.velocity, -Vmax, Vmax);
 
       // Update position
       particle.position += particle.velocity;
 
       // Boundary conditions
-      for (size_t i = 0; i < particle.position.size(); ++i) {
-        if (particle.position(i) < lower_bound(i)) {
-          particle.position(i) = lower_bound(i);
-          particle.velocity(i) = -particle.velocity(i); // Reflective boundary
-        } else if (particle.position(i) > upper_bound(i)) {
-          particle.position(i) = upper_bound(i);
-          particle.velocity(i) = -particle.velocity(i); // Reflective boundary
-        }
-      }
+      particle.position = xt::clip(particle.position, lower_bound, upper_bound);
+
+      // Reflective boundary
+      xt::xarray<bool> lower_violation = particle.position == lower_bound;
+      xt::xarray<bool> upper_violation = particle.position == upper_bound;
+      particle.velocity = xt::where(lower_violation || upper_violation,
+                                    -particle.velocity, particle.velocity);
 
       // Evaluate new position
       ScalarType new_value = func(particle.position);
