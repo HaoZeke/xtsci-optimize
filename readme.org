@@ -10,7 +10,7 @@ prototyping thing.
 
 ** Usage
 Until bindings are ready, ~tiny_cli.cpp~ can be edited and run with output piped
-to get a visual for the Rosenbrock function.
+to get a visual for the trial functions.
 
 #+begin_src bash
 meson setup bbdir
