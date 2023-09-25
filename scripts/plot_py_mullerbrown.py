@@ -11,14 +11,15 @@ def muller_brown(x):
     x0 = [1, 0, -0.5, -1]
     y0 = [0, 0.5, 1.5, 1]
 
-    value = 0
-    for i in range(4):
-        value += A[i] * np.exp(
+    return sum(
+        A[i]
+        * np.exp(
             a[i] * (x[0] - x0[i]) ** 2
             + b[i] * (x[0] - x0[i]) * (x[1] - y0[i])
             + c[i] * (x[1] - y0[i]) ** 2
         )
-    return value
+        for i in range(4)
+    )
 
 
 def muller_brown_gradient(x):
