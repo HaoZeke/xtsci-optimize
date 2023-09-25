@@ -102,17 +102,16 @@ int main(int argc, char *argv[]) {
   xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
   xts::optimize::minimize::SR1Optimizer<double> sr1opt(zoom);
   xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);
-  xts::optimize::minimize::PSOptim<double> psopt;
+  xts::optimize::minimize::PSOptim<double> psopt(10, 0.5, 1.5, 1.5, control);
 
   // xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen
   xt::xarray<double> initial_guess = {0.0, 0.0}; // himmelblau
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
-  xts::optimize::OptimizeResult<double> result =
-      lbfgsopt.optimize(himmelblau, cstate, control);
-  // control.max_iterations = 100;
   // xts::optimize::OptimizeResult<double> result =
-  //   psopt.optimize(rosen, {0.0, 0.0}, {5, 5}, control);
+  //     lbfgsopt.optimize(himmelblau, cstate, control);
+  xts::optimize::OptimizeResult<double> result =
+      psopt.optimize(himmelblau, {-4.0, -4.0}, {5, 5});
 
   std::cout << "Optimized x: " << result.x << "\n";
   std::cout << "Function value: " << result.fun << "\n";

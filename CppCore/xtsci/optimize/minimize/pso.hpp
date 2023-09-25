@@ -2,6 +2,7 @@
 // MIT License
 // Copyright 2023--present Rohit Goswami <HaoZeke>
 #include <fmt/ostream.h>
+#include <limits>
 #include <random>
 #include <vector>
 
@@ -27,25 +28,30 @@ private:
   std::vector<Particle<ScalarType>> swarm;
   xt::xarray<ScalarType> gbest_position; // global best position
   ScalarType gbest_value;                // global best value
+  ScalarType prev_gbest_value;
   size_t num_particles;
   ScalarType inertia_weight;
-  ScalarType c1;    // cognitive component
-  std::mt19937 rng; // Mersenne Twister random number generator
-
-  ScalarType c2; // social component
+  ScalarType cognitive_comp; // cognitive component
+  ScalarType social_comp;    // social component
+  std::mt19937 rng;          // Mersenne Twister random number generator
+  OptimizeControl<ScalarType> m_control;
 
 public:
-  PSOptim(size_t num_particles = 30, ScalarType inertia = 0.5,
-          ScalarType c1 = 1.5, ScalarType c2 = 1.5)
-      : num_particles(num_particles), inertia_weight(inertia), c1(c1), c2(c2) {
+  PSOptim(size_t num_particles = 10, ScalarType inertia = 0.5,
+          ScalarType cognitive_comp = 1.5, ScalarType social_comp = 1.5,
+          OptimizeControl<ScalarType> control = OptimizeControl<ScalarType>())
+      : num_particles(num_particles), inertia_weight(inertia),
+        cognitive_comp(cognitive_comp), social_comp(social_comp),
+        m_control(control) {
     std::random_device rd;
     rng.seed(rd()); // Seed the generator
+    prev_gbest_value = std::numeric_limits<ScalarType>::infinity();
   }
 
   void initialize_swarm(const ObjectiveFunction<ScalarType> &func,
                         const xt::xarray<ScalarType> &lower_bound,
                         const xt::xarray<ScalarType> &upper_bound) {
-    for (size_t i = 0; i < num_particles; ++i) {
+    for (size_t idx = 0; idx < num_particles; ++idx) {
       Particle<ScalarType> particle;
 
       // Randomly initialize position and velocity
@@ -57,7 +63,7 @@ public:
       swarm.push_back(particle);
 
       // Update global best if needed
-      if (i == 0 || particle.best_value < gbest_value) {
+      if (idx == 0 || particle.best_value < gbest_value) {
         gbest_position = particle.best_position;
         gbest_value = particle.best_value;
       }
@@ -65,41 +71,63 @@ public:
   }
 
   void update_swarm(const ObjectiveFunction<ScalarType> &func) {
+    size_t idx = 0;
     for (auto &particle : swarm) {
       // Update velocity
       particle.velocity =
           inertia_weight * particle.velocity +
-          c1 * random_factor() * (particle.best_position - particle.position) +
-          c2 * random_factor() * (gbest_position - particle.position);
+          cognitive_comp * random_factor() *
+              (particle.best_position - particle.position) +
+          social_comp * random_factor() * (gbest_position - particle.position);
 
       // Update position
       particle.position += particle.velocity;
 
       // Evaluate new position
       ScalarType new_value = func(particle.position);
+      if (m_control.verbose) {
+        fmt::print("New position for {}: {}\n", idx, particle.position);
+      }
       if (new_value < particle.best_value) {
         particle.best_value = new_value;
         particle.best_position = particle.position;
-
         // Update global best if needed
         if (new_value < gbest_value) {
           gbest_position = particle.best_position;
           gbest_value = new_value;
         }
       }
+      idx++;
     }
   }
 
   xts::optimize::OptimizeResult<ScalarType>
   optimize(const ObjectiveFunction<ScalarType> &func,
            const xt::xarray<ScalarType> &lower_bound,
-           const xt::xarray<ScalarType> &upper_bound,
-           const OptimizeControl<ScalarType> &control) {
+           const xt::xarray<ScalarType> &upper_bound) {
     initialize_swarm(func, lower_bound, upper_bound);
 
     size_t iteration = 0;
-    while (iteration < control.max_iterations) {
+    size_t stagnant_iterations = 0;
+    while (iteration < m_control.max_iterations) {
+      if (m_control.verbose) {
+        fmt::print("Iteration: {}\n", iteration);
+        fmt::print("Best value: {}\n", gbest_value);
+        fmt::print("Best position: {}\n", gbest_position);
+      }
       update_swarm(func);
+      ScalarType current_avg_velocity = compute_average_velocity();
+      if (gbest_value == prev_gbest_value) {
+        stagnant_iterations++;
+      } else {
+        stagnant_iterations = 0;
+      }
+
+      if (has_converged(stagnant_iterations, current_avg_velocity)) {
+        break;
+      }
+      prev_gbest_value = gbest_value;
+
       ++iteration;
     }
 
@@ -121,9 +149,9 @@ public:
   xt::xarray<ScalarType> random_position(const xt::xarray<ScalarType> &lower,
                                          const xt::xarray<ScalarType> &upper) {
     xt::xarray<ScalarType> position = xt::empty<ScalarType>(lower.shape());
-    for (size_t i = 0; i < lower.size(); ++i) {
-      std::uniform_real_distribution<ScalarType> dist(lower(i), upper(i));
-      position(i) = dist(rng);
+    for (size_t idx = 0; idx < lower.size(); ++idx) {
+      std::uniform_real_distribution<ScalarType> dist(lower(idx), upper(idx));
+      position(idx) = dist(rng);
     }
     return position;
   }
@@ -131,12 +159,39 @@ public:
   xt::xarray<ScalarType> random_velocity(const xt::xarray<ScalarType> &lower,
                                          const xt::xarray<ScalarType> &upper) {
     xt::xarray<ScalarType> velocity = xt::empty<ScalarType>(lower.shape());
-    for (size_t i = 0; i < lower.size(); ++i) {
-      std::uniform_real_distribution<ScalarType> dist(-abs(upper(i) - lower(i)),
-                                                      abs(upper(i) - lower(i)));
-      velocity(i) = dist(rng);
+    for (size_t idx = 0; idx < lower.size(); ++idx) {
+      std::uniform_real_distribution<ScalarType> dist(
+          -abs(upper(idx) - lower(idx)), abs(upper(idx) - lower(idx)));
+      velocity(idx) = dist(rng);
     }
     return velocity;
+  }
+
+  bool has_converged(size_t stagnant_iterations, ScalarType avg_velocity) {
+    if (stagnant_iterations > 50) {
+      if (m_control.verbose) {
+        fmt::print("Converged due to stagnant iterations: {}\n",
+                   stagnant_iterations);
+      }
+      return true;
+    }
+    if (avg_velocity < 1e-8) {
+      if (m_control.verbose) {
+        fmt::print("Converged due to average velocity: {}\n", avg_velocity);
+      }
+      return true;
+    }
+    return false;
+  }
+  ScalarType compute_average_velocity() {
+    ScalarType total_velocity = 0.0;
+
+    for (const auto &particle : swarm) {
+      ScalarType magnitude = xt::linalg::norm(particle.velocity, 2);
+      total_velocity += magnitude;
+    }
+
+    return total_velocity / num_particles;
   }
 };
 
