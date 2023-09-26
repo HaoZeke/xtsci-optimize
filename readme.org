@@ -12,6 +12,7 @@ These are meant for *unconstrained* non-linear problems for now. The main classe
 - Non-linear conjugate gradient methods
   + Fletcher-Reeves
   + Polak-Ribiere
+  + Fletcher-Reeves-Polak-Ribiere
   + Hestenes-Stiefel
   + Liu-Storey
   + Dai-Yuan
