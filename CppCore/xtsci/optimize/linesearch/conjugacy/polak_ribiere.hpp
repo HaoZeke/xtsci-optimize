@@ -1,8 +1,6 @@
 #pragma once
 // MIT License
 // Copyright 2023--present Rohit Goswami <HaoZeke>
-// References:
-// [NJWS] Nocedal, J., & Wright, S. (2006). Numerical optimization. Springer
 #include <algorithm>
 #include <functional>
 #include <limits>
@@ -27,6 +25,9 @@ public:
     return xt::linalg::dot(ctx.current_gradient, grad_change)() /
            xt::linalg::dot(ctx.previous_gradient, ctx.previous_gradient)();
   }
+
+  // References:
+  // [NJWS] Nocedal, J., & Wright, S. (2006). Numerical optimization. Springer
 };
 } // namespace conjugacy
 } // namespace linesearch

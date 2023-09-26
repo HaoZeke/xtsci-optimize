@@ -32,14 +32,14 @@ public:
          grad_change_prev_dot);
     return (term1 * term2)();
   }
-};
 
-// References:
-// [WHHZ] W. W. HAGER AND H. ZHANG, A new conjugate gradient method with
-// guaranteed descent and an efficient line search, SIAM Journal on
-// Optimization, 16 (2005), pp. 170–192.
-//
-// [NJWS] Nocedal, J., & Wright, S. (2006). Numerical optimization. Springer
+  // References:
+  // [WHHZ] W. W. HAGER AND H. ZHANG, A new conjugate gradient method with
+  // guaranteed descent and an efficient line search, SIAM Journal on
+  // Optimization, 16 (2005), pp. 170–192.
+  //
+  // [NJWS] Nocedal, J., & Wright, S. (2006). Numerical optimization. Springer
+};
 
 } // namespace conjugacy
 } // namespace linesearch
