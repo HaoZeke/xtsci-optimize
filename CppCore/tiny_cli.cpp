@@ -24,6 +24,7 @@
 
 #include "xtsci/optimize/linesearch/conjugacy/fletcher_reeves.hpp"
 #include "xtsci/optimize/linesearch/conjugacy/hestenes-stiefel.hpp"
+#include "xtsci/optimize/linesearch/conjugacy/hybridized_conj.hpp"
 #include "xtsci/optimize/linesearch/conjugacy/liu_storey.hpp"
 #include "xtsci/optimize/linesearch/conjugacy/polak_ribiere.hpp"
 
@@ -108,8 +109,12 @@ int main(int argc, char *argv[]) {
   xts::optimize::linesearch::conjugacy::PolakRibiere<double> polakribiere;
   xts::optimize::linesearch::conjugacy::HestenesStiefel<double> hestenesstiefel;
   xts::optimize::linesearch::conjugacy::LiuStorey<double> liustorey;
+  xts::optimize::linesearch::conjugacy::HybridizedConj<double> hybrid_min(
+      hestenesstiefel, polakribiere,
+      [](double a, double b) -> double { return std::min(a, b); });
+
   xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
-      moorethuente, hestenesstiefel);
+      moorethuente, hybrid_min);
 
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
   xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 30);
