@@ -23,12 +23,17 @@
 #include "xtsci/optimize/trial_functions/quadratic.hpp"
 #include "xtsci/optimize/trial_functions/rosenbrock.hpp"
 
+#include "xtsci/optimize/linesearch/conjugacy/fletcher_reeves.hpp"
+#include "xtsci/optimize/linesearch/conjugacy/polak_ribiere.hpp"
+
 #include <catch2/catch_all.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
 TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
   xts::optimize::trial_functions::Rosenbrock<double> rosen;
   xts::optimize::OptimizeControl<double> control;
+  xts::optimize::linesearch::conjugacy::FletcherReeves<double> fletcherreeves;
+  xts::optimize::linesearch::conjugacy::PolakRibiere<double> polakribiere;
   control.tol = 1e-6;
 
   xt::xarray<double> initial_guess = {-1.3, 1.8};
@@ -44,7 +49,7 @@ TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(armijo, geomStep);
       xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-          backtracking);
+          backtracking, fletcherreeves);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -61,7 +66,7 @@ TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(armijo, bisectionStep);
       xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-          backtracking);
+          backtracking, fletcherreeves);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -77,7 +82,7 @@ TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(armijo, goldenStep);
       xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-          backtracking);
+          backtracking, fletcherreeves);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -115,7 +120,7 @@ TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(strongwolfe, geomStep);
       xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-          backtracking);
+          backtracking, fletcherreeves);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -132,7 +137,7 @@ TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(strongwolfe, bisectionStep);
       xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-          backtracking);
+          backtracking, fletcherreeves);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -148,7 +153,7 @@ TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(strongwolfe, goldenStep);
       xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-          backtracking);
+          backtracking, fletcherreeves);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -186,7 +191,7 @@ TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(goldstein, geomStep);
       xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-          backtracking);
+          backtracking, fletcherreeves);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -203,7 +208,7 @@ TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(goldstein, bisectionStep);
       xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-          backtracking);
+          backtracking, fletcherreeves);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);
@@ -219,7 +224,7 @@ TEST_CASE("ConjugateGradientOptimizer with Backtracking Search") {
       xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
           backtracking(goldstein, goldenStep);
       xts::optimize::minimize::ConjugateGradientOptimizer<double> optimizer(
-          backtracking);
+          backtracking, fletcherreeves);
 
       xts::optimize::OptimizeResult<double> result =
           optimizer.optimize(rosen, cstate, control);

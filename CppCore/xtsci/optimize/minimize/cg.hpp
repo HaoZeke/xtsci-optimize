@@ -17,9 +17,13 @@ template <typename ScalarType>
 class ConjugateGradientOptimizer
     : public linesearch::LineSearchOptimizer<ScalarType> {
 public:
+  std::reference_wrapper<linesearch::ConjugacyCoefficientStrategy<ScalarType>>
+      m_conj;
   ConjugateGradientOptimizer(
-      linesearch::LineSearchStrategy<ScalarType> &strategy)
-      : linesearch::LineSearchOptimizer<ScalarType>(strategy) {}
+      linesearch::LineSearchStrategy<ScalarType> &strategy,
+      linesearch::ConjugacyCoefficientStrategy<ScalarType> &conjugacy_strategy)
+      : linesearch::LineSearchOptimizer<ScalarType>(strategy),
+        m_conj(conjugacy_strategy) {}
 
   OptimizeResult<ScalarType>
   optimize(const ObjectiveFunction<ScalarType> &func,
@@ -72,9 +76,8 @@ public:
         break;
       }
 
-      auto beta_expr = xt::linalg::dot(new_gradient, new_gradient) /
-                       xt::linalg::dot(gradient, gradient);
-      ScalarType beta = beta_expr();
+      ScalarType beta = m_conj.get().computeBeta(
+          {.current_gradient = new_gradient, .previous_gradient = gradient});
 
       xt::noalias(direction) = -new_gradient + beta * direction;
       gradient = new_gradient; // Direct assignment (assumes ownership transfer
