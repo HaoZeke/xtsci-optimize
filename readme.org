@@ -8,6 +8,21 @@ Part of the larger ~xtsci~ project, which iteratively implements parts of
 funding) this might cover all of ~scipy~, but its really more of a rapid
 prototyping thing.
 
+These are meant for *unconstrained* non-linear problems for now. The main classes written in are:
+- Non-linear conjugate gradient methods
+  + Fletcher-Reeves
+  + Polak-Ribiere
+  + Hestenes-Stiefel
+  + Liu-Storey
+  + Dai-Yuan
+  + Conjugate descent
+  + Hybridized methods of the above with unary operations
+- Newton's method
+- Quasi-Newton methods
+  + SR1
+  + BFGS
+  + L-BFGS
+
 ** Usage
 Until bindings are ready, ~tiny_cli.cpp~ can be edited and run with output piped
 to get a visual for the trial functions.
