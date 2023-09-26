@@ -9,14 +9,14 @@
 
 #include "xtensor-blas/xlinalg.hpp"
 
-#include "xtsci/optimize/linesearch/base.hpp"
+#include "xtsci/optimize/nlcg/base.hpp"
 
-#include "xtsci/optimize/linesearch/conjugacy/fletcher_reeves.hpp"
-#include "xtsci/optimize/linesearch/conjugacy/polak_ribiere.hpp"
+#include "xtsci/optimize/nlcg/conjugacy/fletcher_reeves.hpp"
+#include "xtsci/optimize/nlcg/conjugacy/polak_ribiere.hpp"
 
 namespace xts {
 namespace optimize {
-namespace linesearch {
+namespace nlcg {
 namespace conjugacy {
 template <typename ScalarType>
 class FRPR : public ConjugacyCoefficientStrategy<ScalarType> {
@@ -44,6 +44,6 @@ public:
   // [NJWS] Nocedal, J., & Wright, S. (2006). Numerical optimization. Springer
 };
 } // namespace conjugacy
-} // namespace linesearch
+} // namespace nlcg
 } // namespace optimize
 } // namespace xts

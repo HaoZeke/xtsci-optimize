@@ -6,6 +6,7 @@
 #include "xtensor/xnoalias.hpp"
 
 #include "xtsci/optimize/linesearch/base.hpp"
+#include "xtsci/optimize/nlcg/base.hpp"
 
 #include "xtensor-blas/xlinalg.hpp"
 
@@ -17,11 +18,10 @@ template <typename ScalarType>
 class ConjugateGradientOptimizer
     : public linesearch::LineSearchOptimizer<ScalarType> {
 public:
-  std::reference_wrapper<linesearch::ConjugacyCoefficientStrategy<ScalarType>>
-      m_conj;
+  std::reference_wrapper<nlcg::ConjugacyCoefficientStrategy<ScalarType>> m_conj;
   ConjugateGradientOptimizer(
       linesearch::LineSearchStrategy<ScalarType> &strategy,
-      linesearch::ConjugacyCoefficientStrategy<ScalarType> &conjugacy_strategy)
+      nlcg::ConjugacyCoefficientStrategy<ScalarType> &conjugacy_strategy)
       : linesearch::LineSearchOptimizer<ScalarType>(strategy),
         m_conj(conjugacy_strategy) {}
 
@@ -76,8 +76,10 @@ public:
         break;
       }
 
-      ScalarType beta = m_conj.get().computeBeta(
-          {.current_gradient = new_gradient, .previous_gradient = gradient});
+      ScalarType beta =
+          m_conj.get().computeBeta({.current_gradient = new_gradient,
+                                    .previous_gradient = gradient,
+                                    .previous_direction = direction});
 
       xt::noalias(direction) = -new_gradient + beta * direction;
       gradient = new_gradient; // Direct assignment (assumes ownership transfer

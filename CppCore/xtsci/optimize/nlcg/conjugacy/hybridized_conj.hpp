@@ -9,11 +9,11 @@
 
 #include "xtensor-blas/xlinalg.hpp"
 
-#include "xtsci/optimize/linesearch/base.hpp"
+#include "xtsci/optimize/nlcg/base.hpp"
 
 namespace xts {
 namespace optimize {
-namespace linesearch {
+namespace nlcg {
 namespace conjugacy {
 
 template <typename ScalarType>
@@ -40,6 +40,6 @@ public:
 };
 
 } // namespace conjugacy
-} // namespace linesearch
+} // namespace nlcg
 } // namespace optimize
 } // namespace xts
