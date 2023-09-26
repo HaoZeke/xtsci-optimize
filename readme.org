@@ -16,6 +16,7 @@ These are meant for *unconstrained* non-linear problems for now. The main classe
   + Liu-Storey
   + Dai-Yuan
   + Conjugate descent
+  + Hager-Zhang
   + Hybridized methods of the above with unary operations
 - Newton's method
 - Quasi-Newton methods
