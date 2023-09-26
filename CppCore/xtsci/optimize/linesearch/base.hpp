@@ -56,7 +56,6 @@ public:
 template <typename ScalarType> struct ConjugacyContext {
   xt::xarray<ScalarType> current_gradient;
   xt::xarray<ScalarType> previous_gradient;
-  xt::xarray<ScalarType> current_direction;
   xt::xarray<ScalarType> previous_direction;
 };
 
