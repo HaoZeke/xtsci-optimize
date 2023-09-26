@@ -26,6 +26,15 @@ public:
   computeBeta(const ConjugacyContext<ScalarType> &context) const = 0;
 };
 
+template <typename ScalarType> class RestartStrategy {
+public:
+  ScalarType m_threshold; // ν in [NJWS] Equation 5.52
+  explicit RestartStrategy(ScalarType threshold = 0.1)
+      : m_threshold(threshold) {}
+  virtual ~RestartStrategy() = default;
+  virtual bool restart(const ConjugacyContext<ScalarType> &context) const = 0;
+};
+
 } // namespace nlcg
 } // namespace optimize
 } // namespace xts
