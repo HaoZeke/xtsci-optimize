@@ -19,11 +19,10 @@ template <typename ScalarType>
 class PolakRibiere : public ConjugacyCoefficientStrategy<ScalarType> {
 public:
   ScalarType
-  computeBeta(const xt::xarray<ScalarType> &current_gradient,
-              const xt::xarray<ScalarType> &previous_gradient) const override {
-    return xt::linalg::dot(current_gradient,
-                           current_gradient - previous_gradient)() /
-           xt::linalg::dot(previous_gradient, previous_gradient)();
+  computeBeta(const ConjugacyContext<ScalarType> &ctx) const override {
+    return xt::linalg::dot(ctx.current_gradient,
+                           ctx.current_gradient - ctx.previous_gradient)() /
+           xt::linalg::dot(ctx.previous_gradient, ctx.previous_gradient)();
   }
 };
 } // namespace conjugacy

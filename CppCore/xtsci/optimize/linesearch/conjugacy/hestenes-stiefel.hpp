@@ -16,12 +16,13 @@ namespace optimize {
 namespace linesearch {
 namespace conjugacy {
 template <typename ScalarType>
-class FletcherReeves : public ConjugacyCoefficientStrategy<ScalarType> {
+class HestenesStiefel : public ConjugacyCoefficientStrategy<ScalarType> {
 public:
   ScalarType
   computeBeta(const ConjugacyContext<ScalarType> &ctx) const override {
-    return xt::linalg::dot(ctx.current_gradient, ctx.current_gradient)() /
-           xt::linalg::dot(ctx.previous_gradient, ctx.previous_gradient)();
+    return (xt::linalg::dot(ctx.current_gradient,
+                            ctx.current_gradient - ctx.previous_gradient)() /
+            xt::linalg::dot(ctx.previous_gradient, ctx.previous_gradient)());
   }
 };
 } // namespace conjugacy

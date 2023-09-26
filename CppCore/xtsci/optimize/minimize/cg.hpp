@@ -76,7 +76,8 @@ public:
         break;
       }
 
-      ScalarType beta = m_conj.get().computeBeta(new_gradient, gradient);
+      ScalarType beta = m_conj.get().computeBeta(
+          {.current_gradient = new_gradient, .previous_gradient = gradient});
 
       xt::noalias(direction) = -new_gradient + beta * direction;
       gradient = new_gradient; // Direct assignment (assumes ownership transfer

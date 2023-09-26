@@ -53,13 +53,17 @@ public:
                               const SearchState<ScalarType> &state) const = 0;
 };
 
+template <typename ScalarType> struct ConjugacyContext {
+  xt::xarray<ScalarType> current_gradient;
+  xt::xarray<ScalarType> previous_gradient;
+};
+
 template <typename ScalarType> class ConjugacyCoefficientStrategy {
 public:
   virtual ~ConjugacyCoefficientStrategy() = default;
 
   virtual ScalarType
-  computeBeta(const xt::xarray<ScalarType> &current_gradient,
-              const xt::xarray<ScalarType> &previous_gradient) const = 0;
+  computeBeta(const ConjugacyContext<ScalarType> &context) const = 0;
 };
 
 } // namespace linesearch
