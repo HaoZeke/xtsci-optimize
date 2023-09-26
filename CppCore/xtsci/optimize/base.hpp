@@ -66,12 +66,12 @@ private:
   virtual ScalarType compute(const xt::xarray<ScalarType> &x) const = 0;
 
   virtual std::optional<xt::xarray<ScalarType>>
-  compute_gradient(const xt::xarray<ScalarType> &x) const {
+  compute_gradient(const xt::xarray<ScalarType> &) const {
     return std::nullopt;
   }
 
   virtual std::optional<xt::xarray<ScalarType>>
-  compute_hessian(const xt::xarray<ScalarType> &x) const {
+  compute_hessian(const xt::xarray<ScalarType> &) const {
     return std::nullopt;
   }
 };
