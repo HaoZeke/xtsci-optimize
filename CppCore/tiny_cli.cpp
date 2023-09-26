@@ -22,6 +22,9 @@
 #include "xtsci/optimize/linesearch/search_strategy/moore_thuente.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
 
+#include "xtsci/optimize/linesearch/conjugacy/fletcher_reeves.hpp"
+#include "xtsci/optimize/linesearch/conjugacy/polak_ribiere.hpp"
+
 #include "xtsci/optimize/linesearch/step_size/bisect.hpp"
 #include "xtsci/optimize/linesearch/step_size/cubic.hpp"
 #include "xtsci/optimize/linesearch/step_size/geom.hpp"
@@ -97,10 +100,13 @@ int main(int argc, char *argv[]) {
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
       bisectionStep, 1e-4, 0.9);
   xts::optimize::linesearch::search_strategy::MooreThuenteLineSearch<double>
-      moorethuente(goldenStep, 1e-3, 0.3);
+      moorethuente(bisectionStep, 1e-3, 0.3);
 
+  xts::optimize::linesearch::conjugacy::FletcherReeves<double> fletcherreeves;
+  xts::optimize::linesearch::conjugacy::PolakRibiere<double> polakribiere;
   xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
-      backtracking);
+      moorethuente, polakribiere);
+
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
   xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 30);
   xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
@@ -113,7 +119,7 @@ int main(int argc, char *argv[]) {
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      lbfgsopt.optimize(mullerbrown, cstate, control);
+      cgopt.optimize(rosen, cstate, control);
 
   // xts::optimize::OptimizeResult<double> result =
   //     psopt.optimize(mullerbrown, {-512, -512}, {512, 512});
