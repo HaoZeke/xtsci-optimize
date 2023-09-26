@@ -1,7 +1,7 @@
 project('xtsci-optimize', 'cpp',
   version : '0.0.1',
   default_options : ['warning_level=3',
-                     'cpp_std=c++17',
+                     'cpp_std=c++20',
                      'debug=true',
                      'buildtype=debug'])
 
