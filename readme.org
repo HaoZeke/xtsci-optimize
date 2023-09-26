@@ -24,6 +24,8 @@ The heart of the library is the ~xts~ namespace, with functions further
 demarcated according to the relevant ~scipy~ modules e.g.
 ~xts::optimize~.
 
+- Note that this uses designated initializers, a C++20 feature.
+
 ** Provenance
 These are constructed mostly with the notation of the Nocedal and Wright book.
 

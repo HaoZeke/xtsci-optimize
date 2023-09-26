@@ -23,6 +23,8 @@
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
 
 #include "xtsci/optimize/linesearch/conjugacy/fletcher_reeves.hpp"
+#include "xtsci/optimize/linesearch/conjugacy/hestenes-stiefel.hpp"
+#include "xtsci/optimize/linesearch/conjugacy/liu_storey.hpp"
 #include "xtsci/optimize/linesearch/conjugacy/polak_ribiere.hpp"
 
 #include "xtsci/optimize/linesearch/step_size/bisect.hpp"
@@ -104,8 +106,10 @@ int main(int argc, char *argv[]) {
 
   xts::optimize::linesearch::conjugacy::FletcherReeves<double> fletcherreeves;
   xts::optimize::linesearch::conjugacy::PolakRibiere<double> polakribiere;
+  xts::optimize::linesearch::conjugacy::HestenesStiefel<double> hestenesstiefel;
+  xts::optimize::linesearch::conjugacy::LiuStorey<double> liustorey;
   xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
-      moorethuente, polakribiere);
+      moorethuente, hestenesstiefel);
 
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
   xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 30);
@@ -119,7 +123,7 @@ int main(int argc, char *argv[]) {
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      cgopt.optimize(rosen, cstate, control);
+      cgopt.optimize(mullerbrown, cstate, control);
 
   // xts::optimize::OptimizeResult<double> result =
   //     psopt.optimize(mullerbrown, {-512, -512}, {512, 512});
