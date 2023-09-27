@@ -67,7 +67,8 @@ public:
 
       auto direction = -m_hat / (xt::sqrt(v_hat) + m_epsilon);
 
-      ScalarType alpha = this->m_ls_strat.search(func, {x, direction});
+      ScalarType alpha =
+          this->m_ls_strat.search({1, 0, 1}, func, {x, direction});
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
       }

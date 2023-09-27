@@ -19,9 +19,9 @@
 #include "xtsci/optimize/linesearch/conditions/wolfe.hpp"
 
 #include "xtsci/optimize/linesearch/search_strategy/backtracking.hpp"
-#include "xtsci/optimize/linesearch/search_strategy/moore_thuente.hpp"
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
 
+#include "xtsci/optimize/linesearch/step_size/quadratic.hpp"
 #include "xtsci/optimize/nlcg/conjugacy/fletcher_reeves.hpp"
 #include "xtsci/optimize/nlcg/conjugacy/fr_pr.hpp"
 #include "xtsci/optimize/nlcg/conjugacy/hager_zhang.hpp"
@@ -37,12 +37,14 @@
 #include "xtsci/optimize/linesearch/step_size/cubic.hpp"
 #include "xtsci/optimize/linesearch/step_size/geom.hpp"
 #include "xtsci/optimize/linesearch/step_size/golden.hpp"
+#include "xtsci/optimize/linesearch/step_size/secant.hpp"
 
 #include "xtsci/optimize/minimize/adam.hpp"
 #include "xtsci/optimize/minimize/bfgs.hpp"
 #include "xtsci/optimize/minimize/lbfgs.hpp"
 #include "xtsci/optimize/minimize/nlcg.hpp"
 #include "xtsci/optimize/minimize/pso.hpp"
+#include "xtsci/optimize/minimize/sd.hpp"
 #include "xtsci/optimize/minimize/sr1.hpp"
 #include "xtsci/optimize/minimize/sr2.hpp"
 
@@ -89,9 +91,11 @@ int main(int argc, char *argv[]) {
 
   xts::optimize::OptimizeControl<double> control;
   control.tol = 1e-6;
-  control.gtol = 1e-6;
+  control.gtol = 1e-5;
   control.xtol = 1e-8;
   control.ftol = 1e-22;
+  control.max_iterations = 10000;
+  control.maxmove = 100;
   control.verbose = true;
 
   xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
@@ -102,16 +106,18 @@ int main(int argc, char *argv[]) {
 
   xts::optimize::linesearch::step_size::BisectionStepSize<double> bisectionStep;
   xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
-  xts::optimize::linesearch::step_size::CubicStepSize<double> cubicStep;
+  xts::optimize::linesearch::step_size::CubicInterpolationStepSize<double>
+      cubicStep;
+  xts::optimize::linesearch::step_size::SecantStepSize<double> secantStep;
   xts::optimize::linesearch::step_size::GeometricReductionStepSize<double>
-      geomStep;
+      geomStep(0.5);
+  xts::optimize::linesearch::step_size::QuadraticInterpolationStepSize<double>
+      quadStep;
 
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
-      backtracking(strongwolfe, goldenStep);
+      backtracking(strongwolfe, 0.5);
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
-      bisectionStep, 1e-4, 0.49);
-  xts::optimize::linesearch::search_strategy::MooreThuenteLineSearch<double>
-      moorethuente(bisectionStep, 1e-3, 0.3);
+      cubicStep, 1e-4, 0.9);
 
   xts::optimize::nlcg::conjugacy::FletcherReeves<double> fletcherreeves;
   xts::optimize::nlcg::conjugacy::PolakRibiere<double> polakribiere;
@@ -127,22 +133,25 @@ int main(int argc, char *argv[]) {
   xts::optimize::nlcg::restart::NeverRestart<double> never_restart;
 
   xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
-      zoom, polakribiere, njws_restart);
+      zoom, frpr, never_restart);
 
-  xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
-  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 30);
+  xts::optimize::minimize::SteepestDescentOptimizer<double> sdopt(backtracking);
+
+  xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(zoom);
+  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 10);
   xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
   xts::optimize::minimize::SR1Optimizer<double> sr1opt(zoom);
   xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);
   xts::optimize::minimize::PSOptim<double> psopt(100, 0.5, 1.5, 1.5, control);
 
-  xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen
+  xt::xarray<double> initial_guess = {-1.2, 1.0}; // rosen
+  // xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen
   // xt::xarray<double> initial_guess = {0.0, 0.0}; // himmelblau
   // xt::xarray<double> initial_guess = {0.23007699, 0.20781567}; // mullerbrown
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      cgopt.optimize(rosen, cstate, control);
+      lbfgsopt.optimize(rosen, cstate, control);
 
   // xts::optimize::OptimizeResult<double> result =
   //     psopt.optimize(mullerbrown, {-512, -512}, {512, 512});
