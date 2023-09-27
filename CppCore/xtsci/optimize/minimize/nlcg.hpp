@@ -6,6 +6,7 @@
 #include "xtensor/xnoalias.hpp"
 
 #include "xtsci/optimize/linesearch/base.hpp"
+#include "xtsci/optimize/linesearch/conditions/armijo.hpp"
 #include "xtsci/optimize/nlcg/base.hpp"
 
 #include "xtensor-blas/xlinalg.hpp"
@@ -51,6 +52,7 @@ public:
     OptimizeResult<ScalarType> result;
     nlcg::ConjugacyContext<ScalarType> conj_ctx;
 
+    ScalarType alpha = 1.0;
     // [NJWS] Algorithm 5.4
     for (result.nit = 0; result.nit < control.max_iterations; ++result.nit) {
       if (control.verbose) {
@@ -59,7 +61,7 @@ public:
 
       // 1. Line search to get alpha for the current direction.
       // [NJWS] Equation 5.43a
-      ScalarType alpha = this->m_ls_strat.search(func, {x, direction});
+      alpha = this->m_ls_strat.search({1.0, 0, 1}, func, {x, direction});
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
       }
