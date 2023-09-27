@@ -40,6 +40,7 @@ public:
     }
 
     auto gradient = *grad_opt;
+    xt::xarray<ScalarType> old_gradient = gradient;
     direction = -gradient;
 
     if (control.verbose) {
@@ -50,42 +51,47 @@ public:
     OptimizeResult<ScalarType> result;
     nlcg::ConjugacyContext<ScalarType> conj_ctx;
 
+    // [NJWS] Algorithm 5.4
     for (result.nit = 0; result.nit < control.max_iterations; ++result.nit) {
       if (control.verbose) {
         fmt::print("Iteration: {}\n", result.nit);
       }
+
+      // 1. Line search to get alpha for the current direction.
+      // [NJWS] Equation 5.43a
       ScalarType alpha = this->m_ls_strat.search(func, {x, direction});
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
       }
 
+      // 2. Update x using the current direction and alpha.
       xt::noalias(x) += alpha * direction;
       if (control.verbose) {
         fmt::print("x: {}\n", x);
       }
 
+      // 3. Compute the new gradient at the updated x.
       auto new_grad_opt = func.gradient(x);
-      if (!new_grad_opt) {
-        throw std::runtime_error(
-            "Gradient required for conjugate gradient method.");
-      }
-
-      const auto &new_gradient = *new_grad_opt;
+      gradient = *new_grad_opt; // Updating the gradient
       if (control.verbose) {
-        fmt::print("New gradient: {}\n", new_gradient);
+        fmt::print("New gradient: {}\n", gradient);
       }
 
-      if (xt::amax(xt::abs(new_gradient))() < control.tol) {
+      if (xt::amax(xt::abs(gradient))() < control.gtol) {
+        if (control.verbose) {
+          fmt::print("Change in gradient below threshold.\n");
+        }
         break;
       }
 
-      conj_ctx.current_gradient = new_gradient;
-      conj_ctx.previous_gradient = gradient;
+      conj_ctx.current_gradient = gradient;
+      conj_ctx.previous_gradient = old_gradient;
       conj_ctx.previous_direction = direction;
 
+      // 4. Compute the beta coefficient.
       ScalarType beta = m_conj.get().computeBeta(conj_ctx);
-
       if (m_restart.get().restart(conj_ctx)) {
+        fmt::print("Restarting due to the restart strategy\n");
         beta = 0;
       }
 
@@ -93,13 +99,13 @@ public:
         fmt::print("Beta: {}\n", beta);
       }
 
-      xt::noalias(direction) = -new_gradient + beta * direction;
-      gradient = new_gradient; // Direct assignment (assumes ownership transfer
-                               // if possible)
+      // 5. Update the direction.
+      direction = -gradient + beta * direction;
 
       if (control.verbose) {
         fmt::print("New direction: {}\n", direction);
       }
+      old_gradient = gradient;
     }
 
     result.x = x;
@@ -111,6 +117,9 @@ public:
 
     return result;
   }
+
+  // References:
+  // [NJWS] Nocedal, J., & Wright, S. (2006). Numerical optimization. Springer
 };
 
 } // namespace minimize
