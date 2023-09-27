@@ -59,7 +59,7 @@ def main(step_size_method, line_search_method, minimize_method):
 
     # Mark start, end, and true minimum
     plt.scatter(path[0, 0], path[0, 1], marker="o", color="blue", label="Start", s=100)
-    plt.scatter(path[-1, 0], path[-1, 1], marker="x", color="red", label="End", s=100)
+    plt.scatter(path[-1, 0], path[-1, 1], marker="x", color="black", label="End", s=100)
     plt.scatter(1, 1, marker="*", color="yellow", s=150, label="True Minimum")
 
     # Display number of evaluations

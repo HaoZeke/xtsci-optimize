@@ -18,6 +18,8 @@ namespace restart {
 template <typename ScalarType>
 class NJWSRestart : public RestartStrategy<ScalarType> {
 public:
+  explicit NJWSRestart(ScalarType threshold = 0.1)
+      : RestartStrategy<ScalarType>(threshold) {}
   bool restart(const ConjugacyContext<ScalarType> &ctx) const override {
     // [NJWS] Equation 5.52
     return (

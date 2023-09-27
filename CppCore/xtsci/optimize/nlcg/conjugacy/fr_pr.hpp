@@ -29,6 +29,7 @@ public:
   ScalarType
   computeBeta(const ConjugacyContext<ScalarType> &ctx) const override {
     // [NJWS] Equation 5.50
+    // TODO(rgoswami): This is technically only for k>= 2
     auto beta_pr = m_pr.computeBeta(ctx);
     auto beta_fr = m_fr.computeBeta(ctx);
     if (beta_pr < -beta_fr) {

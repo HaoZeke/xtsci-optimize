@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "xtensor-blas/xlinalg.hpp"
 #include "xtensor/xarray.hpp"
 
 namespace xts {
@@ -91,6 +92,9 @@ template <typename ScalarType = double> struct OptimizeControl {
   size_t max_iterations = 1000; // Maximum number of iterations
   ScalarType tol = 1e-6;        // Tolerance for termination
   bool verbose = false;         // Whether or not to print progress
+  ScalarType xtol = 1e-6;       // Change in x threshold
+  ScalarType ftol = 1e-6;       // Change in f(x) threshold
+  ScalarType gtol = 1e-6;       // Change in f'(x) threshold
   OptimizeControl(const size_t miter_val, const ScalarType tol_val,
                   const bool verb_val)
       : max_iterations{miter_val}, tol{tol_val}, verbose{verb_val} {}

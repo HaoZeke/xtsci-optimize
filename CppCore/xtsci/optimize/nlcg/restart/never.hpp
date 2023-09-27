@@ -20,6 +20,7 @@ class NeverRestart : public RestartStrategy<ScalarType> {
 public:
   bool restart(const ConjugacyContext<ScalarType> &) const override {
     // Sometimes (testing purposes mostly) it makes no sense to ever restart
+    // Also for the FRPR which basically has its own restart strategy
     return false;
   }
 };

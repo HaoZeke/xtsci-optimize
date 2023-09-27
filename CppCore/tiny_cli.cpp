@@ -89,6 +89,9 @@ int main(int argc, char *argv[]) {
 
   xts::optimize::OptimizeControl<double> control;
   control.tol = 1e-6;
+  control.gtol = 1e-6;
+  control.xtol = 1e-8;
+  control.ftol = 1e-22;
   control.verbose = true;
 
   xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
@@ -106,7 +109,7 @@ int main(int argc, char *argv[]) {
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
       backtracking(strongwolfe, goldenStep);
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
-      bisectionStep, 1e-4, 0.9);
+      bisectionStep, 1e-4, 0.49);
   xts::optimize::linesearch::search_strategy::MooreThuenteLineSearch<double>
       moorethuente(bisectionStep, 1e-3, 0.3);
 
@@ -135,10 +138,11 @@ int main(int argc, char *argv[]) {
 
   xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen
   // xt::xarray<double> initial_guess = {0.0, 0.0}; // himmelblau
+  // xt::xarray<double> initial_guess = {0.23007699, 0.20781567}; // mullerbrown
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      cgopt.optimize(mullerbrown, cstate, control);
+      cgopt.optimize(rosen, cstate, control);
 
   // xts::optimize::OptimizeResult<double> result =
   //     psopt.optimize(mullerbrown, {-512, -512}, {512, 512});
