@@ -19,9 +19,8 @@ namespace conditions {
 
 template <typename ScalarType>
 class ArmijoCondition : public LineSearchCondition<ScalarType> {
-  ScalarType c;
-
 public:
+  ScalarType c;
   explicit ArmijoCondition(ScalarType c_val = 0.0001) : c(c_val) {}
 
   bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
@@ -29,7 +28,7 @@ public:
     auto [x, direction] = cstate;
     ScalarType lhs = func(x + alpha * direction);
     ScalarType rhs =
-        func(x) + c * alpha * xt::linalg::dot(*func.gradient(x), direction)();
+        func(x) + c * alpha * func.directional_derivative(x, direction);
     return lhs <= rhs;
   }
 };

@@ -34,7 +34,7 @@ public:
     auto in_alpha = _in;
     ScalarType alpha = _in.init;
     while (alpha > 0 && !m_cond(alpha, func, cstate)) {
-      alpha = m_geom.nextStep(in_alpha);
+      alpha = m_geom.nextStep(in_alpha, func, cstate);
       in_alpha.init = alpha;
     }
     return alpha;

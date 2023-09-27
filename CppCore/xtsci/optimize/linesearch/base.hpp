@@ -13,6 +13,19 @@ namespace xts {
 namespace optimize {
 namespace linesearch {
 
+template <typename ScalarType> struct AlphaState {
+  ScalarType init;
+  ScalarType low;
+  ScalarType hi;
+};
+
+template <typename ScalarType> class StepSizeStrategy {
+public:
+  virtual ScalarType nextStep(const AlphaState<ScalarType> alpha,
+                              const ObjectiveFunction<ScalarType> &func,
+                              const SearchState<ScalarType> &cstate) const = 0;
+};
+
 template <typename ScalarType> class LineSearchCondition {
 public:
   virtual bool operator()(ScalarType alpha,
@@ -27,7 +40,8 @@ protected:
 public:
   explicit LineSearchStrategy(const OptimizeControl<ScalarType> &control)
       : m_control(control) {}
-  virtual ScalarType search(const ObjectiveFunction<ScalarType> &func,
+  virtual ScalarType search(const AlphaState<ScalarType> _in,
+                            const ObjectiveFunction<ScalarType> &func,
                             const SearchState<ScalarType> &cstate) = 0;
 };
 
@@ -41,16 +55,10 @@ class LineSearchOptimizer : public AbstractOptimizer<ScalarType> {
 protected:
   LineSearchStrategy<ScalarType>
       &m_ls_strat; // Strategy for finding optimal step size
+
 public:
   explicit LineSearchOptimizer(LineSearchStrategy<ScalarType> &strategy)
       : m_ls_strat(strategy) {}
-};
-
-template <typename ScalarType> class StepSizeStrategy {
-public:
-  virtual ScalarType nextStep(ScalarType alpha_lo, ScalarType alpha_hi,
-                              const ObjectiveFunction<ScalarType> &func,
-                              const SearchState<ScalarType> &state) const = 0;
 };
 
 } // namespace linesearch

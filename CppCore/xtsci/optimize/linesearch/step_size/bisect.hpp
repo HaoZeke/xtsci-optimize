@@ -17,11 +17,10 @@ namespace step_size {
 template <typename ScalarType>
 class BisectionStepSize : public StepSizeStrategy<ScalarType> {
 public:
-  ScalarType
-  nextStep(ScalarType alpha_lo, ScalarType alpha_hi,
-           const ObjectiveFunction<ScalarType> & /*func*/,
-           const SearchState<ScalarType> & /*state*/) const override {
-    return 0.5 * (alpha_lo + alpha_hi);
+  ScalarType nextStep(const AlphaState<ScalarType> alpha,
+                      const ObjectiveFunction<ScalarType> &,
+                      const SearchState<ScalarType> &) const override {
+    return (alpha.low + alpha.hi) / 2.0;
   }
 };
 } // namespace step_size

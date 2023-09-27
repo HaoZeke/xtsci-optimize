@@ -22,7 +22,9 @@ private:
 public:
   explicit GeometricReductionStepSize(ScalarType b = 0.5) : beta(b) {}
 
-  ScalarType nextStep(const AlphaState<ScalarType> alpha) const override {
+  ScalarType nextStep(const AlphaState<ScalarType> alpha,
+                      const ObjectiveFunction<ScalarType> &,
+                      const SearchState<ScalarType> &) const override {
     return beta * alpha.init;
   }
 };

@@ -90,6 +90,7 @@ private:
 
 template <typename ScalarType = double> struct OptimizeControl {
   size_t max_iterations = 1000; // Maximum number of iterations
+  double maxmove = 1000;        // Maximum step size
   ScalarType tol = 1e-6;        // Tolerance for termination
   bool verbose = false;         // Whether or not to print progress
   ScalarType xtol = 1e-6;       // Change in x threshold

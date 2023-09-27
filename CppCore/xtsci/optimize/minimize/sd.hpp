@@ -54,8 +54,14 @@ public:
 
       // 1. Line search to get alpha for the current direction.
       // [NJWS] Equation 5.43a
-      alpha = this->m_ls_strat.search({alpha, 0, control.maxmove}, func,
+      alpha = this->m_ls_strat.search({1.0, 1e-6, control.maxmove}, func,
                                       {x, direction});
+      if (alpha == 0) {
+        if (control.verbose) {
+          fmt::print("Line search failed.\n");
+        }
+        break;
+      }
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
       }
