@@ -23,38 +23,92 @@ private:
   conditions::ArmijoCondition<ScalarType> armijo;
   conditions::StrongCurvatureCondition<ScalarType> strong_curvature;
   std::reference_wrapper<StepSizeStrategy<ScalarType>> m_step_strategy;
-  ScalarType m_alpha_lo, m_alpha_hi, m_alpha;
 
 public:
   ZoomLineSearch(
       StepSizeStrategy<ScalarType> &stepStrat, ScalarType c_armijo = 1e-4,
       ScalarType c_curv = 0.9,
-      OptimizeControl<ScalarType> optim = OptimizeControl<ScalarType>(),
-      ScalarType alpha_lo_val = 0.0, ScalarType alpha_hi_val = 1.0,
-      ScalarType alpha_val = 0.5)
+      OptimizeControl<ScalarType> optim = OptimizeControl<ScalarType>())
       : LineSearchStrategy<ScalarType>(optim), armijo(c_armijo),
-        strong_curvature(c_curv), m_step_strategy(stepStrat),
-        m_alpha_lo(alpha_lo_val), m_alpha_hi(alpha_hi_val), m_alpha(alpha_val) {
-  }
+        strong_curvature(c_curv), m_step_strategy(stepStrat) {}
 
-  ScalarType search(const ObjectiveFunction<ScalarType> &func,
-                    const SearchState<ScalarType> &cstate) override {
-    ScalarType alpha_lo{m_alpha_lo}, alpha_hi{m_alpha_hi}, alpha{m_alpha};
-    while (true) {
-      if (!(armijo(alpha, func, cstate))) {
-        alpha_hi = alpha;
-      } else if (!(strong_curvature(alpha, func, cstate))) {
-        alpha_lo = alpha;
-      } else {
-        // Both conditions are satisfied
-        return alpha;
-      }
-      if (alpha_hi - alpha_lo < this->m_control.tol) {
+  ScalarType search(const AlphaState<ScalarType> _in,
+                    const ObjectiveFunction<ScalarType> &func,
+                    const SearchState<ScalarType> &cstate) {
+    auto phi = [&](ScalarType a_val) {
+      return func(cstate.x + a_val * cstate.direction);
+    };
+    auto phi_prime = [&](ScalarType a_val) {
+      return func.directional_derivative(cstate.x + a_val * cstate.direction,
+                                         cstate.direction);
+    };
+
+    ScalarType phi_0 = phi(0.0);
+    ScalarType phi_prime_0 = phi_prime(0.0);
+
+    ScalarType alpha_max = _in.hi;
+    ScalarType alpha_i = _in.init;
+    ScalarType alpha_prev = 0.0; // Initialization corrected
+    ScalarType alpha_res = std::numeric_limits<ScalarType>::infinity();
+
+    for (size_t idx = 0; idx < 100; idx++) {
+      if ((!armijo(alpha_i, func, cstate) && idx > 0) ||
+          phi(alpha_i) > phi_0 + armijo.c * alpha_i * phi_prime_0) {
+        alpha_res = zoom(alpha_prev, alpha_i, func, cstate);
         break;
       }
-      alpha = m_step_strategy.get().nextStep(alpha_lo, alpha_hi, func, cstate);
+      if (strong_curvature(alpha_i, func, cstate)) {
+        alpha_res = alpha_i;
+        break;
+      }
+      if (phi_prime(alpha_i) >= 0) {
+        alpha_res = zoom(alpha_i, alpha_prev, func, cstate);
+        break;
+      }
+      alpha_prev = alpha_i;
+      alpha_i = std::min(alpha_i * 2, alpha_max);
     }
-    return alpha;
+
+    if (alpha_res == std::numeric_limits<ScalarType>::infinity() ||
+        std::isnan(alpha_res)) {
+      fmt::print("Failure, falling back\n");
+      alpha_res = std::min(alpha_i, _in.low);
+    }
+    return alpha_res;
+  }
+
+  ScalarType zoom(ScalarType lo, ScalarType hi,
+                  const ObjectiveFunction<ScalarType> &func,
+                  const SearchState<ScalarType> &cstate) {
+    auto phi = [&](ScalarType a_val) {
+      return func(cstate.x + a_val * cstate.direction);
+    };
+
+    auto phi_prime = [&](ScalarType a_val) {
+      return func.directional_derivative(cstate.x + a_val * cstate.direction,
+                                         cstate.direction);
+    };
+
+    ScalarType alpha_j;
+
+    for (size_t idx = 0; idx < 100; ++idx) {
+      alpha_j = m_step_strategy.get().nextStep(
+          {.init = alpha_j, .low = lo, .hi = hi}, func, cstate);
+
+      if (!armijo(alpha_j, func, cstate) || phi(alpha_j) >= phi(lo)) {
+        hi = alpha_j;
+      } else {
+        if (strong_curvature(alpha_j, func, cstate)) {
+          return alpha_j;
+        }
+        if (phi_prime(alpha_j) * (hi - lo) >= 0) {
+          hi = lo;
+        }
+        lo = alpha_j;
+      }
+    }
+    return m_step_strategy.get().nextStep(
+        {.init = alpha_j, .low = lo, .hi = hi}, func, cstate);
   }
 };
 
