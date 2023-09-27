@@ -19,11 +19,13 @@ class ConjugateGradientOptimizer
     : public linesearch::LineSearchOptimizer<ScalarType> {
 public:
   std::reference_wrapper<nlcg::ConjugacyCoefficientStrategy<ScalarType>> m_conj;
+  std::reference_wrapper<nlcg::RestartStrategy<ScalarType>> m_restart;
   ConjugateGradientOptimizer(
       linesearch::LineSearchStrategy<ScalarType> &strategy,
-      nlcg::ConjugacyCoefficientStrategy<ScalarType> &conjugacy_strategy)
+      nlcg::ConjugacyCoefficientStrategy<ScalarType> &conjugacy_strategy,
+      nlcg::RestartStrategy<ScalarType> &restart_strategy)
       : linesearch::LineSearchOptimizer<ScalarType>(strategy),
-        m_conj(conjugacy_strategy) {}
+        m_conj(conjugacy_strategy), m_restart(restart_strategy) {}
 
   OptimizeResult<ScalarType>
   optimize(const ObjectiveFunction<ScalarType> &func,
@@ -46,6 +48,7 @@ public:
     }
 
     OptimizeResult<ScalarType> result;
+    nlcg::ConjugacyContext<ScalarType> conj_ctx;
 
     for (result.nit = 0; result.nit < control.max_iterations; ++result.nit) {
       if (control.verbose) {
@@ -76,10 +79,19 @@ public:
         break;
       }
 
-      ScalarType beta =
-          m_conj.get().computeBeta({.current_gradient = new_gradient,
-                                    .previous_gradient = gradient,
-                                    .previous_direction = direction});
+      conj_ctx.current_gradient = new_gradient;
+      conj_ctx.previous_gradient = gradient;
+      conj_ctx.previous_direction = direction;
+
+      ScalarType beta = m_conj.get().computeBeta(conj_ctx);
+
+      if (m_restart.get().restart(conj_ctx)) {
+        beta = 0;
+      }
+
+      if (control.verbose) {
+        fmt::print("Beta: {}\n", beta);
+      }
 
       xt::noalias(direction) = -new_gradient + beta * direction;
       gradient = new_gradient; // Direct assignment (assumes ownership transfer

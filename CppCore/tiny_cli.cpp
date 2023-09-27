@@ -23,10 +23,15 @@
 #include "xtsci/optimize/linesearch/search_strategy/zoom.hpp"
 
 #include "xtsci/optimize/nlcg/conjugacy/fletcher_reeves.hpp"
+#include "xtsci/optimize/nlcg/conjugacy/fr_pr.hpp"
+#include "xtsci/optimize/nlcg/conjugacy/hager_zhang.hpp"
 #include "xtsci/optimize/nlcg/conjugacy/hestenes-stiefel.hpp"
 #include "xtsci/optimize/nlcg/conjugacy/hybridized_conj.hpp"
 #include "xtsci/optimize/nlcg/conjugacy/liu_storey.hpp"
 #include "xtsci/optimize/nlcg/conjugacy/polak_ribiere.hpp"
+
+#include "xtsci/optimize/nlcg/restart/never.hpp"
+#include "xtsci/optimize/nlcg/restart/njws.hpp"
 
 #include "xtsci/optimize/linesearch/step_size/bisect.hpp"
 #include "xtsci/optimize/linesearch/step_size/cubic.hpp"
@@ -35,8 +40,8 @@
 
 #include "xtsci/optimize/minimize/adam.hpp"
 #include "xtsci/optimize/minimize/bfgs.hpp"
-#include "xtsci/optimize/minimize/cg.hpp"
 #include "xtsci/optimize/minimize/lbfgs.hpp"
+#include "xtsci/optimize/minimize/nlcg.hpp"
 #include "xtsci/optimize/minimize/pso.hpp"
 #include "xtsci/optimize/minimize/sr1.hpp"
 #include "xtsci/optimize/minimize/sr2.hpp"
@@ -112,9 +117,14 @@ int main(int argc, char *argv[]) {
   xts::optimize::nlcg::conjugacy::HybridizedConj<double> hybrid_min(
       hestenesstiefel, polakribiere,
       [](double a, double b) -> double { return std::min(a, b); });
+  xts::optimize::nlcg::conjugacy::FRPR<double> frpr;
+  xts::optimize::nlcg::conjugacy::HagerZhang<double> hagerzhang;
+
+  xts::optimize::nlcg::restart::NJWSRestart<double> njws_restart;
+  xts::optimize::nlcg::restart::NeverRestart<double> never_restart;
 
   xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
-      moorethuente, hybrid_min);
+      zoom, polakribiere, njws_restart);
 
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(backtracking);
   xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 30);
