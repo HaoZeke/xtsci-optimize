@@ -58,6 +58,17 @@ public:
     return this->compute_hessian(x);
   }
 
+  ScalarType
+  directional_derivative(const xt::xarray<ScalarType> &x,
+                         const xt::xarray<ScalarType> &direction) const {
+    auto grad_opt = gradient(x);
+    if (!grad_opt) {
+      throw std::runtime_error(
+          "Gradient required for computing directional derivative.");
+    }
+    return xt::linalg::dot(*grad_opt, direction)();
+  }
+
   EvaluationCounter evaluation_counts() const { return m_counter; }
 
 private:
