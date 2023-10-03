@@ -24,7 +24,7 @@ class FRPR : public ConjugacyCoefficientStrategy<ScalarType> {
   PolakRibiere<ScalarType> m_pr;
 
 public:
-  FRPR<ScalarType>()
+  FRPR()
       : m_fr{FletcherReeves<ScalarType>()}, m_pr{PolakRibiere<ScalarType>()} {}
   ScalarType
   computeBeta(const ConjugacyContext<ScalarType> &ctx) const override {
