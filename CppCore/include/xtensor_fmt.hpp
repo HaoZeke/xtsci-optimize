@@ -18,33 +18,33 @@ template <typename T> struct formatter<xt::xarray<T>> {
     auto out = ctx.out();
     if (arr.dimension() == 1) {
       // Handle 1D array
-      out = format_to(out, "[");
+      out = fmt::format_to(out, "[");
       for (std::size_t i = 0; i < arr.shape()[0]; ++i) {
         if (i > 0)
-          out = format_to(out, ", ");
-        out = format_to(out, "{}", arr(i));
+          out = fmt::format_to(out, ", ");
+        out = fmt::format_to(out, "{}", arr(i));
       }
-      out = format_to(out, "]");
+      out = fmt::format_to(out, "]");
     } else if (arr.dimension() == 2) {
       // Handle 2D array
-      out = format_to(out, "[\n");
+      out = fmt::format_to(out, "[\n");
       for (std::size_t i = 0; i < arr.shape()[0]; ++i) {
-        out = format_to(out, "  [");
+        out = fmt::format_to(out, "  [");
         for (std::size_t j = 0; j < arr.shape()[1]; ++j) {
           if (j > 0)
-            out = format_to(out, ", ");
-          out = format_to(out, "{}", arr(i, j));
+            out = fmt::format_to(out, ", ");
+          out = fmt::format_to(out, "{}", arr(i, j));
         }
-        out = format_to(out, "]");
+        out = fmt::format_to(out, "]");
         if (i < arr.shape()[0] - 1) {
-          out = format_to(out, ",");
+          out = fmt::format_to(out, ",");
         }
-        out = format_to(out, "\n");
+        out = fmt::format_to(out, "\n");
       }
-      out = format_to(out, "]");
+      out = fmt::format_to(out, "]");
     } else {
       // Unsupported dimensions
-      out = format_to(out, "Only 1D and 2D arrays are supported.");
+      out = fmt::format_to(out, "Only 1D and 2D arrays are supported.");
     }
     return out;
   }
