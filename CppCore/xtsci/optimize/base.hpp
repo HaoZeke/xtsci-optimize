@@ -80,9 +80,9 @@ public:
   }
 
   std::pair<xt::xarray<ScalarType>, xt::xarray<ScalarType>>
-  grad_components(const xt::xarray<ScalarType> &direction,
+  grad_components(xt::xarray<ScalarType> &direction,
                   bool is_normalized = false) const {
-    ensure_normalized(direction, is_normalized);
+    xts::helpers::ensure_normalized(direction, is_normalized);
     auto grad = this->gradient(direction).value();
     auto parallel_projection = xt::linalg::dot(grad, direction) * direction;
     auto perpendicular_projection = grad - parallel_projection;
@@ -91,9 +91,9 @@ public:
 
   std::pair<xt::xarray<ScalarType>, xt::xarray<ScalarType>>
   proj_components(const xt::xarray<ScalarType> &x,
-                  const xt::xarray<ScalarType> &direction,
+                  xt::xarray<ScalarType> &direction,
                   bool is_normalized = false) const {
-    ensure_normalized(direction, is_normalized);
+    xts::helpers::ensure_normalized(direction, is_normalized);
     auto parallel_projection = xt::linalg::dot(x, direction) * direction;
     auto perpendicular_projection = x - parallel_projection;
     return {parallel_projection, perpendicular_projection};
