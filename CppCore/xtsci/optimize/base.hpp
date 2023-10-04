@@ -39,6 +39,12 @@ struct EvaluationCounter {
 template <typename ScalarType = double> class ObjectiveFunction {
 public:
   ObjectiveFunction() = default;
+  explicit ObjectiveFunction(const xt::xarray<ScalarType> &min) : minima(min) {}
+  explicit ObjectiveFunction(const xt::xarray<ScalarType> &min,
+                             const xt::xarray<ScalarType> &sad)
+      : minima(min), saddles(sad) {}
+  const xt::xarray<ScalarType> minima;
+  const xt::xarray<ScalarType> saddles;
 
   virtual ~ObjectiveFunction() = default;
 

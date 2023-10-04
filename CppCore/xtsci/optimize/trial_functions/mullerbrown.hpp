@@ -28,6 +28,12 @@ class MullerBrown : public ObjectiveFunction<ScalarType> {
   // First saddle point is at x = (0.212, 0.293) with f(x) = -72.24891965936473
   // Second saddle point is at x = (-0.822, 0.624) with f(x) =
   // -40.66484530104902
+public:
+  MullerBrown()
+      : ObjectiveFunction<ScalarType>(
+            /* minima */ {{-0.558, 1.442}, {0.623, 0.028}, {-0.050, 0.466}},
+            /* saddles */ {{0.212, 0.293}, {-0.822, 0.624}}) {}
+
 private:
   static constexpr std::array<ScalarType, 4> A = {-200, -100, -170, 15};
   static constexpr std::array<ScalarType, 4> a = {-1, -1, -6.5, 0.7};

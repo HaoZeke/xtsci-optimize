@@ -21,6 +21,13 @@ class Himmelblau : public ObjectiveFunction<ScalarType> {
   // Domain is [-5, 5] x [-5, 5]
   // Global minima are at (3, 2) and (-2.805118, 3.131312) and (-3.779310,
   // -3.283186) and (3.584428, -1.848126)
+public:
+  Himmelblau()
+      : ObjectiveFunction<ScalarType>(/* minima */ {{3, 2},
+                                                    {-2.805118, 3.131312},
+                                                    {-3.779310, -3.283186},
+                                                    {3.584428, -1.848126}}) {}
+
 private:
   ScalarType compute(const xt::xarray<ScalarType> &x) const override {
     ScalarType x_val = x(0);
