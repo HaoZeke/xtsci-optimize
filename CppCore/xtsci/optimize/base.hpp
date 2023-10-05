@@ -37,6 +37,7 @@ struct EvaluationCounter {
   size_t function_evals = 0;
   size_t gradient_evals = 0;
   size_t hessian_evals = 0;
+  size_t unique_func_grad = 0;
 };
 
 template <typename ScalarType = double> class ObjectiveFunction {
@@ -53,12 +54,14 @@ public:
 
   ScalarType operator()(const xt::xarray<ScalarType> &x) const {
     ++m_counter.function_evals;
+    ++m_counter.unique_func_grad;
     return this->compute(x);
   }
 
   virtual std::optional<xt::xarray<ScalarType>>
   gradient(const xt::xarray<ScalarType> &x) const {
     ++m_counter.gradient_evals;
+    ++m_counter.unique_func_grad;
     return this->compute_gradient(x);
   }
 
