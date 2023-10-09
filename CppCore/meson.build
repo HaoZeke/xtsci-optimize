@@ -1,5 +1,3 @@
-_incdirs += include_directories(['include'])
-
 # --------------------- Executable
 
 tiny_cli = executable('tiny_cli', 'tiny_cli.cpp',
