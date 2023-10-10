@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
       backtracking(strongwolfe, 0.5);
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
-      cubicStep, 1e-4, 0.9);
+      goldenStep, 1e-4, 0.9);
 
   xts::optimize::nlcg::conjugacy::FletcherReeves<double> fletcherreeves;
   xts::optimize::nlcg::conjugacy::PolakRibiere<double> polakribiere;
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
   xts::optimize::nlcg::restart::NeverRestart<double> never_restart;
 
   xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
-      backtracking, frpr, never_restart);
+      zoom, liustorey, njws_restart);
 
   xts::optimize::minimize::SteepestDescentOptimizer<double> sdopt(backtracking);
 
