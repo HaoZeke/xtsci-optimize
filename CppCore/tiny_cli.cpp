@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      cgopt.optimize(mullerbrown, cstate, control);
+      lbfgsopt.optimize(mullerbrown, cstate, control);
 
   // xts::optimize::OptimizeResult<double> result =
   //     psopt.optimize(mullerbrown, {-512, -512}, {512, 512});

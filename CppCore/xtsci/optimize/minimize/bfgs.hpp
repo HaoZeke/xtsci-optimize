@@ -98,6 +98,7 @@ public:
     result.nfev = func.evaluation_counts().function_evals;
     result.njev = func.evaluation_counts().gradient_evals;
     result.nhev = func.evaluation_counts().hessian_evals;
+    result.nufg = func.evaluation_counts().unique_func_grad;
 
     return result;
   }
