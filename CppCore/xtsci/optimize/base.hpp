@@ -29,6 +29,7 @@ template <typename ScalarType = double> struct OptimizeResult {
   size_t nfev;      // number of evaluations of the objective functions
   size_t njev;      // number of evaluations of the Jacobian
   size_t nhev;      // number of evaluations of the Hessian
+  size_t nufg;      // number of unique function and gradient evaluations
   size_t nit;       // number of iterations performed by the optimizer
   ScalarType maxcv; // the maximum constraint violation
 };
