@@ -162,5 +162,6 @@ int main(int argc, char *argv[]) {
   std::cout << "Number of function evaluations: " << result.nfev << "\n";
   std::cout << "Number of gradient evaluations: " << result.njev << "\n";
   std::cout << "Number of Hessian evaluations: " << result.nhev << "\n";
+  std::cout << "Unique function and gradient calls: " << result.nufg << "\n";
   return EXIT_SUCCESS;
 }

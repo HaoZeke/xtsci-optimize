@@ -22,6 +22,7 @@ public:
       : RestartStrategy<ScalarType>(threshold) {}
   bool restart(const ConjugacyContext<ScalarType> &ctx) const override {
     // [NJWS] Equation 5.52
+    // Normalized cosine of the angle between the current and previous gradients
     auto deviation =
         std::abs(
             xt::linalg::dot(ctx.current_gradient, ctx.previous_gradient)()) /
