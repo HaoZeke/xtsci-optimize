@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
   xts::optimize::nlcg::restart::NeverRestart<double> never_restart;
 
   xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
-      zoom, frpr, never_restart);
+      backtracking, frpr, never_restart);
 
   xts::optimize::minimize::SteepestDescentOptimizer<double> sdopt(backtracking);
 
@@ -144,14 +144,14 @@ int main(int argc, char *argv[]) {
   xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);
   xts::optimize::minimize::PSOptim<double> psopt(100, 0.5, 1.5, 1.5, control);
 
-  xt::xarray<double> initial_guess = {-1.2, 1.0}; // rosen
+  // xt::xarray<double> initial_guess = {-1.2, 1.0}; // rosen
   // xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen
   // xt::xarray<double> initial_guess = {0.0, 0.0}; // himmelblau
-  // xt::xarray<double> initial_guess = {0.23007699, 0.20781567}; // mullerbrown
+  xt::xarray<double> initial_guess = {0.23007699, 0.20781567}; // mullerbrown
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      lbfgsopt.optimize(rosen, cstate, control);
+      cgopt.optimize(mullerbrown, cstate, control);
 
   // xts::optimize::OptimizeResult<double> result =
   //     psopt.optimize(mullerbrown, {-512, -512}, {512, 512});
