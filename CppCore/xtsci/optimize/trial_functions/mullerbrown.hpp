@@ -2,6 +2,7 @@
 // MIT License
 // Copyright 2023--present Rohit Goswami <HaoZeke>
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <optional>
@@ -31,8 +32,16 @@ class MullerBrown : public ObjectiveFunction<ScalarType> {
 public:
   MullerBrown()
       : ObjectiveFunction<ScalarType>(
-            /* minima */ {{-0.558, 1.442}, {0.623, 0.028}, {-0.050, 0.466}},
-            /* saddles */ {{0.212, 0.293}, {-0.822, 0.624}}) {}
+            /* minima */ {{static_cast<ScalarType>(-0.558),
+                           static_cast<ScalarType>(1.442)},
+                          {static_cast<ScalarType>(0.623),
+                           static_cast<ScalarType>(0.028)},
+                          {static_cast<ScalarType>(-0.050),
+                           static_cast<ScalarType>(0.466)}},
+            /* saddles */ {{static_cast<ScalarType>(0.212),
+                            static_cast<ScalarType>(0.293)},
+                           {static_cast<ScalarType>(-0.822),
+                            static_cast<ScalarType>(0.624)}}) {}
 
 private:
   static constexpr std::array<ScalarType, 4> A = {-200, -100, -170, 15};
@@ -46,11 +55,12 @@ private:
     ScalarType x_val = x(0);
     ScalarType y_val = x(1);
     ScalarType result = 0.0;
+    ScalarType two = 2;
 
     for (size_t i = 0; i < 4; ++i) {
-      result += A[i] * std::exp(a[i] * std::pow(x_val - x0[i], 2) +
+      result += A[i] * std::exp(a[i] * std::pow(x_val - x0[i], two) +
                                 b[i] * (x_val - x0[i]) * (y_val - y0[i]) +
-                                c[i] * std::pow(y_val - y0[i], 2));
+                                c[i] * std::pow(y_val - y0[i], two));
     }
 
     return result;
@@ -62,16 +72,17 @@ private:
     ScalarType y_val = x(1);
     ScalarType df_dx = 0.0;
     ScalarType df_dy = 0.0;
+    ScalarType two = 2;
 
     for (size_t i = 0; i < 4; ++i) {
-      ScalarType exponent = a[i] * std::pow(x_val - x0[i], 2) +
+      ScalarType exponent = a[i] * std::pow(x_val - x0[i], two) +
                             b[i] * (x_val - x0[i]) * (y_val - y0[i]) +
-                            c[i] * std::pow(y_val - y0[i], 2);
+                            c[i] * std::pow(y_val - y0[i], two);
       ScalarType exp_value = std::exp(exponent);
       df_dx += A[i] * exp_value *
-               (2 * a[i] * (x_val - x0[i]) + b[i] * (y_val - y0[i]));
+               (two * a[i] * (x_val - x0[i]) + b[i] * (y_val - y0[i]));
       df_dy += A[i] * exp_value *
-               (b[i] * (x_val - x0[i]) + 2 * c[i] * (y_val - y0[i]));
+               (b[i] * (x_val - x0[i]) + two * c[i] * (y_val - y0[i]));
     }
 
     return xt::xarray<ScalarType>{df_dx, df_dy};
@@ -84,22 +95,22 @@ private:
     ScalarType d2f_dx2 = 0.0;
     ScalarType d2f_dy2 = 0.0;
     ScalarType d2f_dxdy = 0.0;
-
+    ScalarType two = 2;
     for (size_t i = 0; i < 4; ++i) {
-      ScalarType exponent = a[i] * std::pow(x_val - x0[i], 2) +
+      ScalarType exponent = a[i] * std::pow(x_val - x0[i], two) +
                             b[i] * (x_val - x0[i]) * (y_val - y0[i]) +
-                            c[i] * std::pow(y_val - y0[i], 2);
+                            c[i] * std::pow(y_val - y0[i], two);
       ScalarType exp_value = std::exp(exponent);
 
       d2f_dx2 += A[i] * exp_value *
-                 ((2 * a[i]) * (2 * a[i]) + 2 * a[i] +
-                  b[i] * b[i] * std::pow(y_val - y0[i], 2));
+                 ((two * a[i]) * (two * a[i]) + two * a[i] +
+                  b[i] * b[i] * std::pow(y_val - y0[i], two));
       d2f_dy2 += A[i] * exp_value *
-                 ((2 * c[i]) * (2 * c[i]) + 2 * c[i] +
-                  b[i] * b[i] * std::pow(x_val - x0[i], 2));
+                 ((two * c[i]) * (two * c[i]) + two * c[i] +
+                  b[i] * b[i] * std::pow(x_val - x0[i], two));
       d2f_dxdy += A[i] * exp_value *
-                  (2 * a[i] * b[i] * (x_val - x0[i]) +
-                   2 * c[i] * b[i] * (y_val - y0[i]) +
+                  (two * a[i] * b[i] * (x_val - x0[i]) +
+                   two * c[i] * b[i] * (y_val - y0[i]) +
                    b[i] * b[i] * (x_val - x0[i]) * (y_val - y0[i]));
     }
 
