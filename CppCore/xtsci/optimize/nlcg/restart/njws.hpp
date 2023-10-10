@@ -18,15 +18,15 @@ namespace restart {
 template <typename ScalarType>
 class NJWSRestart : public RestartStrategy<ScalarType> {
 public:
-  explicit NJWSRestart(ScalarType threshold = 0.1)
+  explicit NJWSRestart(ScalarType threshold = 0.5)
       : RestartStrategy<ScalarType>(threshold) {}
   bool restart(const ConjugacyContext<ScalarType> &ctx) const override {
     // [NJWS] Equation 5.52
-    return (
+    auto deviation =
         std::abs(
             xt::linalg::dot(ctx.current_gradient, ctx.previous_gradient)()) /
-            xt::linalg::dot(ctx.previous_gradient, ctx.previous_gradient)() >=
-        this->m_threshold);
+        xt::linalg::dot(ctx.previous_gradient, ctx.previous_gradient)();
+    return (deviation >= this->m_threshold);
   }
 
   // References:
