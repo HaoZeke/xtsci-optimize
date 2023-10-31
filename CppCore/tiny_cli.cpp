@@ -48,6 +48,7 @@
 #include "xtsci/optimize/minimize/sr1.hpp"
 #include "xtsci/optimize/minimize/sr2.hpp"
 
+#include "xtsci/func/plot_aid.hpp"
 #include "xtsci/func/trial/D2/branin.hpp"
 #include "xtsci/func/trial/D2/eggholder.hpp"
 #include "xtsci/func/trial/D2/himmelblau.hpp"
@@ -154,8 +155,10 @@ int main(int argc, char *argv[]) {
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      lbfgsopt.optimize(mullerbrown, cstate, control);
+      lbfgsopt.optimize(branin, cstate, control);
 
+  xts::func::npz_on_grid2D<double>({-5, 18, 400}, {-5, 20, 400}, branin,
+                                   "branin.npz");
   // xts::optimize::OptimizeResult<double> result =
   //     psopt.optimize(mullerbrown, {-512, -512}, {512, 512});
 
