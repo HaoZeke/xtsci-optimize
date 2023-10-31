@@ -9,7 +9,7 @@
 #include <iostream>
 #include <random>
 
-#include "xtensor-fmt/xarray.hpp"
+#include "xtensor-fmt/misc.hpp"
 #include "xtensor-io/xnpz.hpp"
 #include "xtensor/xarray.hpp"
 
@@ -48,11 +48,11 @@
 #include "xtsci/optimize/minimize/sr1.hpp"
 #include "xtsci/optimize/minimize/sr2.hpp"
 
-#include "xtsci/optimize/trial_functions/eggholder.hpp"
-#include "xtsci/optimize/trial_functions/himmelblau.hpp"
-#include "xtsci/optimize/trial_functions/mullerbrown.hpp"
-#include "xtsci/optimize/trial_functions/quadratic.hpp"
-#include "xtsci/optimize/trial_functions/rosenbrock.hpp"
+#include "xtsci/func/trial/D2/branin.hpp"
+#include "xtsci/func/trial/D2/eggholder.hpp"
+#include "xtsci/func/trial/D2/himmelblau.hpp"
+#include "xtsci/func/trial/D2/mullerbrown.hpp"
+#include "xtsci/func/trial/D2/rosenbrock.hpp"
 
 int main(int argc, char *argv[]) {
   // Eat warnings, also safer
@@ -83,11 +83,12 @@ int main(int argc, char *argv[]) {
   // std::cout << "Data written to rosenbrock.npz" << std::endl;
 
   // Use a minimizer
-  xts::optimize::trial_functions::Rosenbrock<double> rosen;
-  xts::optimize::trial_functions::QuadraticFunction<double> quadratic;
-  xts::optimize::trial_functions::Himmelblau<double> himmelblau;
-  xts::optimize::trial_functions::Eggholder<double> eggholder;
-  xts::optimize::trial_functions::MullerBrown<double> mullerbrown;
+  xts::func::trial::D2::Rosenbrock<double> rosen;
+  xts::func::trial::D2::Himmelblau<double> himmelblau;
+  // xts::func::trial::D2::QuadraticFunction<double> quadratic;
+  xts::func::trial::D2::Eggholder<double> eggholder;
+  xts::func::trial::D2::MullerBrown<double> mullerbrown;
+  xts::func::trial::D2::Branin<double> branin;
 
   xts::optimize::OptimizeControl<double> control;
   control.tol = 1e-6;
@@ -135,14 +136,16 @@ int main(int argc, char *argv[]) {
   xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
       zoom, liustorey, njws_restart);
 
-  xts::optimize::minimize::SteepestDescentOptimizer<double> sdopt(backtracking);
+  // xts::optimize::minimize::SteepestDescentOptimizer<double>
+  // sdopt(backtracking);
 
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(zoom);
   xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 10);
-  xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
-  xts::optimize::minimize::SR1Optimizer<double> sr1opt(zoom);
-  xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);
-  xts::optimize::minimize::PSOptim<double> psopt(100, 0.5, 1.5, 1.5, control);
+  // xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
+  // xts::optimize::minimize::SR1Optimizer<double> sr1opt(zoom);
+  // xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);
+  // xts::optimize::minimize::PSOptim<double> psopt(100, 0.5, 1.5, 1.5,
+  // control);
 
   // xt::xarray<double> initial_guess = {-1.2, 1.0}; // rosen
   // xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen

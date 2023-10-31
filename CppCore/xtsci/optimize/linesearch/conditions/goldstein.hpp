@@ -32,7 +32,8 @@ public:
     }
   }
 
-  bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
+  bool operator()(ScalarType alpha,
+                  const func::ObjectiveFunction<ScalarType> &func,
                   const SearchState<ScalarType> &cstate) const override {
     auto [x, direction] = cstate;
     ScalarType lhs = func(x + alpha * direction);
@@ -56,7 +57,8 @@ public:
                               ScalarType c_upper = 1e-4)
       : armijo(c_armijo), goldstein_upper(c_upper) {}
 
-  bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
+  bool operator()(ScalarType alpha,
+                  const func::ObjectiveFunction<ScalarType> &func,
                   const SearchState<ScalarType> &cstate) const override {
     return armijo(alpha, func, cstate) && goldstein_upper(alpha, func, cstate);
   }

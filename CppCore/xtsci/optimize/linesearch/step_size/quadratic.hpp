@@ -21,7 +21,7 @@ public:
   QuadraticInterpolationStepSize() {}
 
   ScalarType nextStep(const AlphaState<ScalarType> alpha,
-                      const ObjectiveFunction<ScalarType> &func,
+                      const func::ObjectiveFunction<ScalarType> &func,
                       const SearchState<ScalarType> &cstate) const override {
     auto phi = [&](ScalarType a_val) {
       return func(cstate.x + a_val * cstate.direction);

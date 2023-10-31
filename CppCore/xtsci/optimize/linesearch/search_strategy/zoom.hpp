@@ -33,7 +33,7 @@ public:
         strong_curvature(c_curv), m_step_strategy(stepStrat) {}
 
   ScalarType search(const AlphaState<ScalarType> _in,
-                    const ObjectiveFunction<ScalarType> &func,
+                    const func::ObjectiveFunction<ScalarType> &func,
                     const SearchState<ScalarType> &cstate) {
     auto phi = [&](ScalarType a_val) {
       return func(cstate.x + a_val * cstate.direction);
@@ -78,7 +78,7 @@ public:
   }
 
   ScalarType zoom(ScalarType lo, ScalarType hi,
-                  const ObjectiveFunction<ScalarType> &func,
+                  const func::ObjectiveFunction<ScalarType> &func,
                   const SearchState<ScalarType> &cstate) {
     auto phi = [&](ScalarType a_val) {
       return func(cstate.x + a_val * cstate.direction);

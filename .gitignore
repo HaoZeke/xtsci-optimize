@@ -100,3 +100,6 @@ dkms.conf
 # End of https://www.toptal.com/developers/gitignore/api/c
 
 /compile_commands.json
+*.txt
+/subprojects/xtensor-fmt/
+/subprojects/xtsci-function/

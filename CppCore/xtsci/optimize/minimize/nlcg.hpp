@@ -29,7 +29,7 @@ public:
         m_conj(conjugacy_strategy), m_restart(restart_strategy) {}
 
   OptimizeResult<ScalarType>
-  optimize(const ObjectiveFunction<ScalarType> &func,
+  optimize(const func::ObjectiveFunction<ScalarType> &func,
            const SearchState<ScalarType> &initial_guess,
            const OptimizeControl<ScalarType> &control) const override {
     auto [x, direction] = initial_guess;

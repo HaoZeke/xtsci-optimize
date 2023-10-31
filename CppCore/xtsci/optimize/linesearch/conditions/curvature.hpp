@@ -24,7 +24,8 @@ public:
   ScalarType c_prime;
   explicit CurvatureCondition(ScalarType c_prime_val = 0.9)
       : c_prime(c_prime_val) {}
-  bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
+  bool operator()(ScalarType alpha,
+                  const func::ObjectiveFunction<ScalarType> &func,
                   const SearchState<ScalarType> &cstate) const override {
     auto [x, direction] = cstate;
     auto lhs =
@@ -40,7 +41,8 @@ public:
   ScalarType c;
   explicit StrongCurvatureCondition(ScalarType c_val = 0.9) : c(c_val) {}
 
-  bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
+  bool operator()(ScalarType alpha,
+                  const func::ObjectiveFunction<ScalarType> &func,
                   const SearchState<ScalarType> &cstate) const override {
     auto [x, direction] = cstate;
     auto grad_phi_alpha =
