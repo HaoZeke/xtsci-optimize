@@ -18,7 +18,7 @@ template <typename ScalarType>
 class BisectionStepSize : public StepSizeStrategy<ScalarType> {
 public:
   ScalarType nextStep(const AlphaState<ScalarType> alpha,
-                      const ObjectiveFunction<ScalarType> &,
+                      const func::ObjectiveFunction<ScalarType> &,
                       const SearchState<ScalarType> &) const override {
     return (alpha.low + alpha.hi) / 2.0;
   }

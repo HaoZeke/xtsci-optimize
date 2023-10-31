@@ -48,7 +48,7 @@ public:
     prev_gbest_value = std::numeric_limits<ScalarType>::infinity();
   }
 
-  void initialize_swarm(const ObjectiveFunction<ScalarType> &func,
+  void initialize_swarm(const func::ObjectiveFunction<ScalarType> &func,
                         const xt::xarray<ScalarType> &lower_bound,
                         const xt::xarray<ScalarType> &upper_bound) {
     for (size_t idx = 0; idx < num_particles; ++idx) {
@@ -70,7 +70,7 @@ public:
     }
   }
 
-  void update_swarm(const ObjectiveFunction<ScalarType> &func,
+  void update_swarm(const func::ObjectiveFunction<ScalarType> &func,
                     const xt::xarray<ScalarType> &lower_bound,
                     const xt::xarray<ScalarType> &upper_bound) {
     size_t idx = 0;
@@ -117,7 +117,7 @@ public:
   }
 
   xts::optimize::OptimizeResult<ScalarType>
-  optimize(const ObjectiveFunction<ScalarType> &func,
+  optimize(const func::ObjectiveFunction<ScalarType> &func,
            const xt::xarray<ScalarType> &lower_bound,
            const xt::xarray<ScalarType> &upper_bound) {
     initialize_swarm(func, lower_bound, upper_bound);

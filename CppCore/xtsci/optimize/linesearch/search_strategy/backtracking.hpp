@@ -29,7 +29,7 @@ public:
         m_geom{step_size::GeometricReductionStepSize<ScalarType>(geom_beta)} {}
 
   ScalarType search(const AlphaState<ScalarType> _in,
-                    const ObjectiveFunction<ScalarType> &func,
+                    const func::ObjectiveFunction<ScalarType> &func,
                     const SearchState<ScalarType> &cstate) override {
     auto in_alpha = _in;
     ScalarType alpha = _in.init;

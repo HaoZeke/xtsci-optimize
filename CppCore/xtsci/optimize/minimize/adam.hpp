@@ -24,7 +24,7 @@ public:
         m_beta1(beta1), m_beta2(beta2), m_epsilon(epsilon) {}
 
   OptimizeResult<ScalarType>
-  optimize(const ObjectiveFunction<ScalarType> &func,
+  optimize(const func::ObjectiveFunction<ScalarType> &func,
            const SearchState<ScalarType> &initial_guess,
            const OptimizeControl<ScalarType> &control) const override {
     auto [x, _] = initial_guess;

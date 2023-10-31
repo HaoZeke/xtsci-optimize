@@ -20,7 +20,7 @@ public:
       : linesearch::LineSearchOptimizer<ScalarType>(strategy) {}
 
   OptimizeResult<ScalarType>
-  optimize(const ObjectiveFunction<ScalarType> &func,
+  optimize(const func::ObjectiveFunction<ScalarType> &func,
            const SearchState<ScalarType> &initial_guess,
            const OptimizeControl<ScalarType> &control) const override {
     auto [x, dir_] = initial_guess;

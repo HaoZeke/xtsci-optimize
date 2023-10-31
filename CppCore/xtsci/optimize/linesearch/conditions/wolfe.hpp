@@ -30,7 +30,8 @@ public:
                               ScalarType c_curvature = 0.9)
       : armijo(c_armijo), curvature(c_curvature) {}
 
-  bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
+  bool operator()(ScalarType alpha,
+                  const func::ObjectiveFunction<ScalarType> &func,
                   const SearchState<ScalarType> &cstate) const override {
     return armijo(alpha, func, cstate) && curvature(alpha, func, cstate);
   }
@@ -46,7 +47,8 @@ public:
                                 ScalarType c_curvature = 0.9)
       : armijo(c_armijo), curvature(c_curvature) {}
 
-  bool operator()(ScalarType alpha, const ObjectiveFunction<ScalarType> &func,
+  bool operator()(ScalarType alpha,
+                  const func::ObjectiveFunction<ScalarType> &func,
                   const SearchState<ScalarType> &cstate) const override {
     return armijo(alpha, func, cstate) && curvature(alpha, func, cstate);
   }

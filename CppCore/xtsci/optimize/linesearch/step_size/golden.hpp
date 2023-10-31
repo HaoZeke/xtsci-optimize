@@ -18,7 +18,7 @@ template <typename ScalarType>
 class GoldenStepSize : public StepSizeStrategy<ScalarType> {
 public:
   ScalarType nextStep(const AlphaState<ScalarType> alpha,
-                      const ObjectiveFunction<ScalarType> &,
+                      const func::ObjectiveFunction<ScalarType> &,
                       const SearchState<ScalarType> &) const override {
     static const ScalarType phi = (1 + std::sqrt(5.0)) / 2.0;
 

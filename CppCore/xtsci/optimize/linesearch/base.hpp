@@ -22,14 +22,14 @@ template <typename ScalarType> struct AlphaState {
 template <typename ScalarType> class StepSizeStrategy {
 public:
   virtual ScalarType nextStep(const AlphaState<ScalarType> alpha,
-                              const ObjectiveFunction<ScalarType> &func,
+                              const func::ObjectiveFunction<ScalarType> &func,
                               const SearchState<ScalarType> &cstate) const = 0;
 };
 
 template <typename ScalarType> class LineSearchCondition {
 public:
   virtual bool operator()(ScalarType alpha,
-                          const ObjectiveFunction<ScalarType> &func,
+                          const func::ObjectiveFunction<ScalarType> &func,
                           const SearchState<ScalarType> &cstate) const = 0;
 };
 
@@ -41,14 +41,14 @@ public:
   explicit LineSearchStrategy(const OptimizeControl<ScalarType> &control)
       : m_control(control) {}
   virtual ScalarType search(const AlphaState<ScalarType> _in,
-                            const ObjectiveFunction<ScalarType> &func,
+                            const func::ObjectiveFunction<ScalarType> &func,
                             const SearchState<ScalarType> &cstate) = 0;
 };
 
 template <typename ScalarType>
 class LineSearchOptimizer : public AbstractOptimizer<ScalarType> {
   virtual OptimizeResult<ScalarType>
-  optimize(const ObjectiveFunction<ScalarType> &func,
+  optimize(const func::ObjectiveFunction<ScalarType> &func,
            const SearchState<ScalarType> &initial_guess,
            const OptimizeControl<ScalarType> &control) const = 0;
 

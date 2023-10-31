@@ -19,7 +19,7 @@ template <typename ScalarType>
 class CubicInterpolationStepSize : public StepSizeStrategy<ScalarType> {
 public:
   ScalarType nextStep(const AlphaState<ScalarType> alpha,
-                      const ObjectiveFunction<ScalarType> &func,
+                      const func::ObjectiveFunction<ScalarType> &func,
                       const SearchState<ScalarType> &cstate) const override {
     ScalarType fa = func(cstate.x + alpha.low * cstate.direction);
     ScalarType fb = func(cstate.x + alpha.hi * cstate.direction);

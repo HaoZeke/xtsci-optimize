@@ -60,6 +60,11 @@ xtensor_fmt_proj = subproject('xtensor-fmt')
 xtensor_fmt_dep = xtensor_fmt_proj.get_variable('xtensor_fmt_dep')
 _deps += [xtensor_fmt_dep]
 
+
+xtsci_function_proj = subproject('xtsci-function')
+xtsci_function_dep = xtsci_function_proj.get_variable('xtsci_function_dep')
+_deps += [xtsci_function_dep]
+
 # --------------------- Projects
 subdir('CppCore')
 _incdirs += [ 'CppCore' ]
