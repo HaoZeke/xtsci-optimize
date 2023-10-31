@@ -4,11 +4,13 @@
 #include <algorithm>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "xtsci/optimize/base.hpp"
 #include "xtsci/optimize/linesearch/base.hpp"
+#include "xtsci/optimize/linesearch/step_size/geom.hpp"
 
 namespace xts {
 namespace optimize {
@@ -17,25 +19,23 @@ namespace search_strategy {
 template <typename ScalarType>
 class BacktrackingSearch : public LineSearchStrategy<ScalarType> {
   std::reference_wrapper<LineSearchCondition<ScalarType>> m_cond;
-  std::reference_wrapper<StepSizeStrategy<ScalarType>> m_step_strategy;
-  ScalarType m_alpha_lo, m_alpha_hi;
+  step_size::GeometricReductionStepSize<ScalarType> m_geom;
 
 public:
   explicit BacktrackingSearch(
-      LineSearchCondition<ScalarType> &cond,
-      StepSizeStrategy<ScalarType> &stepStrat, /* geomStep by default */
-      ScalarType alpha_lo_val = 0.0, ScalarType alpha_hi_val = 1.0,
+      LineSearchCondition<ScalarType> &cond, ScalarType geom_beta = 0.5,
       OptimizeControl<ScalarType> optim = OptimizeControl<ScalarType>())
       : LineSearchStrategy<ScalarType>(optim), m_cond(cond),
-        m_step_strategy(stepStrat), m_alpha_lo(alpha_lo_val),
-        m_alpha_hi(alpha_hi_val) {}
+        m_geom{step_size::GeometricReductionStepSize<ScalarType>(geom_beta)} {}
 
-  ScalarType search(const ObjectiveFunction<ScalarType> &func,
+  ScalarType search(const AlphaState<ScalarType> _in,
+                    const ObjectiveFunction<ScalarType> &func,
                     const SearchState<ScalarType> &cstate) override {
-    ScalarType alpha_lo{m_alpha_lo}, alpha_hi{m_alpha_hi};
-    ScalarType alpha = alpha_hi;
-    while (!m_cond(alpha, func, cstate)) {
-      alpha = m_step_strategy.get().nextStep(alpha_lo, alpha, func, cstate);
+    auto in_alpha = _in;
+    ScalarType alpha = _in.init;
+    while (alpha > 0 && !m_cond(alpha, func, cstate)) {
+      alpha = m_geom.nextStep(in_alpha, func, cstate);
+      in_alpha.init = alpha;
     }
     return alpha;
   }

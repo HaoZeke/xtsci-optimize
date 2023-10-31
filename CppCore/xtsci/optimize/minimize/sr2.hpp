@@ -50,7 +50,8 @@ public:
       // TODO(rgoswami): This isn't going to work, need to use an iterative
       // solver instead
       auto direction = -xt::linalg::dot(xt::linalg::inv(B), gradient);
-      ScalarType alpha = this->m_ls_strat.search(func, {x, direction});
+      ScalarType alpha =
+          this->m_ls_strat.search({1, 1e-6, 1}, func, {x, direction});
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
       }

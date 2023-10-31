@@ -6,9 +6,13 @@
 #include <limits>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "xtensor-blas/xlinalg.hpp"
 #include "xtensor/xarray.hpp"
+
+#include "xtsci/helpers.hpp"
 
 namespace xts {
 namespace optimize {
@@ -25,6 +29,7 @@ template <typename ScalarType = double> struct OptimizeResult {
   size_t nfev;      // number of evaluations of the objective functions
   size_t njev;      // number of evaluations of the Jacobian
   size_t nhev;      // number of evaluations of the Hessian
+  size_t nufg;      // number of unique function and gradient evaluations
   size_t nit;       // number of iterations performed by the optimizer
   ScalarType maxcv; // the maximum constraint violation
 };
@@ -33,22 +38,31 @@ struct EvaluationCounter {
   size_t function_evals = 0;
   size_t gradient_evals = 0;
   size_t hessian_evals = 0;
+  size_t unique_func_grad = 0;
 };
 
 template <typename ScalarType = double> class ObjectiveFunction {
 public:
   ObjectiveFunction() = default;
+  explicit ObjectiveFunction(const xt::xarray<ScalarType> &min) : minima(min) {}
+  explicit ObjectiveFunction(const xt::xarray<ScalarType> &min,
+                             const xt::xarray<ScalarType> &sad)
+      : minima(min), saddles(sad) {}
+  const xt::xarray<ScalarType> minima;
+  const xt::xarray<ScalarType> saddles;
 
   virtual ~ObjectiveFunction() = default;
 
   ScalarType operator()(const xt::xarray<ScalarType> &x) const {
     ++m_counter.function_evals;
+    ++m_counter.unique_func_grad;
     return this->compute(x);
   }
 
   virtual std::optional<xt::xarray<ScalarType>>
   gradient(const xt::xarray<ScalarType> &x) const {
     ++m_counter.gradient_evals;
+    ++m_counter.unique_func_grad;
     return this->compute_gradient(x);
   }
 
@@ -56,6 +70,28 @@ public:
   hessian(const xt::xarray<ScalarType> &x) const {
     ++m_counter.hessian_evals;
     return this->compute_hessian(x);
+  }
+
+  ScalarType
+  directional_derivative(const xt::xarray<ScalarType> &x,
+                         const xt::xarray<ScalarType> &direction) const {
+    auto grad_opt = gradient(x);
+    if (!grad_opt) {
+      throw std::runtime_error(
+          "Gradient required for computing directional derivative.");
+    }
+    return xt::linalg::dot(*grad_opt, direction)();
+  }
+
+  std::pair<xt::xarray<ScalarType>, xt::xarray<ScalarType>>
+  grad_components(const xt::xarray<ScalarType> &xpt,
+                  xt::xarray<ScalarType> &direction,
+                  bool is_normalized = false) const {
+    xts::helpers::ensure_normalized(direction, is_normalized);
+    auto grad = this->gradient(xpt).value();
+    auto parallel_projection = xt::linalg::dot(grad, direction) * direction;
+    auto perpendicular_projection = grad - parallel_projection;
+    return {parallel_projection, perpendicular_projection};
   }
 
   EvaluationCounter evaluation_counts() const { return m_counter; }
@@ -78,8 +114,12 @@ private:
 
 template <typename ScalarType = double> struct OptimizeControl {
   size_t max_iterations = 1000; // Maximum number of iterations
+  double maxmove = 1000;        // Maximum step size
   ScalarType tol = 1e-6;        // Tolerance for termination
   bool verbose = false;         // Whether or not to print progress
+  ScalarType xtol = 1e-6;       // Change in x threshold
+  ScalarType ftol = 1e-6;       // Change in f(x) threshold
+  ScalarType gtol = 1e-6;       // Change in f'(x) threshold
   OptimizeControl(const size_t miter_val, const ScalarType tol_val,
                   const bool verb_val)
       : max_iterations{miter_val}, tol{tol_val}, verbose{verb_val} {}

@@ -55,6 +55,11 @@ _deps += dependency('xtensor')
 _deps += dependency('xtensor-blas')
 _deps += [dependency('zlib'), dependency('xtensor-io')]
 
+# --------------------- Subprojects
+xtensor_fmt_proj = subproject('xtensor-fmt')
+xtensor_fmt_dep = xtensor_fmt_proj.get_variable('xtensor_fmt_dep')
+_deps += [xtensor_fmt_dep]
+
 # --------------------- Projects
 subdir('CppCore')
 _incdirs += [ 'CppCore' ]

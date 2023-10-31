@@ -56,7 +56,8 @@ public:
 
       auto direction = get_direction(gradient, s_list, y_list, rho_list);
 
-      ScalarType alpha = this->m_ls_strat.search(func, {x, direction});
+      ScalarType alpha =
+          this->m_ls_strat.search({1, 1e-6, 1}, func, {x, direction});
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
       }
@@ -102,6 +103,7 @@ public:
     result.nfev = func.evaluation_counts().function_evals;
     result.njev = func.evaluation_counts().gradient_evals;
     result.nhev = func.evaluation_counts().hessian_evals;
+    result.nufg = func.evaluation_counts().unique_func_grad;
 
     return result;
   }

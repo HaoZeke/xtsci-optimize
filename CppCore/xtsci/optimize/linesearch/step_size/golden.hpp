@@ -16,35 +16,21 @@ namespace linesearch {
 namespace step_size {
 template <typename ScalarType>
 class GoldenStepSize : public StepSizeStrategy<ScalarType> {
-private:
-  ScalarType m_tolerance;
-  ScalarType m_golden_ratio;
-
 public:
-  explicit GoldenStepSize(ScalarType tolerance = 1e-5)
-      : m_tolerance(tolerance), m_golden_ratio((std::sqrt(5.0) - 1.0) / 2.0) {}
+  ScalarType nextStep(const AlphaState<ScalarType> alpha,
+                      const ObjectiveFunction<ScalarType> &,
+                      const SearchState<ScalarType> &) const override {
+    static const ScalarType phi = (1 + std::sqrt(5.0)) / 2.0;
 
-  ScalarType nextStep(ScalarType alpha_lo, ScalarType alpha_hi,
-                      const ObjectiveFunction<ScalarType> &func,
-                      const SearchState<ScalarType> &state) const override {
-    ScalarType alpha1 =
-        alpha_lo + (1.0 - m_golden_ratio) * (alpha_hi - alpha_lo);
-    ScalarType alpha2 = alpha_lo + m_golden_ratio * (alpha_hi - alpha_lo);
+    ScalarType range = alpha.hi - alpha.low;
+    ScalarType step = range / phi;
 
-    while (alpha_hi - alpha_lo > m_tolerance) {
-      if (func(state.x + alpha1 * state.direction) <
-          func(state.x + alpha2 * state.direction)) {
-        alpha_hi = alpha2;
-        alpha2 = alpha1;
-        alpha1 = alpha_lo + (1.0 - m_golden_ratio) * (alpha_hi - alpha_lo);
-      } else {
-        alpha_lo = alpha1;
-        alpha1 = alpha2;
-        alpha2 = alpha_lo + m_golden_ratio * (alpha_hi - alpha_lo);
-      }
+    // Choose point closer to alpha.init
+    if (std::abs(alpha.init - alpha.low) < std::abs(alpha.init - alpha.hi)) {
+      return alpha.low + step;
+    } else {
+      return alpha.hi - step;
     }
-
-    return (alpha_lo + alpha_hi) / 2.0;
   }
 };
 } // namespace step_size

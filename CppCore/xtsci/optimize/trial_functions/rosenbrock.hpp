@@ -20,6 +20,9 @@ template <typename ScalarType = double>
 class Rosenbrock : public ObjectiveFunction<ScalarType> {
   // Domain is R^2
   // Global minimum is at x = (1, 1) with f(x) = 0
+public:
+  Rosenbrock() : ObjectiveFunction<ScalarType>(/* minima */ {{1, 1}}) {}
+
 private:
   // Function evaluation
   ScalarType compute(const xt::xarray<ScalarType> &x) const override {

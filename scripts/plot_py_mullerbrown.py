@@ -57,6 +57,7 @@ path = []
 
 
 def callback(x):
+    print(x)
     path.append(np.array(x))
 
 

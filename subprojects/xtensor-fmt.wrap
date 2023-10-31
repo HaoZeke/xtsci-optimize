@@ -1,0 +1,4 @@
+[wrap-git]
+directory=xtensor-fmt
+url=https://github.com/xtslibs/xtensor-fmt.git
+revision=71ca5a7a0c73a9758d412413e2eadd87f8b8c9c4

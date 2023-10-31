@@ -50,7 +50,8 @@ public:
       auto direction = -xt::linalg::dot(
           xt::linalg::inv(B),
           gradient); // TODO(rgoswami): Don't compute the inverse.
-      ScalarType alpha = this->m_ls_strat.search(func, {x, direction});
+      ScalarType alpha =
+          this->m_ls_strat.search({1, 1e-6, 1}, func, {x, direction});
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
       }
