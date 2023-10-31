@@ -1,6 +1,7 @@
 # Additional
 .pixi
 .compile_commands.json
+*.npz
 # Created by https://www.toptal.com/developers/gitignore/api/c++
 # Edit at https://www.toptal.com/developers/gitignore?templates=c++
 
