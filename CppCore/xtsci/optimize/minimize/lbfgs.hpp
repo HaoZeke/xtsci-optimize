@@ -56,8 +56,9 @@ public:
 
       auto direction = get_direction(gradient, s_list, y_list, rho_list);
 
+      // Always try 1 first, but if it fails, search within a larger range
       ScalarType alpha =
-          this->m_ls_strat.search({1, 1e-6, 1}, func, {x, direction});
+          this->m_ls_strat.search({1, 1e-6, 100}, func, {x, direction});
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
       }
