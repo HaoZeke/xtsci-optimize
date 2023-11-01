@@ -21,6 +21,9 @@ public:
   ScalarType nextStep(const AlphaState<ScalarType> alpha,
                       const func::ObjectiveFunction<ScalarType> &func,
                       const SearchState<ScalarType> &cstate) const override {
+    fmt::print("Warning: CubicInterpolationStepSize is often unstable and is "
+               "only provided for reference"
+               "Use HermiteInterpolationStepSize instead.\n");
     ScalarType fa = func(cstate.x + alpha.low * cstate.direction);
     ScalarType fb = func(cstate.x + alpha.hi * cstate.direction);
 
