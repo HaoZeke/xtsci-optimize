@@ -89,13 +89,25 @@ public:
                                          cstate.direction);
     };
 
-    ScalarType alpha_j;
+    ScalarType alpha_j;      // Uses m_step_strategy below
+    ScalarType previous_phi; // Initialized at the end of the loop
+    const ScalarType ftol = this->m_control.ftol;
+    const ScalarType xtol = this->m_control.xtol;
+    const size_t max_iterations = this->m_control.max_iterations;
 
-    for (size_t idx = 0; idx < 100; ++idx) {
+    for (size_t idx = 0; idx < max_iterations; ++idx) {
       alpha_j = m_step_strategy.get().nextStep(
           {.init = alpha_j, .low = lo, .hi = hi}, func, cstate);
 
-      if (!armijo(alpha_j, func, cstate) || phi(alpha_j) >= phi(lo)) {
+      ScalarType current_phi = phi(alpha_j);
+      // If the interval is too small, or the function is flat, we are done
+      if ((std::abs(current_phi - previous_phi) < ftol ||
+           std::abs(hi - lo) < xtol) &&
+          idx > 0) {
+        break;
+      }
+
+      if (!armijo(alpha_j, func, cstate) || current_phi >= phi(lo)) {
         hi = alpha_j;
       } else {
         if (strong_curvature(alpha_j, func, cstate)) {
@@ -106,6 +118,7 @@ public:
         }
         lo = alpha_j;
       }
+      previous_phi = current_phi;
     }
     return m_step_strategy.get().nextStep(
         {.init = alpha_j, .low = lo, .hi = hi}, func, cstate);
