@@ -71,8 +71,8 @@ public:
 
     if (alpha_res == std::numeric_limits<ScalarType>::infinity() ||
         std::isnan(alpha_res)) {
-      fmt::print("Failure, falling back\n");
-      alpha_res = std::min(alpha_i, _in.low);
+      fmt::print("Failure, falling back to bisection of original interval\n");
+      alpha_res = (_in.hi + _in.low) / 2;
     }
     return alpha_res;
   }
