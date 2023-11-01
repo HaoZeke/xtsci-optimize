@@ -3,6 +3,7 @@
 // Copyright 2023--present Rohit Goswami <HaoZeke>
 #include <fmt/ostream.h>
 
+#include "xtensor/xbuilder.hpp"
 #include "xtensor/xnoalias.hpp"
 
 #include "xtsci/optimize/linesearch/base.hpp"
@@ -61,13 +62,24 @@ public:
 
       // 1. Line search to get alpha for the current direction.
       // [NJWS] Equation 5.43a
-      alpha = this->m_ls_strat.search({1.0, 1e-6, 1}, func, {x, direction});
+      alpha = this->m_ls_strat.search({1.0, 1e-6, 10}, func, {x, direction});
       if (control.verbose) {
         fmt::print("Alpha: {}\n", alpha);
       }
 
       // 2. Update x using the current direction and alpha.
-      xt::noalias(x) += alpha * direction;
+      auto proposed_move = alpha * direction;
+      ScalarType proposed_move_norm = xt::linalg::norm(proposed_move);
+
+      // TODO(rg): Document this non-standard behavior
+      // If the proposed move is larger than maxmove, then scale the move down
+      ScalarType scale_factor = 1.0;
+      if (proposed_move_norm > control.maxmove) {
+        scale_factor = control.maxmove / proposed_move_norm;
+      }
+
+      xt::noalias(x) += scale_factor * proposed_move;
+
       if (control.verbose) {
         fmt::print("x: {}\n", x);
       }
