@@ -17,11 +17,10 @@ namespace step_size {
 template <typename ScalarType>
 class GoldenStepSize : public StepSizeStrategy<ScalarType> {
 public:
+  static constexpr ScalarType phi = (1 + std::sqrt(5.0)) / 2.0;
   ScalarType nextStep(const AlphaState<ScalarType> alpha,
                       const func::ObjectiveFunction<ScalarType> &,
                       const SearchState<ScalarType> &) const override {
-    static const ScalarType phi = (1 + std::sqrt(5.0)) / 2.0;
-
     ScalarType range = alpha.hi - alpha.low;
     ScalarType step = range / phi;
 
