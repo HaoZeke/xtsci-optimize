@@ -119,7 +119,7 @@ int main(int argc, char *argv[]) {
   xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
       backtracking(strongwolfe, 0.5);
   xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
-      goldenStep, 1e-4, 0.9);
+      goldenStep, 1e-4, 0.9, control);
 
   xts::optimize::nlcg::conjugacy::FletcherReeves<double> fletcherreeves;
   xts::optimize::nlcg::conjugacy::PolakRibiere<double> polakribiere;
