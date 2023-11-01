@@ -98,7 +98,7 @@ int main(int argc, char *argv[]) {
   control.xtol = 1e-8;
   control.ftol = 1e-22;
   control.max_iterations = 10000;
-  control.maxmove = 100;
+  control.maxmove = 0.1;
   control.verbose = true;
 
   xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
   xt::xarray<double> direction = {0.0, 0.0};
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      lbfgsopt.optimize(mullerbrown, cstate, control);
+      cgopt.optimize(mullerbrown, cstate, control);
 
   xts::func::npz_on_grid2D<double>({-1.5, 1.2, 400}, {-0.2, 2.0, 400},
                                    mullerbrown, "mullerbrown.npz");
