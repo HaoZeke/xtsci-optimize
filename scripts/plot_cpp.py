@@ -88,9 +88,17 @@ def main():
     # plt.scatter(1, 1, marker="*", color="yellow", s=150, label="True Minimum")
 
     # Display number of evaluations
+    ax = plt.gca()  # Get the current axes
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+
+    # Position the text at 5% of the x-range and 5% of the y-range, just as an example
+    x_position = xlim[0] + 0.05 * (xlim[1] - xlim[0])
+    y_position = ylim[0] + 0.05 * (ylim[1] - ylim[0])
+
     plt.text(
-        -1.5,
-        -1.8,
+        x_position,
+        y_position,
         f"Iterations: {ntime.get('niter')}\n"
         f"Function evaluations: {ntime.get('nfev')}\n"
         f"Gradient evaluations: {ntime.get('njev')}",
