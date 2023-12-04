@@ -3,6 +3,7 @@
 // Copyright 2023--present Rohit Goswami <HaoZeke>
 // clang-format off
 #include <fmt/ostream.h>
+#include <fmt/chrono.h>
 #include <deque>
 #include <vector>
 // clang-format on
@@ -16,6 +17,18 @@
 namespace xts {
 namespace optimize {
 namespace minimize {
+
+template <typename ScalarType>
+void printOptimizationStep(size_t step, const ScalarType &energy,
+                           const ScalarType &fmax) {
+  // Get current time
+  auto now = std::chrono::system_clock::now();
+  auto now_c = std::chrono::system_clock::to_time_t(now);
+
+  // Format the output
+  fmt::print("LBFGS: {:3}   {:<8} {:16.9f} {:10.6f}\n", step,
+             fmt::format("{:%H:%M:%S}", *std::localtime(&now_c)), energy, fmax);
+}
 
 template <typename ScalarType>
 class LBFGSOptimizer : public linesearch::LineSearchOptimizer<ScalarType> {
@@ -48,6 +61,11 @@ public:
     // gradient, respectively
     std::deque<xt::xarray<ScalarType>> s_list, y_list;
     std::deque<ScalarType> rho_list;
+
+    if (control.verbose) {
+      // Print the headers in the desired format
+      fmt::print("       Step     Time       Energy       fmax\n");
+    }
 
     for (result.nit = 0; result.nit < control.max_iterations; ++result.nit) {
       if (control.verbose) {
@@ -90,10 +108,12 @@ public:
       rho_list.push_back(1.0 / xt::linalg::dot(y, s)());
 
       if (control.verbose) {
-        fmt::print("New gradient: {}\n", gradient);
+        auto energy = func(x);
+        auto fmax = xt::linalg::norm(gradient);
+        printOptimizationStep<ScalarType>(result.nit, energy, fmax);
       }
 
-      if (xt::amax(xt::abs(gradient))() < control.tol) {
+      if (xt::linalg::norm(gradient) < control.gtol) {
         break;
       }
     }
