@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
   control.ftol = 1e-22;
   control.max_iterations = 10000;
   control.maxmove = 10000;
-  control.verbose = false;
+  control.verbose = true;
 
   xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
   xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
@@ -278,7 +278,7 @@ int main(int argc, char *argv[]) {
   // sdopt(backtracking);
 
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(zoom);
-  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 10);
+  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 100);
   // xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
   // xts::optimize::minimize::SR1Optimizer<double> sr1opt(zoom);
   // xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);
@@ -287,7 +287,7 @@ int main(int argc, char *argv[]) {
 
   auto cuh2pot = std::make_shared<rgpot::CuH2Pot>();
   std::vector<std::string> fconts =
-      yodecon::helpers::file::read_con_file("cuh2.con");
+      yodecon::helpers::file::read_con_file("pos.con");
   auto frame = yodecon::create_single_con<yodecon::types::ConFrameVec>(fconts);
 
   auto positions = extract_positions(frame);
@@ -302,7 +302,7 @@ int main(int argc, char *argv[]) {
     boxMatrix(0, i) = frame.boxl[i];
   }
 
-  xts::pot::XTPot<double> objcuh2(cuh2pot, atomTypes, boxMatrix);
+  xts::pot::XTPot<double> objcuh2(cuh2pot, atomTypes, boxMatrix, xt::adapt(frame.is_fixed));
   auto energyFunc = [&objcuh2, &positions, &atomTypes](
                         double hh_dist, double cu_slab_dist) -> double {
     auto perturbed_positions =
@@ -335,7 +335,8 @@ int main(int argc, char *argv[]) {
   // xts::optimize::OptimizeResult<double> result =
   //     psopt.optimize(mullerbrown, {-512, -512}, {512, 512});
 
-  std::cout << "Optimized x: " << result.x << "\n";
+  // std::cout << "Optimized x: " << result.x << "\n";
+  // std::cout << "Gradients: " << *objcuh2.gradient(result.x) << "\n";
   std::cout << "Function value: " << result.fun << "\n";
   std::cout << "Number of iterations: " << result.nit << "\n";
   std::cout << "Number of function evaluations: " << result.nfev << "\n";

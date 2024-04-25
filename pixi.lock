@@ -5442,6 +5442,43 @@ package:
   size: 6486
   timestamp: 1695147714523
 - platform: linux-64
+  name: range-v3
+  version: 0.12.0
+  category: main
+  manager: conda
+  dependencies:
+  - libgcc-ng >=12
+  - libstdcxx-ng >=12
+  url: https://conda.anaconda.org/conda-forge/linux-64/range-v3-0.12.0-h59595ed_0.conda
+  hash:
+    md5: 8ace58ece3b22b7811f6e03be54b1318
+    sha256: 0aa8ef4b2c2722198e3cb279791bbac40ce43ea93bd5d154f675accc38c05ebe
+  build: h59595ed_0
+  arch: x86_64
+  subdir: linux-64
+  build_number: 0
+  license: BSL-1.0
+  size: 232021
+  timestamp: 1681982853303
+- platform: osx-64
+  name: range-v3
+  version: 0.12.0
+  category: main
+  manager: conda
+  dependencies:
+  - libcxx >=15.0.7
+  url: https://conda.anaconda.org/conda-forge/osx-64/range-v3-0.12.0-he965462_0.conda
+  hash:
+    md5: 7ff6d5e6b7c17b7b72cf978ffcb13121
+    sha256: 61398811161df9b12c26ef197eb59d3ed3ef583b4f64a61428462ad26268deda
+  build: he965462_0
+  arch: x86_64
+  subdir: osx-64
+  build_number: 0
+  license: BSL-1.0
+  size: 231853
+  timestamp: 1681983869747
+- platform: linux-64
   name: readline
   version: '8.2'
   category: main
