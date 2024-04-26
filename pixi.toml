@@ -11,6 +11,7 @@ readme = "readme.org"
 repository = "https://github.com/HaoZeke/xtsci-optimize"
 
 [tasks]
+lint = {cmd = "pre-commit run --all-files"}
 
 [dependencies]
 xtensor-io = "0.13.0.*"
@@ -37,3 +38,4 @@ python = "3.9.18.*"
 range-v3 = "0.12.0.*"
 clang-format = "16.0.1.*"
 towncrier = "23.11.0.*"
+pre-commit = "3.7.0.*"
