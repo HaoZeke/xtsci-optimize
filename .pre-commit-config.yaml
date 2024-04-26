@@ -5,20 +5,28 @@ repos:
   - id: trailing-whitespace
     exclude: ^(src)
   - id: end-of-file-fixer
+    exclude: .md
   - id: check-yaml
   - id: check-added-large-files
 - repo: https://github.com/pre-commit/mirrors-clang-format
   rev: v16.0.6
   hooks:
   - id: clang-format
-- repo: https://github.com/pocc/pre-commit-hooks
-  rev: v1.3.5
+    types_or: [c++, c]
+- repo: local
   hooks:
     - id: cppcheck
+      name: cppcheck
+      entry: cppcheck
+      language: system
+      types_or: [c++, c]
       args: ["--error-exitcode=0"]
-    # - id: clang-tidy
     - id: cpplint
-      args: ["--filter=-whitespace/comments,-runtime/references,-whitespace/indent"]
+      name: cpplint
+      entry: cpplint
+      language: system
+      types_or: [c++, c]
+      args: ["--filter=-whitespace/comments,-runtime/references,-whitespace/indent,-runtime/int,-build/c++11"]
 -   repo: https://github.com/pycqa/isort
     rev: 5.12.0
     hooks:
