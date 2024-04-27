@@ -6,6 +6,7 @@
 #include <fmt/chrono.h>
 #include <deque>
 #include <vector>
+#include <utility>
 // clang-format on
 
 #include "xtsci/optimize/base.hpp"
