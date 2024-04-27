@@ -1,10 +1,18 @@
+# --------------------- Library
+xtsopt = library('xtsopt',
+                sources: [
+                  'xtsci/optimize/base.cc',
+                  'xtsci/optimize/minimize/lbfgs.cc'
+                ],
+                dependencies: _deps,
+                )
 # --------------------- Executable
 
 tiny_cli = executable('tiny_cli', 'tiny_cli.cpp',
                        dependencies: _deps,
                        include_directories: _incdirs,
                        cpp_args: _args,
-                       link_with: _linkto,
+                       link_with: [_linkto, xtsopt],
                        install: false)
 
 if get_option('with_tests')
