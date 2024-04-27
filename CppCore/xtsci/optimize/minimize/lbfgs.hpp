@@ -68,25 +68,25 @@ public:
     }
 
     for (result.nit = 0; result.nit < control.max_iterations; ++result.nit) {
-      if (control.verbose) {
-        fmt::print("Iteration: {}\n", result.nit);
-      }
+      // if (control.verbose) {
+      //   fmt::print("Iteration: {}\n", result.nit);
+      // }
 
       auto direction = get_direction(gradient, s_list, y_list, rho_list);
 
       // Always try 1 first, but if it fails, search within a larger range
       ScalarType alpha =
           this->m_ls_strat.search({1, 1e-6, 100}, func, {x, direction});
-      if (control.verbose) {
-        fmt::print("Alpha: {}\n", alpha);
-      }
+      // if (control.verbose) {
+      //   fmt::print("Alpha: {}\n", alpha);
+      // }
 
       auto s = alpha * direction;
       xt::noalias(x) += s;
 
-      if (control.verbose) {
-        fmt::print("x: {}\n", x);
-      }
+      // if (control.verbose) {
+      //   fmt::print("x: {}\n", x);
+      // }
 
       auto prev_gradient = gradient;
       auto new_grad_opt = func.gradient(x);
