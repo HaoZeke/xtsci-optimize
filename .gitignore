@@ -2,6 +2,9 @@
 .pixi
 .compile_commands.json
 *.npz
+subprojects/
+!subprojects/xtsci-function.wrap
+!subprojects/xtensor-fmt.wrap
 # Created by https://www.toptal.com/developers/gitignore/api/c++
 # Edit at https://www.toptal.com/developers/gitignore?templates=c++
 

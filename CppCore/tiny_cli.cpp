@@ -13,6 +13,7 @@
 #include "xtensor-io/xnpz.hpp"
 #include "xtensor/xarray.hpp"
 
+#include "xtensor/xbuilder.hpp"
 #include "xtsci/optimize/base.hpp"
 #include "xtsci/optimize/linesearch/conditions/armijo.hpp"
 #include "xtsci/optimize/linesearch/conditions/goldstein.hpp"
@@ -55,6 +56,9 @@
 #include "xtsci/func/trial/D2/himmelblau.hpp"
 #include "xtsci/func/trial/D2/mullerbrown.hpp"
 #include "xtsci/func/trial/D2/rosenbrock.hpp"
+
+#include "rgpot/CuH2/CuH2Pot.hpp"
+#include "xtsci/pot/base.hpp"
 
 int main(int argc, char *argv[]) {
   // Eat warnings, also safer
@@ -144,24 +148,31 @@ int main(int argc, char *argv[]) {
   // sdopt(backtracking);
 
   xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(zoom);
-  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 10);
+  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 6);
   // xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
   // xts::optimize::minimize::SR1Optimizer<double> sr1opt(zoom);
   // xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);
   // xts::optimize::minimize::PSOptim<double> psopt(100, 0.5, 1.5, 1.5,
   // control);
 
+  auto cuh2pot = std::make_shared<rgpot::CuH2Pot>();
+  auto CuH2Obj = xts::pot::mk_xtpot_con("cuh2.con", cuh2pot);
+
+  xt::xarray<double> initial_guess = {
+      8.68229999999999968, 9.94699999999999918, 4.75760000000000094,
+      7.94209999999999994, 9.94699999999999918, 4.75760000000000094}; // cuh2
   // xt::xarray<double> initial_guess = {-1.2, 1.0}; // rosen
-  xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen
+  // xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen
   // xt::xarray<double> initial_guess = {0.0, 0.0}; // himmelblau
   // xt::xarray<double> initial_guess = {0.23007699, 0.20781567}; // mullerbrown
-  xt::xarray<double> direction = {0.0, 0.0};
+  // xt::xarray<double> direction = {0.0, 0.0};
+  xt::xarray<double> direction = xt::zeros_like(initial_guess);
   xts::optimize::SearchState<double> cstate = {initial_guess, direction};
   xts::optimize::OptimizeResult<double> result =
-      cgopt.optimize(mullerbrown, cstate, control);
+      lbfgsopt.optimize(CuH2Obj, cstate, control);
 
-  xts::func::npz_on_grid2D<double>({-1.5, 1.2, 400}, {-0.2, 2.0, 400},
-                                   mullerbrown, "mullerbrown.npz");
+  // xts::func::npz_on_grid2D<double>({-1.5, 1.2, 400}, {-0.2, 2.0, 400},
+  //                                  mullerbrown, "mullerbrown.npz");
   // xts::func::npz_on_grid2D<double>({-5, 18, 400}, {-5, 20, 400}, branin,
   //                                  "branin.npz");
   // xts::optimize::OptimizeResult<double> result =

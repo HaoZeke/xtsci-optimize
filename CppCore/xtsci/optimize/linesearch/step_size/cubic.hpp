@@ -22,7 +22,8 @@ public:
                       const func::ObjectiveFunction<ScalarType> &func,
                       const SearchState<ScalarType> &cstate) const override {
     // Can be quicker though
-    // fmt::print("Warning: CubicInterpolationStepSize is often unstable and is "
+    // fmt::print("Warning: CubicInterpolationStepSize is often unstable and is
+    // "
     //            "only provided for reference"
     //            "Use HermiteInterpolationStepSize instead.\n");
     ScalarType fa = func(cstate.x + alpha.low * cstate.direction);
