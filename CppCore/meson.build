@@ -6,13 +6,14 @@ xtsopt = library('xtsopt',
                 ],
                 dependencies: _deps,
                 )
+_linkto += xtsopt
 # --------------------- Executable
 
 tiny_cli = executable('tiny_cli', 'tiny_cli.cpp',
                        dependencies: _deps,
                        include_directories: _incdirs,
                        cpp_args: _args,
-                       link_with: [_linkto, xtsopt],
+                       link_with: _linkto,
                        install: false)
 
 if get_option('with_tests')
