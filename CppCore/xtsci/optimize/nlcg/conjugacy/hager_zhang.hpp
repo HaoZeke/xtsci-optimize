@@ -15,11 +15,9 @@ namespace xts {
 namespace optimize {
 namespace nlcg {
 namespace conjugacy {
-template <typename ScalarType>
-class HagerZhang : public ConjugacyCoefficientStrategy<ScalarType> {
+class HagerZhang : public ConjugacyCoefficientStrategy {
 public:
-  ScalarType
-  computeBeta(const ConjugacyContext<ScalarType> &ctx) const override {
+  ScalarType computeBeta(const ConjugacyContext &ctx) const override {
     auto grad_change = ctx.current_gradient - ctx.previous_gradient;
     auto grad_change_norm_sq = xt::linalg::dot(grad_change, grad_change);
     auto grad_change_prev_dot =

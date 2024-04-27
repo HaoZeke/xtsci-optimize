@@ -8,33 +8,29 @@
 #include <vector>
 
 #include "xtsci/optimize/base.hpp"
-#include "xtsci/optimize/linesearch/base.hpp"
 #include "xtsci/optimize/linesearch/conditions/armijo.hpp"
 #include "xtsci/optimize/linesearch/conditions/curvature.hpp"
-#include "xtsci/optimize/linesearch/step_size/bisect.hpp"
+#include "xtsci/optimize/numerics.hpp"
 
 namespace xts {
 namespace optimize {
 namespace linesearch {
 namespace search_strategy {
-template <typename ScalarType>
-class ZoomLineSearch : public LineSearchStrategy<ScalarType> {
+class ZoomLineSearch : public SearchStrategy {
 private:
-  conditions::ArmijoCondition<ScalarType> armijo;
-  conditions::StrongCurvatureCondition<ScalarType> strong_curvature;
-  std::reference_wrapper<StepSizeStrategy<ScalarType>> m_step_strategy;
+  conditions::ArmijoCondition armijo;
+  conditions::StrongCurvatureCondition strong_curvature;
+  std::reference_wrapper<StepSizeStrategy> m_step_strategy;
 
 public:
-  ZoomLineSearch(
-      StepSizeStrategy<ScalarType> &stepStrat, ScalarType c_armijo = 1e-4,
-      ScalarType c_curv = 0.9,
-      OptimizeControl<ScalarType> optim = OptimizeControl<ScalarType>())
-      : LineSearchStrategy<ScalarType>(optim), armijo(c_armijo),
-        strong_curvature(c_curv), m_step_strategy(stepStrat) {}
+  ZoomLineSearch(StepSizeStrategy &stepStrat, ScalarType c_armijo = 1e-4,
+                 ScalarType c_curv = 0.9,
+                 OptimizeControl optim = OptimizeControl())
+      : SearchStrategy(optim), armijo(c_armijo), strong_curvature(c_curv),
+        m_step_strategy(stepStrat) {}
 
-  ScalarType search(const AlphaState<ScalarType> _in,
-                    const func::ObjectiveFunction<ScalarType> &func,
-                    const SearchState<ScalarType> &cstate) {
+  ScalarType search(const AlphaState _in, const FObjFunc &func,
+                    const SearchState &cstate) {
     auto phi = [&](ScalarType a_val) {
       return func(cstate.x + a_val * cstate.direction);
     };
@@ -77,9 +73,8 @@ public:
     return alpha_res;
   }
 
-  ScalarType zoom(ScalarType lo, ScalarType hi,
-                  const func::ObjectiveFunction<ScalarType> &func,
-                  const SearchState<ScalarType> &cstate) {
+  ScalarType zoom(ScalarType lo, ScalarType hi, const FObjFunc &func,
+                  const SearchState &cstate) {
     auto phi = [&](ScalarType a_val) {
       return func(cstate.x + a_val * cstate.direction);
     };

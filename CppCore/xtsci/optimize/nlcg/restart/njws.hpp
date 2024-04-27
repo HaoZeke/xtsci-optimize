@@ -15,12 +15,11 @@ namespace xts {
 namespace optimize {
 namespace nlcg {
 namespace restart {
-template <typename ScalarType>
-class NJWSRestart : public RestartStrategy<ScalarType> {
+class NJWSRestart : public RestartStrategy {
 public:
   explicit NJWSRestart(ScalarType threshold = 0.5)
-      : RestartStrategy<ScalarType>(threshold) {}
-  bool restart(const ConjugacyContext<ScalarType> &ctx) const override {
+      : RestartStrategy(threshold) {}
+  bool restart(const ConjugacyContext &ctx) const override {
     // [NJWS] Equation 5.52
     // Normalized cosine of the angle between the current and previous gradients
     auto deviation =

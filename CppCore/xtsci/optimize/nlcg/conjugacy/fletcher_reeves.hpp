@@ -15,11 +15,9 @@ namespace xts {
 namespace optimize {
 namespace nlcg {
 namespace conjugacy {
-template <typename ScalarType>
-class FletcherReeves : public ConjugacyCoefficientStrategy<ScalarType> {
+class FletcherReeves : public ConjugacyCoefficientStrategy {
 public:
-  ScalarType
-  computeBeta(const ConjugacyContext<ScalarType> &ctx) const override {
+  ScalarType computeBeta(const ConjugacyContext &ctx) const override {
     // [NJWS] Equation 5.41a
     return xt::linalg::dot(ctx.current_gradient, ctx.current_gradient)() /
            xt::linalg::dot(ctx.previous_gradient, ctx.previous_gradient)();

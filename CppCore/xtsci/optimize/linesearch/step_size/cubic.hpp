@@ -8,19 +8,16 @@
 #include <vector>
 
 #include "xtsci/optimize/base.hpp"
-#include "xtsci/optimize/linesearch/base.hpp"
 
 namespace xts {
 namespace optimize {
 namespace linesearch {
 namespace step_size {
 
-template <typename ScalarType>
-class CubicInterpolationStepSize : public StepSizeStrategy<ScalarType> {
+class CubicInterpolationStepSize : public StepSizeStrategy {
 public:
-  ScalarType nextStep(const AlphaState<ScalarType> alpha,
-                      const func::ObjectiveFunction<ScalarType> &func,
-                      const SearchState<ScalarType> &cstate) const override {
+  ScalarType nextStep(const AlphaState alpha, const FObjFunc &func,
+                      const SearchState &cstate) const override {
     // Can be quicker though
     // fmt::print("Warning: CubicInterpolationStepSize is often unstable and is
     // "

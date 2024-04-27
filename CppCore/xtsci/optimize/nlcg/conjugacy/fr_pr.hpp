@@ -18,16 +18,13 @@ namespace xts {
 namespace optimize {
 namespace nlcg {
 namespace conjugacy {
-template <typename ScalarType>
-class FRPR : public ConjugacyCoefficientStrategy<ScalarType> {
-  FletcherReeves<ScalarType> m_fr;
-  PolakRibiere<ScalarType> m_pr;
+class FRPR : public ConjugacyCoefficientStrategy {
+  FletcherReeves m_fr;
+  PolakRibiere m_pr;
 
 public:
-  FRPR()
-      : m_fr{FletcherReeves<ScalarType>()}, m_pr{PolakRibiere<ScalarType>()} {}
-  ScalarType
-  computeBeta(const ConjugacyContext<ScalarType> &ctx) const override {
+  FRPR() : m_fr{FletcherReeves()}, m_pr{PolakRibiere()} {}
+  ScalarType computeBeta(const ConjugacyContext &ctx) const override {
     // [NJWS] Equation 5.50
     // TODO(rgoswami): This is technically only for k>= 2
     auto beta_pr = m_pr.computeBeta(ctx);
