@@ -41,14 +41,14 @@
 #include "xtsci/optimize/linesearch/step_size/golden.hpp"
 #include "xtsci/optimize/linesearch/step_size/secant.hpp"
 
-#include "xtsci/optimize/minimize/adam.hpp"
-#include "xtsci/optimize/minimize/bfgs.hpp"
+// #include "xtsci/optimize/minimize/adam.hpp"
+// #include "xtsci/optimize/minimize/bfgs.hpp"
 #include "xtsci/optimize/minimize/lbfgs.hpp"
-#include "xtsci/optimize/minimize/nlcg.hpp"
-#include "xtsci/optimize/minimize/pso.hpp"
-#include "xtsci/optimize/minimize/sd.hpp"
-#include "xtsci/optimize/minimize/sr1.hpp"
-#include "xtsci/optimize/minimize/sr2.hpp"
+// #include "xtsci/optimize/minimize/nlcg.hpp"
+// #include "xtsci/optimize/minimize/pso.hpp"
+// #include "xtsci/optimize/minimize/sd.hpp"
+// #include "xtsci/optimize/minimize/sr1.hpp"
+// #include "xtsci/optimize/minimize/sr2.hpp"
 
 #include "xtsci/func/plot_aid.hpp"
 #include "xtsci/func/trial/D2/branin.hpp"
@@ -96,63 +96,61 @@ int main(int argc, char *argv[]) {
   xts::func::trial::D2::MullerBrown<double> mullerbrown;
   xts::func::trial::D2::Branin<double> branin;
 
-  xts::optimize::OptimizeControl<double> control;
+  xts::optimize::OptimizeControl control;
   control.tol = 1e-6;
-  control.gtol = 1e-5;
+  control.gtol = 1e-3;
   control.xtol = 1e-8;
   control.ftol = 1e-22;
   control.max_iterations = 10000;
   control.maxmove = 0.1;
   control.verbose = true;
 
-  xts::optimize::linesearch::conditions::ArmijoCondition<double> armijo(0.1);
-  xts::optimize::linesearch::conditions::StrongWolfeCondition<double>
-      strongwolfe(1e-4, 0.9);
-  xts::optimize::linesearch::conditions::GoldsteinCondition<double> goldstein(
-      1e-2, 1e-4);
+  xts::optimize::linesearch::conditions::ArmijoCondition armijo(0.1);
+  xts::optimize::linesearch::conditions::StrongWolfeCondition strongwolfe(1e-4,
+                                                                          0.9);
+  xts::optimize::linesearch::conditions::GoldsteinCondition goldstein(1e-2,
+                                                                      1e-4);
 
-  xts::optimize::linesearch::step_size::BisectionStepSize<double> bisectionStep;
-  xts::optimize::linesearch::step_size::GoldenStepSize<double> goldenStep;
-  xts::optimize::linesearch::step_size::CubicInterpolationStepSize<double>
-      cubicStep;
-  xts::optimize::linesearch::step_size::SecantStepSize<double> secantStep;
-  xts::optimize::linesearch::step_size::GeometricReductionStepSize<double>
-      geomStep(0.5);
-  xts::optimize::linesearch::step_size::QuadraticInterpolationStepSize<double>
-      quadStep;
-  xts::optimize::linesearch::step_size::HermiteInterpolationStepSize<double>
+  xts::optimize::linesearch::step_size::BisectionStepSize bisectionStep;
+  xts::optimize::linesearch::step_size::GoldenStepSize goldenStep;
+  xts::optimize::linesearch::step_size::CubicInterpolationStepSize cubicStep;
+  xts::optimize::linesearch::step_size::SecantStepSize secantStep;
+  xts::optimize::linesearch::step_size::GeometricReductionStepSize geomStep(
+      0.5);
+  xts::optimize::linesearch::step_size::QuadraticInterpolationStepSize quadStep;
+  xts::optimize::linesearch::step_size::HermiteInterpolationStepSize
       hermiteCubicStep;
 
-  xts::optimize::linesearch::search_strategy::BacktrackingSearch<double>
-      backtracking(strongwolfe, 0.5);
-  xts::optimize::linesearch::search_strategy::ZoomLineSearch<double> zoom(
+  xts::optimize::linesearch::search_strategy::BacktrackingSearch backtracking(
+      strongwolfe, 0.5);
+  xts::optimize::linesearch::search_strategy::ZoomLineSearch zoom(
       hermiteCubicStep, 1e-4, 0.9, control);
 
-  xts::optimize::nlcg::conjugacy::FletcherReeves<double> fletcherreeves;
-  xts::optimize::nlcg::conjugacy::PolakRibiere<double> polakribiere;
-  xts::optimize::nlcg::conjugacy::HestenesStiefel<double> hestenesstiefel;
-  xts::optimize::nlcg::conjugacy::LiuStorey<double> liustorey;
-  xts::optimize::nlcg::conjugacy::HybridizedConj<double> hybrid_min(
+  xts::optimize::nlcg::conjugacy::FletcherReeves fletcherreeves;
+  xts::optimize::nlcg::conjugacy::PolakRibiere polakribiere;
+  xts::optimize::nlcg::conjugacy::HestenesStiefel hestenesstiefel;
+  xts::optimize::nlcg::conjugacy::LiuStorey liustorey;
+  xts::optimize::nlcg::conjugacy::HybridizedConj hybrid_min(
       hestenesstiefel, polakribiere,
       [](double a, double b) -> double { return std::min(a, b); });
-  xts::optimize::nlcg::conjugacy::FRPR<double> frpr;
-  xts::optimize::nlcg::conjugacy::HagerZhang<double> hagerzhang;
+  xts::optimize::nlcg::conjugacy::FRPR frpr;
+  xts::optimize::nlcg::conjugacy::HagerZhang hagerzhang;
 
-  xts::optimize::nlcg::restart::NJWSRestart<double> njws_restart;
-  xts::optimize::nlcg::restart::NeverRestart<double> never_restart;
+  xts::optimize::nlcg::restart::NJWSRestart njws_restart;
+  xts::optimize::nlcg::restart::NeverRestart never_restart;
 
-  xts::optimize::minimize::ConjugateGradientOptimizer<double> cgopt(
-      zoom, liustorey, njws_restart);
+  // xts::optimize::minimize::ConjugateGradientOptimizer cgopt(
+  //     zoom, liustorey, njws_restart);
 
-  // xts::optimize::minimize::SteepestDescentOptimizer<double>
+  // xts::optimize::minimize::SteepestDescentOptimizer
   // sdopt(backtracking);
 
-  xts::optimize::minimize::BFGSOptimizer<double> bfgsopt(zoom);
-  xts::optimize::minimize::LBFGSOptimizer<double> lbfgsopt(zoom, 6);
-  // xts::optimize::minimize::ADAMOptimizer<double> adaopt(backtracking);
-  // xts::optimize::minimize::SR1Optimizer<double> sr1opt(zoom);
-  // xts::optimize::minimize::SR2Optimizer<double> sr2opt(zoom);
-  // xts::optimize::minimize::PSOptim<double> psopt(100, 0.5, 1.5, 1.5,
+  // xts::optimize::minimize::BFGSOptimizer bfgsopt(zoom);
+  xts::optimize::minimize::LBFGSOptimizer lbfgsopt(zoom, 6);
+  // xts::optimize::minimize::ADAMOptimizer adaopt(backtracking);
+  // xts::optimize::minimize::SR1Optimizer sr1opt(zoom);
+  // xts::optimize::minimize::SR2Optimizer sr2opt(zoom);
+  // xts::optimize::minimize::PSOptim psopt(100, 0.5, 1.5, 1.5,
   // control);
 
   auto cuh2pot = std::make_shared<rgpot::CuH2Pot>();
@@ -165,11 +163,16 @@ int main(int argc, char *argv[]) {
   // xt::xarray<double> initial_guess = {-1.3, 1.8}; // rosen
   // xt::xarray<double> initial_guess = {0.0, 0.0}; // himmelblau
   // xt::xarray<double> initial_guess = {0.23007699, 0.20781567}; // mullerbrown
-  // xt::xarray<double> direction = {0.0, 0.0};
   xt::xarray<double> direction = xt::zeros_like(initial_guess);
-  xts::optimize::SearchState<double> cstate = {initial_guess, direction};
-  xts::optimize::OptimizeResult<double> result =
-      lbfgsopt.optimize(CuH2Obj, cstate, control);
+  xts::optimize::SearchState cstate = {initial_guess, direction};
+  // xts::optimize::OptimizeResult result = lbfgsopt.optimize(CuH2Obj, cstate);
+  size_t for_n = 30;
+  auto n_pos = lbfgsopt.step_from(CuH2Obj, cstate, for_n);
+  std::cout << "Optimized x: " << n_pos << "\n"
+            << "After " << for_n << " steps\n"
+            << "Function: " << CuH2Obj(n_pos) << std::endl
+            << "Gradient norm: " << xt::linalg::norm(*CuH2Obj.gradient(n_pos))
+            << std::endl;
 
   // xts::func::npz_on_grid2D<double>({-1.5, 1.2, 400}, {-0.2, 2.0, 400},
   //                                  mullerbrown, "mullerbrown.npz");
@@ -178,12 +181,12 @@ int main(int argc, char *argv[]) {
   // xts::optimize::OptimizeResult<double> result =
   //     psopt.optimize(mullerbrown, {-512, -512}, {512, 512});
 
-  std::cout << "Optimized x: " << result.x << "\n";
-  std::cout << "Function value: " << result.fun << "\n";
-  std::cout << "Number of iterations: " << result.nit << "\n";
-  std::cout << "Number of function evaluations: " << result.nfev << "\n";
-  std::cout << "Number of gradient evaluations: " << result.njev << "\n";
-  std::cout << "Number of Hessian evaluations: " << result.nhev << "\n";
-  std::cout << "Unique function and gradient calls: " << result.nufg << "\n";
+  // std::cout << "Optimized x: " << result.x << "\n";
+  // std::cout << "Function value: " << result.fun << "\n";
+  // std::cout << "Number of iterations: " << result.nit << "\n";
+  // std::cout << "Number of function evaluations: " << result.nfev << "\n";
+  // std::cout << "Number of gradient evaluations: " << result.njev << "\n";
+  // std::cout << "Number of Hessian evaluations: " << result.nhev << "\n";
+  // std::cout << "Unique function and gradient calls: " << result.nufg << "\n";
   return EXIT_SUCCESS;
 }
