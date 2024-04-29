@@ -43,33 +43,7 @@ private:
   ScalarVec get_direction(const ScalarVec &gradient,
                           const std::deque<ScalarVec> &s_list,
                           const std::deque<ScalarVec> &y_list,
-                          const std::deque<ScalarType> &rho_list) const {
-    std::vector<ScalarType> alpha_list(m_corrections, 0.0);
-    auto q = gradient;
-
-    // Two-loop recursion for L-BFGS
-    for (int i = s_list.size() - 1; i >= 0; --i) {
-      alpha_list[i] = rho_list[i] * xt::linalg::dot(s_list[i], q)();
-      q -= alpha_list[i] * y_list[i];
-    }
-
-    if (!s_list.empty() && !y_list.empty()) {
-      ScalarType scaling_factor =
-          rho_list.back() *
-          xt::linalg::dot(xt::xarray<ScalarType>(s_list.back()),
-                          xt::xarray<ScalarType>(y_list.back()))();
-      q *= scaling_factor;
-    }
-
-    xt::xarray<ScalarType> r = q;
-
-    for (size_t i = 0; i < s_list.size(); ++i) {
-      ScalarType beta = rho_list[i] * xt::linalg::dot(y_list[i], r)();
-      r += s_list[i] * (alpha_list[i] - beta);
-    }
-
-    return -r;
-  }
+                          const std::deque<ScalarType> &rho_list) const;
 };
 } // namespace minimize
 } // namespace optimize
