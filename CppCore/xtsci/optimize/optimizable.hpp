@@ -31,6 +31,11 @@ public:
   inline virtual ScalarVec getState() { return m_cstate; }
   // virtual ScalarType getDOF() = 0; // TODO(rg): Is this necessary
   virtual void setState(ScalarVec x) = 0;
+  // TODO(rg): Providing this for the metrics, should have an OptimizeResult
+  // return instead
+  inline const std::reference_wrapper<FObjFunc> get_fobj(void) const {
+    return m_func;
+  }
 };
 
 // This is the baseline for simple functions where everything "Just works"
