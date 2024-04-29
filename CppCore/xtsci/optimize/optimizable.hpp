@@ -20,6 +20,9 @@ public:
   virtual ~Optimizable() = default;
   virtual ScalarType operator()(const ScalarVec &x) const = 0;
   virtual std::optional<ScalarVec> gradient(const ScalarVec &x) const = 0;
+  virtual ScalarType
+  directional_derivative(const ScalarVec &x,
+                         const ScalarVec &direction) const = 0;
   virtual ScalarVec diff(const ScalarVec &_a, const ScalarVec &_b) const = 0;
   // Setters and Getters
   inline virtual ScalarVec getState() { return m_cstate; }
@@ -37,6 +40,11 @@ public:
   }
   inline std::optional<ScalarVec> gradient(const ScalarVec &x) const override {
     return this->m_func.get().gradient(x);
+  }
+  inline ScalarType
+  directional_derivative(const ScalarVec &x,
+                         const ScalarVec &direction) const override {
+    return this->m_func.get().directional_derivative(x, direction);
   }
   inline ScalarVec diff(const ScalarVec &_a,
                         const ScalarVec &_b) const override {

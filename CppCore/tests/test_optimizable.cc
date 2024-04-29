@@ -3,6 +3,7 @@
 
 #include "xtsci/func/trial/D2/mullerbrown.hpp"
 
+#include "xtsci/optimize/numerics.hpp"
 #include "xtsci/optimize/optimizable.hpp"
 
 using namespace xts::optimize;
@@ -25,6 +26,11 @@ public:
 
   ScalarVec diff(const ScalarVec &_a, const ScalarVec &_b) const override {
     return (_a - _b) / 2;
+  }
+
+  ScalarType directional_derivative(const ScalarVec &x,
+                                    const ScalarVec &dir) const override {
+    return static_cast<ScalarType>(14);
   }
 
   void setState(ScalarVec x) override { this->m_cstate = x; }
@@ -63,6 +69,12 @@ TEST_CASE("Optimizable Base Functionality", "[Optimizable]") {
     optimizable.setState(newState);
     REQUIRE(xt::all(xt::equal(optimizable.getState(), newState)));
   }
+
+  SECTION("Directional derivative") {
+    xt::xarray<double> newState = {1.0, 2.0};
+    ScalarType val = optimizable.directional_derivative(newState, newState);
+    REQUIRE(val == 14);
+  }
 }
 
 TEST_CASE("TOpt Functionality with Predefined MullerBrown", "[Optimizable]") {
@@ -82,5 +94,13 @@ TEST_CASE("TOpt Functionality with Predefined MullerBrown", "[Optimizable]") {
                  Catch::Matchers::WithinAbs(3075.34429488, TEST_EPS));
     REQUIRE_THAT(grad.value()(1),
                  Catch::Matchers::WithinAbs(873.2579683, TEST_EPS));
+  }
+  SECTION("Directional derivative positions") {
+    x = {1.623, 0.38};
+    ScalarVec direction{1, 2}, grad_at_x{3075.34429488, 873.2579683};
+    ScalarType dirderv = optimizable.directional_derivative(x, direction);
+    REQUIRE_THAT(optimizable.directional_derivative(x, direction),
+                 Catch::Matchers::WithinAbs(
+                     xt::linalg::dot(grad_at_x, direction)(), TEST_EPS));
   }
 }
