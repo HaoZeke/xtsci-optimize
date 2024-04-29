@@ -33,6 +33,7 @@ if get_option('with_tests')
       # ['test_optim_cg', 'test_optim_cg.cc', ''],
       # ['test_optim_bfgs', 'test_optim_bfgs.cc', ''],
       # ['test_optim_lbfgs', 'test_optim_lbfgs.cc', ''],
+      ['test_optimizable', 'test_optimizable.cc', ''],
     ]
     foreach test : test_array
       test(test.get(0),
