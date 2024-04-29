@@ -134,6 +134,7 @@ public:
   }
 
   virtual void step(const FObjFunc &func) = 0;
+  // TODO(rg): this is pointless, just modify maxmove
   ScalarVec step_from(FObjFunc &func, SearchState &state, size_t for_n = 1) {
     set_initial(state);
     if (m_control.get().verbose) {
