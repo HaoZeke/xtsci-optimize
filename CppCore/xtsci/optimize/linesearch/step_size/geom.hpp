@@ -8,23 +8,20 @@
 #include <vector>
 
 #include "xtsci/optimize/base.hpp"
-#include "xtsci/optimize/linesearch/base.hpp"
 
 namespace xts {
 namespace optimize {
 namespace linesearch {
 namespace step_size {
-template <typename ScalarType>
-class GeometricReductionStepSize : public StepSizeStrategy<ScalarType> {
+class GeometricReductionStepSize : public StepSizeStrategy {
 private:
   ScalarType beta;
 
 public:
   explicit GeometricReductionStepSize(ScalarType b = 0.5) : beta(b) {}
 
-  ScalarType nextStep(const AlphaState<ScalarType> alpha,
-                      const func::ObjectiveFunction<ScalarType> &,
-                      const SearchState<ScalarType> &) const override {
+  ScalarType nextStep(const AlphaState alpha, const FObjFunc &,
+                      const SearchState &) const override {
     return beta * alpha.init;
   }
 };

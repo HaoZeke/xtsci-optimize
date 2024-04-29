@@ -15,10 +15,9 @@ namespace xts {
 namespace optimize {
 namespace nlcg {
 namespace restart {
-template <typename ScalarType>
-class NeverRestart : public RestartStrategy<ScalarType> {
+class NeverRestart : public RestartStrategy {
 public:
-  bool restart(const ConjugacyContext<ScalarType> &) const override {
+  bool restart(const ConjugacyContext &) const override {
     // Sometimes (testing purposes mostly) it makes no sense to ever restart
     // Also for the FRPR which basically has its own restart strategy
     return false;

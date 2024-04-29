@@ -11,22 +11,19 @@
 #include "xtensor-blas/xlinalg.hpp"
 
 #include "xtsci/optimize/base.hpp"
-#include "xtsci/optimize/linesearch/base.hpp"
 
 namespace xts {
 namespace optimize {
 namespace linesearch {
 namespace conditions {
 
-template <typename ScalarType>
-class CurvatureCondition : public LineSearchCondition<ScalarType> {
+class CurvatureCondition : public SearchCondition {
 public:
   ScalarType c_prime;
   explicit CurvatureCondition(ScalarType c_prime_val = 0.9)
       : c_prime(c_prime_val) {}
-  bool operator()(ScalarType alpha,
-                  const func::ObjectiveFunction<ScalarType> &func,
-                  const SearchState<ScalarType> &cstate) const override {
+  bool operator()(ScalarType alpha, const FObjFunc &func,
+                  const SearchState &cstate) const override {
     auto [x, direction] = cstate;
     auto lhs =
         xt::linalg::dot(*func.gradient(x + alpha * direction), direction)();
@@ -35,15 +32,13 @@ public:
   };
 };
 
-template <typename ScalarType>
-class StrongCurvatureCondition : public LineSearchCondition<ScalarType> {
+class StrongCurvatureCondition : public SearchCondition {
 public:
   ScalarType c;
   explicit StrongCurvatureCondition(ScalarType c_val = 0.9) : c(c_val) {}
 
-  bool operator()(ScalarType alpha,
-                  const func::ObjectiveFunction<ScalarType> &func,
-                  const SearchState<ScalarType> &cstate) const override {
+  bool operator()(ScalarType alpha, const FObjFunc &func,
+                  const SearchState &cstate) const override {
     auto [x, direction] = cstate;
     auto grad_phi_alpha =
         xt::linalg::dot(*func.gradient(x + alpha * direction), direction)();

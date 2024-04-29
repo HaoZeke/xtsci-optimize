@@ -12,27 +12,26 @@
 namespace xts {
 namespace optimize {
 namespace nlcg {
-template <typename ScalarType> struct ConjugacyContext {
-  xt::xarray<ScalarType> current_gradient;
-  xt::xarray<ScalarType> previous_gradient;
-  xt::xarray<ScalarType> previous_direction;
+struct ConjugacyContext {
+  ScalarVec current_gradient;
+  ScalarVec previous_gradient;
+  ScalarVec previous_direction;
 };
 
-template <typename ScalarType> class ConjugacyCoefficientStrategy {
+class ConjugacyCoefficientStrategy {
 public:
   virtual ~ConjugacyCoefficientStrategy() = default;
 
-  virtual ScalarType
-  computeBeta(const ConjugacyContext<ScalarType> &context) const = 0;
+  virtual ScalarType computeBeta(const ConjugacyContext &context) const = 0;
 };
 
-template <typename ScalarType> class RestartStrategy {
+class RestartStrategy {
 public:
   ScalarType m_threshold; // ν in [NJWS] Equation 5.52
   explicit RestartStrategy(ScalarType threshold = 0.1)
       : m_threshold(threshold) {}
   virtual ~RestartStrategy() = default;
-  virtual bool restart(const ConjugacyContext<ScalarType> &context) const = 0;
+  virtual bool restart(const ConjugacyContext &context) const = 0;
 };
 
 } // namespace nlcg

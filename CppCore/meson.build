@@ -1,3 +1,12 @@
+# --------------------- Library
+xtsopt = library('xtsopt',
+                sources: [
+                  'xtsci/optimize/base.cc',
+                  'xtsci/optimize/minimize/lbfgs.cc'
+                ],
+                dependencies: _deps,
+                )
+_linkto += xtsopt
 # --------------------- Executable
 
 tiny_cli = executable('tiny_cli', 'tiny_cli.cpp',

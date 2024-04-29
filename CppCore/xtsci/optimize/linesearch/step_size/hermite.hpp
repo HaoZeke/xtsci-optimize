@@ -8,19 +8,16 @@
 #include <vector>
 
 #include "xtsci/optimize/base.hpp"
-#include "xtsci/optimize/linesearch/base.hpp"
 
 namespace xts {
 namespace optimize {
 namespace linesearch {
 namespace step_size {
 // This will fit a cubic Hermite polynomial to the function and its derivative
-template <typename ScalarType>
-class HermiteInterpolationStepSize : public StepSizeStrategy<ScalarType> {
+class HermiteInterpolationStepSize : public StepSizeStrategy {
 public:
-  ScalarType nextStep(const AlphaState<ScalarType> alpha,
-                      const func::ObjectiveFunction<ScalarType> &func,
-                      const SearchState<ScalarType> &cstate) const override {
+  ScalarType nextStep(const AlphaState alpha, const FObjFunc &func,
+                      const SearchState &cstate) const override {
     ScalarType x0 = alpha.low;
     ScalarType x1 = alpha.hi;
     ScalarType f0 = func(cstate.x + x0 * cstate.direction);

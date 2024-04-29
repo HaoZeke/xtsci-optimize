@@ -8,18 +8,15 @@
 #include <vector>
 
 #include "xtsci/optimize/base.hpp"
-#include "xtsci/optimize/linesearch/base.hpp"
 
 namespace xts {
 namespace optimize {
 namespace linesearch {
 namespace step_size {
-template <typename ScalarType>
-class SecantStepSize : public StepSizeStrategy<ScalarType> {
+class SecantStepSize : public StepSizeStrategy {
 public:
-  ScalarType nextStep(const AlphaState<ScalarType> alpha,
-                      const func::ObjectiveFunction<ScalarType> &func,
-                      const SearchState<ScalarType> &cstate) const override {
+  ScalarType nextStep(const AlphaState alpha, const FObjFunc &func,
+                      const SearchState &cstate) const override {
     ScalarType fa = func(cstate.x + alpha.low * cstate.direction);
     ScalarType fb = func(cstate.x + alpha.hi * cstate.direction);
     ScalarType fpa = func.directional_derivative(

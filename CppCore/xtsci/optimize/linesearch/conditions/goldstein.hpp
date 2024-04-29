@@ -11,7 +11,6 @@
 #include "xtensor-blas/xlinalg.hpp"
 
 #include "xtsci/optimize/base.hpp"
-#include "xtsci/optimize/linesearch/base.hpp"
 #include "xtsci/optimize/linesearch/conditions/armijo.hpp"
 #include "xtsci/optimize/linesearch/conditions/curvature.hpp"
 
@@ -20,8 +19,7 @@ namespace optimize {
 namespace linesearch {
 namespace conditions {
 
-template <typename ScalarType>
-class GoldsteinUpperBoundCondition : public LineSearchCondition<ScalarType> {
+class GoldsteinUpperBoundCondition : public SearchCondition {
   ScalarType c1;
 
 public:
@@ -32,9 +30,8 @@ public:
     }
   }
 
-  bool operator()(ScalarType alpha,
-                  const func::ObjectiveFunction<ScalarType> &func,
-                  const SearchState<ScalarType> &cstate) const override {
+  bool operator()(ScalarType alpha, const FObjFunc &func,
+                  const SearchState &cstate) const override {
     auto [x, direction] = cstate;
     ScalarType lhs = func(x + alpha * direction);
     ScalarType f_at_x = func(x);
@@ -47,19 +44,17 @@ public:
   }
 };
 
-template <typename ScalarType>
-class GoldsteinCondition : public LineSearchCondition<ScalarType> {
-  ArmijoCondition<ScalarType> armijo;
-  GoldsteinUpperBoundCondition<ScalarType> goldstein_upper;
+class GoldsteinCondition : public SearchCondition {
+  ArmijoCondition armijo;
+  GoldsteinUpperBoundCondition goldstein_upper;
 
 public:
   explicit GoldsteinCondition(ScalarType c_armijo = 1e-4,
                               ScalarType c_upper = 1e-4)
       : armijo(c_armijo), goldstein_upper(c_upper) {}
 
-  bool operator()(ScalarType alpha,
-                  const func::ObjectiveFunction<ScalarType> &func,
-                  const SearchState<ScalarType> &cstate) const override {
+  bool operator()(ScalarType alpha, const FObjFunc &func,
+                  const SearchState &cstate) const override {
     return armijo(alpha, func, cstate) && goldstein_upper(alpha, func, cstate);
   }
 };

@@ -15,11 +15,9 @@ namespace xts {
 namespace optimize {
 namespace nlcg {
 namespace conjugacy {
-template <typename ScalarType>
-class LiuStorey : public ConjugacyCoefficientStrategy<ScalarType> {
+class LiuStorey : public ConjugacyCoefficientStrategy {
 public:
-  ScalarType
-  computeBeta(const ConjugacyContext<ScalarType> &ctx) const override {
+  ScalarType computeBeta(const ConjugacyContext &ctx) const override {
     // [ZJJS] Equation 3, [LYCS] Equation 10
     auto grad_change = ctx.current_gradient - ctx.previous_gradient;
     return -1 *
