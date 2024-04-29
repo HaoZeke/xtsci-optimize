@@ -33,6 +33,13 @@ public:
     return static_cast<ScalarType>(14);
   }
 
+  std::pair<ScalarVec, ScalarVec>
+  grad_components(const ScalarVec &xpt, ScalarVec &direction,
+                  bool is_normalized = false) const override {
+    xt::xarray<ScalarType> dir = direction;
+    return this->m_func.get().grad_components(xpt, dir, is_normalized);
+  }
+
   void setState(ScalarVec x) override { this->m_cstate = x; }
 };
 

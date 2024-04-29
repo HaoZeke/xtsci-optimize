@@ -23,6 +23,9 @@ public:
   virtual ScalarType
   directional_derivative(const ScalarVec &x,
                          const ScalarVec &direction) const = 0;
+  virtual std::pair<ScalarVec, ScalarVec>
+  grad_components(const ScalarVec &xpt, ScalarVec &direction,
+                  bool is_normalized = false) const = 0;
   virtual ScalarVec diff(const ScalarVec &_a, const ScalarVec &_b) const = 0;
   // Setters and Getters
   inline virtual ScalarVec getState() { return m_cstate; }
@@ -45,6 +48,13 @@ public:
   directional_derivative(const ScalarVec &x,
                          const ScalarVec &direction) const override {
     return this->m_func.get().directional_derivative(x, direction);
+  }
+  inline std::pair<ScalarVec, ScalarVec>
+  grad_components(const ScalarVec &xpt, ScalarVec &direction,
+                  bool is_normalized = false) const override {
+    // TODO(rg): WTF, detemplate xts::func and fix this
+    xt::xarray<ScalarType> dir = direction;
+    return this->m_func.get().grad_components(xpt, dir, is_normalized);
   }
   inline ScalarVec diff(const ScalarVec &_a,
                         const ScalarVec &_b) const override {
