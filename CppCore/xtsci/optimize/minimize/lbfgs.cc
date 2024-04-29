@@ -20,15 +20,15 @@ void printOptimizationStep(size_t step, const ScalarType &energy,
              fmt::format("{:%H:%M:%S}", *std::localtime(&now_c)), energy, fmax);
 }
 
-void LBFGSOptimizer::step(const FObjFunc &func) {
+void LBFGSOptimizer::step(const Optimizable &optobj) {
   auto [c_x, _dir] = *m_cur;
-  auto [c_grad, c_dir] = get_grad_dir(func, *m_cur);
+  auto [c_grad, c_dir] = get_grad_dir(optobj, *m_cur);
   // Always try 1 first, but if it fails, search within a larger range
   ScalarType alpha =
-      this->m_strat.get().search({1, 1e-6, 100}, func, {c_x, c_dir});
+      this->m_strat.get().search({1, 1e-6, 100}, optobj, {c_x, c_dir});
   auto s = alpha * c_dir;
   auto n_x = c_x + s;
-  m_next = std::make_unique<SearchState>(n_x, *func.gradient(n_x));
+  m_next = std::make_unique<SearchState>(n_x, *optobj.gradient(n_x));
   // TODO(rg): This is very confusing as written, actually y is just delta grad
   auto y = m_next->direction - c_grad;
   // Update the lists
@@ -41,17 +41,17 @@ void LBFGSOptimizer::step(const FObjFunc &func) {
   m_y_list.push_back(y);
   m_rho_list.push_back(1.0 / xt::linalg::dot(y, s)());
   if (m_control.get().verbose) {
-    auto energy = func(m_next->x);
+    auto energy = optobj(m_next->x);
     auto fmax = xt::linalg::norm(m_next->direction);
     printOptimizationStep(m_result.nit, energy, fmax);
   }
 }
 
 std::pair<ScalarVec, ScalarVec>
-LBFGSOptimizer::get_grad_dir(const FObjFunc &func,
+LBFGSOptimizer::get_grad_dir(const Optimizable &optobj,
                              const SearchState &state) const {
   auto [x, _dir] = state;
-  auto grad_opt = func.gradient(x);
+  auto grad_opt = optobj.gradient(x);
   if (!grad_opt) {
     throw std::runtime_error("Gradient required for L-BFGS method.");
   }

@@ -154,7 +154,8 @@ int main(int argc, char *argv[]) {
   // control);
 
   auto cuh2pot = std::make_shared<rgpot::CuH2Pot>();
-  auto CuH2Obj = xts::pot::mk_xtpot_con("cuh2.con", cuh2pot);
+  auto xtpcuh2 = xts::pot::mk_xtpot_con("cuh2.con", cuh2pot);
+  xts::optimize::TOpt CuH2Obj(xtpcuh2);
 
   xt::xarray<double> initial_guess = {
       8.68229999999999968, 9.94699999999999918, 4.75760000000000094,

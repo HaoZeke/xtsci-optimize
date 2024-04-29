@@ -35,10 +35,10 @@ public:
   }
 
 protected:
-  void step(const FObjFunc &func) override;
+  void step(const Optimizable &optobj) override;
 
 private:
-  std::pair<ScalarVec, ScalarVec> get_grad_dir(const FObjFunc &func,
+  std::pair<ScalarVec, ScalarVec> get_grad_dir(const Optimizable &optobj,
                                                const SearchState &state) const;
   ScalarVec get_direction(const ScalarVec &gradient,
                           const std::deque<ScalarVec> &s_list,

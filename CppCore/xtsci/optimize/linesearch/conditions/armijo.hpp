@@ -22,12 +22,12 @@ public:
   ScalarType c;
   explicit ArmijoCondition(ScalarType c_val = 0.0001) : c(c_val) {}
 
-  bool operator()(ScalarType alpha, const FObjFunc &func,
+  bool operator()(ScalarType alpha, const Optimizable &optobj,
                   const SearchState &cstate) const override {
     auto [x, direction] = cstate;
-    ScalarType lhs = func(x + alpha * direction);
+    ScalarType lhs = optobj(x + alpha * direction);
     ScalarType rhs =
-        func(x) + c * alpha * func.directional_derivative(x, direction);
+        optobj(x) + c * alpha * optobj.directional_derivative(x, direction);
     return lhs <= rhs;
   }
 };

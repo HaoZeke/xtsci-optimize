@@ -16,7 +16,7 @@ namespace step_size {
 class GoldenStepSize : public StepSizeStrategy {
 public:
   static constexpr ScalarType phi = (1 + std::sqrt(5.0)) / 2.0;
-  ScalarType nextStep(const AlphaState alpha, const FObjFunc &,
+  ScalarType nextStep(const AlphaState alpha, const Optimizable &,
                       const SearchState &) const override {
     ScalarType range = alpha.hi - alpha.low;
     ScalarType step = range / phi;

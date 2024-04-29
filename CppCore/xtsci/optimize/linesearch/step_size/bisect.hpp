@@ -15,7 +15,7 @@ namespace linesearch {
 namespace step_size {
 class BisectionStepSize : public StepSizeStrategy {
 public:
-  ScalarType nextStep(const AlphaState alpha, const FObjFunc &,
+  ScalarType nextStep(const AlphaState alpha, const Optimizable &,
                       const SearchState &) const override {
     return (alpha.low + alpha.hi) / 2.0;
   }

@@ -16,6 +16,7 @@
 
 #include "xtsci/func/base.hpp"
 #include "xtsci/optimize/numerics.hpp"
+#include "xtsci/optimize/optimizable.hpp"
 
 namespace xts {
 namespace optimize {
@@ -67,13 +68,13 @@ struct AlphaState {
 
 class StepSizeStrategy {
 public:
-  virtual ScalarType nextStep(const AlphaState alpha, const FObjFunc &func,
+  virtual ScalarType nextStep(const AlphaState alpha, const Optimizable &optobj,
                               const SearchState &cstate) const = 0;
 };
 
 class SearchCondition {
 public:
-  virtual bool operator()(ScalarType alpha, const FObjFunc &func,
+  virtual bool operator()(ScalarType alpha, const Optimizable &optobj,
                           const SearchState &cstate) const = 0;
 };
 
@@ -85,7 +86,7 @@ protected:
 public:
   explicit SearchStrategy(const OptimizeControl &control)
       : m_control(control) {}
-  virtual ScalarType search(const AlphaState _in, const FObjFunc &func,
+  virtual ScalarType search(const AlphaState _in, const Optimizable &optobj,
                             const SearchState &cstate) = 0;
 };
 
@@ -107,7 +108,7 @@ public:
     lock.unlock();
   }
 
-  virtual OptimizeResult optimize(const FObjFunc &func,
+  virtual OptimizeResult optimize(const Optimizable &optobj,
                                   const SearchState &state) {
     set_initial(state);
     if (m_control.get().verbose) {
@@ -116,33 +117,34 @@ public:
     }
     while (m_result.nit < m_control.get().max_iterations &&
            !this->converged(state)) {
-      this->step(func);
+      this->step(optobj);
       m_result.nit++;
     }
-    return get_result(func);
+    return get_result(optobj);
   }
 
-  OptimizeResult get_result(const FObjFunc &func) const {
+  OptimizeResult get_result(const Optimizable &optobj) const {
     m_result.x = m_next->x;
-    m_result.fun = func(m_next->x);
-    m_result.jac = *func.gradient(m_next->x);
-    m_result.nfev = func.evaluation_counts().function_evals;
-    m_result.njev = func.evaluation_counts().gradient_evals;
-    m_result.nhev = func.evaluation_counts().hessian_evals;
-    m_result.nufg = func.evaluation_counts().unique_func_grad;
+    m_result.fun = optobj(m_next->x);
+    m_result.jac = *optobj.gradient(m_next->x);
+    // m_result.nfev = optobj.evaluation_counts().optobjtion_evals;
+    // m_result.njev = optobj.evaluation_counts().gradient_evals;
+    // m_result.nhev = optobj.evaluation_counts().hessian_evals;
+    // m_result.nufg = optobj.evaluation_counts().unique_optobj_grad;
     return m_result;
   }
 
-  virtual void step(const FObjFunc &func) = 0;
+  virtual void step(const Optimizable &optobj) = 0;
   // TODO(rg): this is pointless, just modify maxmove
-  ScalarVec step_from(FObjFunc &func, SearchState &state, size_t for_n = 1) {
+  ScalarVec step_from(Optimizable &optobj, SearchState &state,
+                      size_t for_n = 1) {
     set_initial(state);
     if (m_control.get().verbose) {
       // Print the headers in the desired format
       std::cout << "       Step     Time       Energy       fmax\n";
     }
     while (m_result.nit < for_n && !this->converged(state)) {
-      this->step(func);
+      this->step(optobj);
       m_result.nit++;
     }
     return m_next->x;

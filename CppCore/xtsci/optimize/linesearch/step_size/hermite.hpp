@@ -13,18 +13,18 @@ namespace xts {
 namespace optimize {
 namespace linesearch {
 namespace step_size {
-// This will fit a cubic Hermite polynomial to the function and its derivative
+// This will fit a cubic Hermite polynomial to the optobjtion and its derivative
 class HermiteInterpolationStepSize : public StepSizeStrategy {
 public:
-  ScalarType nextStep(const AlphaState alpha, const FObjFunc &func,
+  ScalarType nextStep(const AlphaState alpha, const Optimizable &optobj,
                       const SearchState &cstate) const override {
     ScalarType x0 = alpha.low;
     ScalarType x1 = alpha.hi;
-    ScalarType f0 = func(cstate.x + x0 * cstate.direction);
-    ScalarType f1 = func(cstate.x + x1 * cstate.direction);
-    ScalarType df0 = func.directional_derivative(
+    ScalarType f0 = optobj(cstate.x + x0 * cstate.direction);
+    ScalarType f1 = optobj(cstate.x + x1 * cstate.direction);
+    ScalarType df0 = optobj.directional_derivative(
         cstate.x + x0 * cstate.direction, cstate.direction);
-    ScalarType df1 = func.directional_derivative(
+    ScalarType df1 = optobj.directional_derivative(
         cstate.x + x1 * cstate.direction, cstate.direction);
 
     // Compute coefficients for the cubic Hermite polynomial

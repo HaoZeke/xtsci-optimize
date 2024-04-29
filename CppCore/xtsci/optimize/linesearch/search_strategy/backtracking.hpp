@@ -25,12 +25,12 @@ public:
       : SearchStrategy(optim), m_cond(cond),
         m_geom{step_size::GeometricReductionStepSize(geom_beta)} {}
 
-  ScalarType search(const AlphaState _in, const FObjFunc &func,
+  ScalarType search(const AlphaState _in, const Optimizable &optobj,
                     const SearchState &cstate) override {
     auto in_alpha = _in;
     ScalarType alpha = _in.init;
-    while (alpha > 0 && !m_cond(alpha, func, cstate)) {
-      alpha = m_geom.nextStep(in_alpha, func, cstate);
+    while (alpha > 0 && !m_cond(alpha, optobj, cstate)) {
+      alpha = m_geom.nextStep(in_alpha, optobj, cstate);
       in_alpha.init = alpha;
     }
     return alpha;

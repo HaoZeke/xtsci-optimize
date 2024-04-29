@@ -18,10 +18,10 @@ class QuadraticInterpolationStepSize : public StepSizeStrategy {
 public:
   QuadraticInterpolationStepSize() {}
 
-  ScalarType nextStep(const AlphaState alpha, const FObjFunc &func,
+  ScalarType nextStep(const AlphaState alpha, const Optimizable &optobj,
                       const SearchState &cstate) const override {
     auto phi = [&](ScalarType a_val) {
-      return func(cstate.x + a_val * cstate.direction);
+      return optobj(cstate.x + a_val * cstate.direction);
     };
 
     ScalarType phi_low = phi(alpha.low);

@@ -29,9 +29,9 @@ public:
                               ScalarType c_curvature = 0.9)
       : armijo(c_armijo), curvature(c_curvature) {}
 
-  bool operator()(ScalarType alpha, const FObjFunc &func,
+  bool operator()(ScalarType alpha, const Optimizable &optobj,
                   const SearchState &cstate) const override {
-    return armijo(alpha, func, cstate) && curvature(alpha, func, cstate);
+    return armijo(alpha, optobj, cstate) && curvature(alpha, optobj, cstate);
   }
 };
 
@@ -44,9 +44,9 @@ public:
                                 ScalarType c_curvature = 0.9)
       : armijo(c_armijo), curvature(c_curvature) {}
 
-  bool operator()(ScalarType alpha, const FObjFunc &func,
+  bool operator()(ScalarType alpha, const Optimizable &optobj,
                   const SearchState &cstate) const override {
-    return armijo(alpha, func, cstate) && curvature(alpha, func, cstate);
+    return armijo(alpha, optobj, cstate) && curvature(alpha, optobj, cstate);
   }
 };
 

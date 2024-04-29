@@ -16,19 +16,19 @@ namespace step_size {
 
 class CubicInterpolationStepSize : public StepSizeStrategy {
 public:
-  ScalarType nextStep(const AlphaState alpha, const FObjFunc &func,
+  ScalarType nextStep(const AlphaState alpha, const Optimizable &optobj,
                       const SearchState &cstate) const override {
     // Can be quicker though
     // fmt::print("Warning: CubicInterpolationStepSize is often unstable and is
     // "
     //            "only provided for reference"
     //            "Use HermiteInterpolationStepSize instead.\n");
-    ScalarType fa = func(cstate.x + alpha.low * cstate.direction);
-    ScalarType fb = func(cstate.x + alpha.hi * cstate.direction);
+    ScalarType fa = optobj(cstate.x + alpha.low * cstate.direction);
+    ScalarType fb = optobj(cstate.x + alpha.hi * cstate.direction);
 
-    ScalarType fpa = func.directional_derivative(
+    ScalarType fpa = optobj.directional_derivative(
         cstate.x + alpha.low * cstate.direction, cstate.direction);
-    ScalarType fpb = func.directional_derivative(
+    ScalarType fpb = optobj.directional_derivative(
         cstate.x + alpha.hi * cstate.direction, cstate.direction);
 
     ScalarType z = 3.0 * (fa - fb) / (alpha.hi - alpha.low) + fpa + fpb;

@@ -29,14 +29,14 @@ public:
       : SearchStrategy(optim), armijo(c_armijo), strong_curvature(c_curv),
         m_step_strategy(stepStrat) {}
 
-  ScalarType search(const AlphaState _in, const FObjFunc &func,
+  ScalarType search(const AlphaState _in, const Optimizable &optobj,
                     const SearchState &cstate) {
     auto phi = [&](ScalarType a_val) {
-      return func(cstate.x + a_val * cstate.direction);
+      return optobj(cstate.x + a_val * cstate.direction);
     };
     auto phi_prime = [&](ScalarType a_val) {
-      return func.directional_derivative(cstate.x + a_val * cstate.direction,
-                                         cstate.direction);
+      return optobj.directional_derivative(cstate.x + a_val * cstate.direction,
+                                           cstate.direction);
     };
 
     ScalarType phi_0 = phi(0.0);
@@ -48,17 +48,17 @@ public:
     ScalarType alpha_res = std::numeric_limits<ScalarType>::infinity();
 
     for (size_t idx = 0; idx < 100; idx++) {
-      if ((!armijo(alpha_i, func, cstate) && idx > 0) ||
+      if ((!armijo(alpha_i, optobj, cstate) && idx > 0) ||
           phi(alpha_i) > phi_0 + armijo.c * alpha_i * phi_prime_0) {
-        alpha_res = zoom(alpha_prev, alpha_i, func, cstate);
+        alpha_res = zoom(alpha_prev, alpha_i, optobj, cstate);
         break;
       }
-      if (strong_curvature(alpha_i, func, cstate)) {
+      if (strong_curvature(alpha_i, optobj, cstate)) {
         alpha_res = alpha_i;
         break;
       }
       if (phi_prime(alpha_i) >= 0) {
-        alpha_res = zoom(alpha_i, alpha_prev, func, cstate);
+        alpha_res = zoom(alpha_i, alpha_prev, optobj, cstate);
         break;
       }
       alpha_prev = alpha_i;
@@ -73,15 +73,15 @@ public:
     return alpha_res;
   }
 
-  ScalarType zoom(ScalarType lo, ScalarType hi, const FObjFunc &func,
+  ScalarType zoom(ScalarType lo, ScalarType hi, const Optimizable &optobj,
                   const SearchState &cstate) {
     auto phi = [&](ScalarType a_val) {
-      return func(cstate.x + a_val * cstate.direction);
+      return optobj(cstate.x + a_val * cstate.direction);
     };
 
     auto phi_prime = [&](ScalarType a_val) {
-      return func.directional_derivative(cstate.x + a_val * cstate.direction,
-                                         cstate.direction);
+      return optobj.directional_derivative(cstate.x + a_val * cstate.direction,
+                                           cstate.direction);
     };
 
     ScalarType alpha_j;      // Uses m_step_strategy below
@@ -92,20 +92,20 @@ public:
 
     for (size_t idx = 0; idx < max_iterations; ++idx) {
       alpha_j = m_step_strategy.get().nextStep(
-          {.init = alpha_j, .low = lo, .hi = hi}, func, cstate);
+          {.init = alpha_j, .low = lo, .hi = hi}, optobj, cstate);
 
       ScalarType current_phi = phi(alpha_j);
-      // If the interval is too small, or the function is flat, we are done
+      // If the interval is too small, or the optobjtion is flat, we are done
       if ((std::abs(current_phi - previous_phi) < ftol ||
            std::abs(hi - lo) < xtol) &&
           idx > 0) {
         break;
       }
 
-      if (!armijo(alpha_j, func, cstate) || current_phi >= phi(lo)) {
+      if (!armijo(alpha_j, optobj, cstate) || current_phi >= phi(lo)) {
         hi = alpha_j;
       } else {
-        if (strong_curvature(alpha_j, func, cstate)) {
+        if (strong_curvature(alpha_j, optobj, cstate)) {
           return alpha_j;
         }
         if (phi_prime(alpha_j) * (hi - lo) >= 0) {
@@ -116,7 +116,7 @@ public:
       previous_phi = current_phi;
     }
     return m_step_strategy.get().nextStep(
-        {.init = alpha_j, .low = lo, .hi = hi}, func, cstate);
+        {.init = alpha_j, .low = lo, .hi = hi}, optobj, cstate);
   }
 };
 

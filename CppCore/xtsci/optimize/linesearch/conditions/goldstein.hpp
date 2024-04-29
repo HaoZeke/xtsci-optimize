@@ -30,13 +30,13 @@ public:
     }
   }
 
-  bool operator()(ScalarType alpha, const FObjFunc &func,
+  bool operator()(ScalarType alpha, const Optimizable &optobj,
                   const SearchState &cstate) const override {
     auto [x, direction] = cstate;
-    ScalarType lhs = func(x + alpha * direction);
-    ScalarType f_at_x = func(x);
+    ScalarType lhs = optobj(x + alpha * direction);
+    ScalarType f_at_x = optobj(x);
     ScalarType gradient_dot_dir =
-        xt::linalg::dot(*func.gradient(x), direction)();
+        xt::linalg::dot(*optobj.gradient(x), direction)();
 
     ScalarType upper_bound = f_at_x + (1 - c1) * alpha * gradient_dot_dir;
 
@@ -53,9 +53,10 @@ public:
                               ScalarType c_upper = 1e-4)
       : armijo(c_armijo), goldstein_upper(c_upper) {}
 
-  bool operator()(ScalarType alpha, const FObjFunc &func,
+  bool operator()(ScalarType alpha, const Optimizable &optobj,
                   const SearchState &cstate) const override {
-    return armijo(alpha, func, cstate) && goldstein_upper(alpha, func, cstate);
+    return armijo(alpha, optobj, cstate) &&
+           goldstein_upper(alpha, optobj, cstate);
   }
 };
 
