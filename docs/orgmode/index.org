@@ -1,0 +1,68 @@
+#+TITLE: xtsci-optimize
+#+AUTHOR: [[https://rgoswami.me][Rohit Goswami]]
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+
+#+begin_export rst
+===============
+xtsci-optimize
+===============
+
+:Author: `Rohit Goswami <https://rgoswami.me>`_
+#+end_export
+
+* Overview
+
+~xtsci-optimize~ is the Rust rewrite of
+[[https://github.com/HaoZeke/xtsci-optimize][HaoZeke/xtsci-optimize]].
+Local first-order methods live only in Rust, over
+[[https://github.com/HaoZeke/eindir][eindir]] ~DifferentiableObjective~s.
+
+C and C++ keep the old ~xts::optimize~ names through an hourglass C ABI
+(~xts_minimize~) that carries *dlpk* ~DLManagedTensorVersioned~ tensors.
+~include/xts/optimize.hpp~ is the C++ wrapper; ~include/xts/xtensor.hpp~
+adapts ~xt::xarray~. There is no second solver implementation in C++.
+
+The production unconstrained local method is limited-memory BFGS with the
+strong Wolfe conditions (Nocedal and Wright 7.4 and algorithms 3.5--3.6).
+Hopping chains keep that solver's pair history on ~Lbfgs~; anneal's
+~WarmLbfgs~ is a thin handle around it.
+
+#+begin_src bash
+git clone https://github.com/HaoZeke/xtsci-optimize.git
+cd xtsci-optimize
+# Build and test on the remote builder, not a laptop.
+cargo test
+#+end_src
+
+#+begin_export rst
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
+
+   tutorials/quickstart
+
+.. toctree::
+   :maxdepth: 2
+   :caption: How-To Guides
+
+   howto/embed-anneal
+   howto/c-abi
+   howto/doxygen
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
+   reference/architecture
+   reference/sota
+   changelog
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Development
+
+   contributing/index
+#+end_export
+
+* License
+MIT.

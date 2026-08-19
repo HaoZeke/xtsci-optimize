@@ -1,0 +1,34 @@
+#+TITLE: C and C++ ABI
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* C and C++ ABI
+
+Solvers live in Rust. C and C++ call ~xts_minimize~ with dlpk
+~DLManagedTensorVersioned~ tensors.
+
+** C
+
+#+begin_src c
+#include "xts.h"
+
+xts_control_t ctrl = { .maxiter = 200, .gtol = 1e-8, .istep = 1.0, .memory = 8 };
+xts_report_t report;
+xts_status_t st = xts_minimize(eval, grad, user, x, &ctrl, XTS_LBFGS, &report);
+#+end_src
+
+A non-CPU tensor returns ~XTS_UNSUPPORTED_DEVICE~. The ABI does not
+change when a CUDA path lands.
+
+** C++
+
+#+begin_src cpp
+#include <xts/optimize.hpp>
+
+xts::optimize::Control ctrl;
+auto report = xts::optimize::minimize(eval, grad, user, x, ctrl,
+                                      xts::optimize::Method::Lbfgs);
+#+end_src
+
+xtensor callers include ~xts/xtensor.hpp~, which adapts ~xt::xarray~ to
+the same ~xts_minimize~ entry. There is no solver in the header.

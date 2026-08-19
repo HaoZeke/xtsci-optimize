@@ -12,7 +12,9 @@ ISBN). Do not invent DOIs.
 | Hager-Zhang | 10.1137/030601880 | A New Conjugate Gradient Method with Guaranteed Descent and an Efficient Line Search |
 | Liu-Storey | 10.1007/BF00940464 | Efficient generalized conjugate gradient algorithms, part 1: Theory |
 | L-BFGS Nocedal 1980 | https://doi.org/10.1090/s0025-5718-1980-0572855-7 | Updating quasi-Newton matrices with limited storage |
+| L-BFGS Liu-Nocedal 1989 | 10.1007/BF01589116 | On the limited memory BFGS method for large scale optimization |
 | L-BFGS-B | 10.1137/0916069 | A Limited Memory Algorithm for Bound Constrained Optimization |
+| L-BFGS-B Morales-Nocedal 2011 | 10.1145/2049662.2049669 | Remark on "algorithm 778: L-BFGS-B: Fortran subroutines for large-scale bound constrained optimization" |
 | Broyden 1970 | 10.1093/imamat/6.1.76 | The Convergence of a Class of Double-rank Minimization Algorithms 1. General Considerations |
 | Fletcher 1970 (BFGS) | 10.1093/comjnl/13.3.317 | A new approach to variable metric algorithms |
 | Shanno 1970 | https://doi.org/10.1090/s0025-5718-1970-0274029-x | Conditioning of quasi-Newton methods for function minimization |

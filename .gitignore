@@ -27,3 +27,9 @@ rustc-ice-*.txt
 #.idea/
 
 !branding/**/*.svg
+
+# Doxygen / doxyYoda (fetched by scripts/get_doxyyoda.sh)
+docs/doxyYoda/
+docs/doxygen-html/
+docs/source/_build/
+.grok/

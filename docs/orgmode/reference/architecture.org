@@ -1,0 +1,46 @@
+#+TITLE: Architecture
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Architecture
+
+~xtsci-optimize~ follows a metatensor-style hourglass: solvers live in
+Rust, C sees a small ABI, C++ is a header wrapper.
+
+** Layer diagram
+
+#+begin_example
++-----------------------------------------------+
+|  C++ wrapper                                  |
+|  include/xts/optimize.hpp                     |
+|  include/xts/xtensor.hpp                      |
++-----------------------------------------------+
+|  C ABI (cbindgen + hand headers)              |
+|  include/xts.h                                |
+|  xts_minimize over dlpk tensors               |
++-----------------------------------------------+
+|  Rust core                                    |
+|  Lbfgs / NLCG / BFGS / SR1 / SR2 / Adam / PSO |
+|  LineSearch (Brent, Armijo, Goldstein, Wolfe) |
+|  eindir DifferentiableObjective               |
++-----------------------------------------------+
+#+end_example
+
+** Objects
+
+- =Lbfgs= :: Persistent pair history, two-loop recursion, strong Wolfe.
+  Hopping chains hold this type (anneal ~WarmLbfgs~ is a handle).
+- =minimize_method= :: Cold-start dispatch for every =Method=.
+- =LineSearch::Wolfe= :: Nocedal-Wright 3.5 / 3.6. Default production
+  choice for quasi-Newton directions.
+- =Oracle= :: Closure adapter that implements
+  =DifferentiableObjective= for a fused =(f, g)= function.
+- =xts_minimize= :: Only C entry. CPU f64 tensors only; other devices
+  return =XTS_UNSUPPORTED_DEVICE=.
+
+** What does not live here
+
+- Simulated annealing, basin hopping, and catalogue logic stay in
+  anneal.
+- Objective algebra stays in eindir.
+- Sketch-map style collective variables stay in landfold.

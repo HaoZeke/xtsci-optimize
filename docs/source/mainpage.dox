@@ -1,0 +1,16 @@
+/**
+ * \mainpage xtsci-optimize
+ *
+ * Rust rewrite of HaoZeke/xtsci-optimize. Solvers live in Rust over
+ * eindir `DifferentiableObjective`s. This HTML is the C / C++ hourglass.
+ *
+ * - \c xts_minimize is the only entry. Tensors are dlpk
+ *   `DLManagedTensorVersioned`.
+ * - \c include/xts/optimize.hpp wraps that entry for C++.
+ * - \c include/xts/xtensor.hpp adapts `xt::xarray`.
+ *
+ * Production unconstrained method: L-BFGS (Nocedal-Wright 7.4) with
+ * the strong Wolfe conditions (algorithms 3.5 and 3.6).
+ *
+ * Narrative docs live in `docs/orgmode/`. Rust rustdoc is `cargo doc`.
+ */
