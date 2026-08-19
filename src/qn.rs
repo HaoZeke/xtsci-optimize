@@ -13,6 +13,16 @@ const CURVATURE: f64 = 1e-12;
 const SR1_SKIP: f64 = 1e-8;
 
 /// Inverse-BFGS (Nocedal-Wright 6.17).
+///
+/// Broyden, *The Convergence of a Class of Double-rank Minimization
+/// Algorithms 1. General Considerations*,
+/// <https://doi.org/10.1093/imamat/6.1.76>.
+/// Fletcher, *A new approach to variable metric algorithms*,
+/// <https://doi.org/10.1093/comjnl/13.3.317>.
+/// Shanno, *Conditioning of quasi-Newton methods for function
+/// minimization*, <https://doi.org/10.1090/s0025-5718-1970-0274029-x>.
+/// Nocedal and Wright, *Numerical Optimization*,
+/// <https://doi.org/10.1007/978-0-387-40065-5>.
 pub fn minimize_bfgs<O>(
     obj: &O,
     init: impl Into<Array1<f64>>,
@@ -52,7 +62,12 @@ where
     Ok(done(value, pos, control.maxiter, l2(&grad)))
 }
 
-/// L-BFGS two-loop recursion (Nocedal-Wright 7.4).
+/// L-BFGS two-loop recursion (Nocedal-Wright 7.4), scaling 7.20.
+///
+/// Nocedal, *Updating quasi-Newton matrices with limited storage*,
+/// <https://doi.org/10.1090/s0025-5718-1980-0572855-7>.
+/// Nocedal and Wright, *Numerical Optimization*,
+/// <https://doi.org/10.1007/978-0-387-40065-5>.
 pub fn minimize_lbfgs<O>(
     obj: &O,
     init: impl Into<Array1<f64>>,
@@ -101,7 +116,15 @@ where
     Ok(done(value, pos, control.maxiter, l2(&grad)))
 }
 
-/// Inverse SR1 (Nocedal-Wright 6.24).
+/// Inverse SR1 (Nocedal-Wright 6.24 / 6.25).
+///
+/// Maintains `H ≈ B^{-1}` with `H += uu^T / (u·y)`, `u = s - Hy`.
+/// The C++ `sr1.hpp` updates the Hessian `B` and inverts each step;
+/// the inverse update is the same map on `H`. Skip when
+/// `|u·y| < 1e-8 ||u|| ||y||` (Nocedal-Wright 6.26).
+///
+/// Nocedal and Wright, *Numerical Optimization*,
+/// <https://doi.org/10.1007/978-0-387-40065-5>.
 pub fn minimize_sr1<O>(
     obj: &O,
     init: impl Into<Array1<f64>>,
@@ -145,6 +168,8 @@ where
 ///
 /// Maintains a dense Hessian `B` (starts as `I`). The search direction is
 /// `-B^{-1} g`. After a move, `B += δ(y + Bs)^T / (δ^T s)` with `δ = y - Bs`.
+/// This rank-1 map is the C++ `sr2.hpp` formula; it is not a Nocedal-Wright
+/// numbered update.
 pub fn minimize_sr2<O>(
     obj: &O,
     init: impl Into<Array1<f64>>,
@@ -186,6 +211,9 @@ where
 }
 
 /// Steepest descent: `d = -g` every iteration.
+///
+/// Nocedal and Wright, *Numerical Optimization*,
+/// <https://doi.org/10.1007/978-0-387-40065-5>.
 pub fn minimize_sd<O>(
     obj: &O,
     init: impl Into<Array1<f64>>,
@@ -238,6 +266,8 @@ fn done(value: f64, coords: Array1<f64>, steps: usize, grad_norm: f64) -> Report
     }
 }
 
+/// Inverse BFGS, Nocedal-Wright 6.17:
+/// `H+ = (I - ρ s y^T) H (I - ρ y s^T) + ρ s s^T`, `ρ = 1/(y·s)`.
 fn bfgs_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
     let ys = y.dot(s);
     if ys <= CURVATURE {
@@ -247,7 +277,6 @@ fn bfgs_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
     let hy = h.dot(y);
     let yhy = y.dot(&hy);
     let n = s.len();
-    // H+ = (I - ρ s y^T) H (I - ρ y s^T) + ρ s s^T
     let mut hp = Array2::<f64>::zeros((n, n));
     for i in 0..n {
         for j in 0..n {
@@ -262,6 +291,7 @@ fn bfgs_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
     *h = hp;
 }
 
+/// `B += δ (y + Bs)^T / (δ·s)`, `δ = y - Bs` (`sr2.hpp`).
 fn sr2_hessian_update(b: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
     let bs = b.dot(s);
     let delta = y - &bs;
@@ -332,6 +362,7 @@ fn solve_dense(a: &Array2<f64>, rhs: &Array1<f64>) -> Option<Array1<f64>> {
     Some(x)
 }
 
+/// Inverse SR1: `H += u u^T / (u·y)`, `u = s - Hy` (Nocedal-Wright 6.25).
 fn sr1_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
     let hy = h.dot(y);
     let u = s - &hy;
@@ -349,6 +380,8 @@ fn sr1_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
     }
 }
 
+/// Two-loop recursion (Nocedal-Wright 7.4).
+/// `H0 = ((s·y)/(y·y)) I` (7.20). C++ `lbfgs.hpp` uses `ρ (s·y) = 1`.
 fn lbfgs_direction(g: &Array1<f64>, s_hist: &[Array1<f64>], y_hist: &[Array1<f64>]) -> Array1<f64> {
     let m = s_hist.len();
     let mut q = g.clone();
