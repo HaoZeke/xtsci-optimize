@@ -1,16 +1,71 @@
-//! Nocedal-Wright algorithm 5.4 on an eindir objective.
+//! Dispatch Nocedal-Wright local methods on an eindir objective.
 
 use eindir_core::{DifferentiableObjective, Objective};
 use ndarray::Array1;
 
+use crate::adam::minimize_adam;
 use crate::control::Control;
 use crate::error::{Error, Result};
 use crate::linesearch::LineSearch;
+use crate::method::Method;
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
+use crate::qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1};
 use crate::report::Report;
+use crate::step::{l2, next_istep, take_step};
 
 /// Minimize `obj` from `init` with the chosen conjugacy, restart, and line search.
 pub fn minimize<O>(
+    obj: &O,
+    init: impl Into<Array1<f64>>,
+    control: &Control,
+    conjugacy: Conjugacy,
+    restart: Restart,
+    linesearch: LineSearch,
+) -> Result<Report>
+where
+    O: DifferentiableObjective<f64> + ?Sized,
+{
+    minimize_method(
+        obj,
+        init,
+        control,
+        Method::Nlcg {
+            conjugacy,
+            restart,
+        },
+        linesearch,
+    )
+}
+
+/// Minimize with any [`Method`].
+pub fn minimize_method<O>(
+    obj: &O,
+    init: impl Into<Array1<f64>>,
+    control: &Control,
+    method: Method,
+    linesearch: LineSearch,
+) -> Result<Report>
+where
+    O: DifferentiableObjective<f64> + ?Sized,
+{
+    match method {
+        Method::Nlcg {
+            conjugacy,
+            restart,
+        } => minimize_nlcg(obj, init, control, conjugacy, restart, linesearch),
+        Method::Bfgs => minimize_bfgs(obj, init, control, linesearch),
+        Method::Lbfgs { memory } => minimize_lbfgs(obj, init, control, linesearch, memory),
+        Method::Sr1 => minimize_sr1(obj, init, control, linesearch),
+        Method::Adam {
+            beta1,
+            beta2,
+            eps,
+        } => minimize_adam(obj, init, control, linesearch, beta1, beta2, eps),
+        Method::Steepest => minimize_sd(obj, init, control, linesearch),
+    }
+}
+
+fn minimize_nlcg<O>(
     obj: &O,
     init: impl Into<Array1<f64>>,
     control: &Control,
@@ -45,19 +100,9 @@ where
                 grad_norm: gnorm,
             });
         }
-        let (npos, nval, lsstep) = linesearch.search(
-            |x| obj.value_and_gradient(x),
-            pos.view(),
-            dir.view(),
-            istep,
-        );
-        let mut trial = obj.bounds().clip(npos.view());
-        if let Some(cap) = control.maxmove {
-            scale_step(&pos, &mut trial, cap);
-        }
-        if nval < value {
-            pos = trial;
-        }
+        let (npos, _, lsstep, _) =
+            take_step(obj, &pos, value, dir.view(), istep, linesearch, control);
+        pos = npos;
         let ev = obj.value_and_gradient(pos.view());
         value = ev.0;
         grad = ev.1;
@@ -70,18 +115,10 @@ where
         if restart.should_restart(&ctx) {
             beta = 0.0;
         }
-        dir = Array1::from_iter(
-            grad.iter()
-                .zip(d_old.iter())
-                .map(|(g, d)| -g + beta * d),
-        );
+        dir = Array1::from_iter(grad.iter().zip(d_old.iter()).map(|(g, d)| -g + beta * d));
         g_old.assign(&grad);
         d_old.assign(&dir);
-        istep = if lsstep <= 0.0 {
-            control.istep
-        } else {
-            lsstep * 0.5
-        };
+        istep = next_istep(lsstep, control);
     }
     Ok(Report {
         value,
@@ -90,24 +127,3 @@ where
         grad_norm: l2(&grad),
     })
 }
-
-fn l2(g: &Array1<f64>) -> f64 {
-    g.iter().map(|x| x * x).sum::<f64>().sqrt()
-}
-
-fn scale_step(origin: &Array1<f64>, trial: &mut Array1<f64>, cap: f64) {
-    let mut n2 = 0.0;
-    for i in 0..trial.len() {
-        let d = trial[i] - origin[i];
-        n2 += d * d;
-    }
-    let n = n2.sqrt();
-    if n > cap && n > 0.0 {
-        let s = cap / n;
-        for i in 0..trial.len() {
-            trial[i] = origin[i] + s * (trial[i] - origin[i]);
-        }
-    }
-}
-
-

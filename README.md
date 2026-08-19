@@ -12,7 +12,9 @@ restart, and line search, ported from the strategy split in
 Conjugacy methods follow Nocedal and Wright, *Numerical Optimization*
 (2006), chapter 5: Fletcher-Reeves, Polak-Ribiere, Hestenes-Stiefel,
 Dai-Yuan, conjugate descent, Hager-Zhang, Liu-Storey, and the FR-PR
-hybrid. Line search is Brent (1973) or Armijo backtracking.
+hybrid. Line search is Brent (1973) or Armijo backtracking. Quasi-Newton
+methods (BFGS, L-BFGS, SR1), Adam, and steepest descent share the
+same `Method` enum and eindir handle.
 
 ```rust
 use eindir_core::objectives::Rosenbrock;
