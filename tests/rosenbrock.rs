@@ -4,7 +4,7 @@ use approx::assert_relative_eq;
 use eindir_core::DifferentiableObjective;
 use eindir_core::objectives::Rosenbrock;
 use ndarray::array;
-use quench_core::{Conjugacy, Control, LineSearch, Restart, minimize};
+use xtsci_optimize::{Conjugacy, Control, LineSearch, Restart, minimize};
 
 fn control() -> Control {
     Control {
@@ -133,7 +133,7 @@ fn dim_mismatch_is_an_error() {
     )
     .unwrap_err();
     match err {
-        quench_core::Error::Dim { got, dim } => {
+        xtsci_optimize::Error::Dim { got, dim } => {
             assert_eq!(got, 1);
             assert_eq!(dim, 2);
         }

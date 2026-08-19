@@ -1,4 +1,4 @@
-//! Narrow C waist for quench. Every vector is a DLPack tensor (dlpk),
+//! Narrow C waist for xtsci-optimize. Every vector is a DLPack tensor (dlpk),
 //! the same contract as eindir_objective_t, so a later device kernel
 //! does not change the ABI.
 
@@ -18,57 +18,57 @@ use crate::{Control, LineSearch, Method, Oracle, minimize_method};
 /// Status codes. 0 is success, matching metatensor / eindir.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum quench_status_t {
+pub enum xts_status_t {
     /// Completed.
-    QUENCH_SUCCESS = 0,
+    XTS_SUCCESS = 0,
     /// Null pointer or inconsistent length.
-    QUENCH_INVALID_PARAMETER = 1,
+    XTS_INVALID_PARAMETER = 1,
     /// Panic or internal failure behind the C boundary.
-    QUENCH_INTERNAL_ERROR = 2,
+    XTS_INTERNAL_ERROR = 2,
     /// Tensor is not on a device this build can evaluate (GPU later).
-    QUENCH_UNSUPPORTED_DEVICE = 3,
+    XTS_UNSUPPORTED_DEVICE = 3,
 }
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum quench_method_t {
+pub enum xts_method_t {
     /// Polak-Ribiere NLCG + Brent.
-    QUENCH_POLAK_RIBIERE = 0,
+    XTS_POLAK_RIBIERE = 0,
     /// Fletcher-Reeves NLCG + Brent.
-    QUENCH_FLETCHER_REEVES = 1,
+    XTS_FLETCHER_REEVES = 1,
     /// Dense inverse-BFGS.
-    QUENCH_BFGS = 2,
+    XTS_BFGS = 2,
     /// Limited-memory BFGS.
-    QUENCH_LBFGS = 3,
+    XTS_LBFGS = 3,
     /// Inverse SR1.
-    QUENCH_SR1 = 4,
+    XTS_SR1 = 4,
     /// Adam + Brent.
-    QUENCH_ADAM = 5,
+    XTS_ADAM = 5,
     /// Steepest descent.
-    QUENCH_STEEPEST = 6,
+    XTS_STEEPEST = 6,
     /// SR2 Hessian update.
-    QUENCH_SR2 = 7,
+    XTS_SR2 = 7,
     /// Particle swarm.
-    QUENCH_PSO = 8,
+    XTS_PSO = 8,
     /// Hestenes-Stiefel NLCG + Brent.
-    QUENCH_HESTENES_STIEFEL = 9,
+    XTS_HESTENES_STIEFEL = 9,
     /// Dai-Yuan NLCG + Brent.
-    QUENCH_DAI_YUAN = 10,
+    XTS_DAI_YUAN = 10,
     /// Fletcher conjugate-descent NLCG + Brent.
-    QUENCH_CONJUGATE_DESCENT = 11,
+    XTS_CONJUGATE_DESCENT = 11,
     /// Hager-Zhang NLCG + Brent.
-    QUENCH_HAGER_ZHANG = 12,
+    XTS_HAGER_ZHANG = 12,
     /// Liu-Storey NLCG + Brent.
-    QUENCH_LIU_STOREY = 13,
+    XTS_LIU_STOREY = 13,
     /// Gilbert-Nocedal FR-PR hybrid NLCG + Brent.
-    QUENCH_FR_PR = 14,
+    XTS_FR_PR = 14,
 }
 
 /// Iteration controls. `memory` is used only by L-BFGS (0 means 10).
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
-pub struct quench_control_t {
+pub struct xts_control_t {
     /// Maximum iterations.
     pub maxiter: usize,
     /// Stop when `||g||_2 < gtol`.
@@ -79,10 +79,10 @@ pub struct quench_control_t {
     pub memory: usize,
 }
 
-/// Result written by [`quench_minimize_fn`].
+/// Result written by [`xts_minimize`].
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
-pub struct quench_report_t {
+pub struct xts_report_t {
     /// `f(x)` at the accepted point.
     pub value: f64,
     /// Outer iterations.
@@ -92,18 +92,18 @@ pub struct quench_report_t {
 }
 
 /// `f(x)` callback. `x` is a rank-1 f64 DLPack tensor.
-pub type quench_eval_fn = unsafe extern "C" fn(
+pub type xts_eval_fn = unsafe extern "C" fn(
     user: *mut c_void,
     x: *const DLManagedTensorVersioned,
     value_out: *mut f64,
-) -> quench_status_t;
+) -> xts_status_t;
 
 /// `∇f(x)` callback. Writes into the pre-allocated `grad_out` tensor.
-pub type quench_grad_fn = unsafe extern "C" fn(
+pub type xts_grad_fn = unsafe extern "C" fn(
     user: *mut c_void,
     x: *const DLManagedTensorVersioned,
     grad_out: *mut DLManagedTensorVersioned,
-) -> quench_status_t;
+) -> xts_status_t;
 
 thread_local! {
     static LAST_ERROR: RefCell<CString> = RefCell::new(CString::default());
@@ -117,69 +117,69 @@ fn set_last_error(msg: &str) {
     });
 }
 
-/// Last error on this thread. Valid until the next quench C call.
+/// Last error on this thread. Valid until the next xts C call.
 #[unsafe(no_mangle)]
-pub extern "C" fn quench_last_error() -> *const c_char {
+pub extern "C" fn xts_last_error() -> *const c_char {
     LAST_ERROR.with(|cell| cell.borrow().as_ptr())
 }
 
 /// Package version, NUL-terminated.
 #[unsafe(no_mangle)]
-pub extern "C" fn quench_version() -> *const c_char {
+pub extern "C" fn xts_version() -> *const c_char {
     concat!(env!("CARGO_PKG_VERSION"), "\0").as_ptr() as *const c_char
 }
 
-fn method_from_c(m: quench_method_t, memory: usize) -> Method {
+fn method_from_c(m: xts_method_t, memory: usize) -> Method {
     match m {
-        quench_method_t::QUENCH_POLAK_RIBIERE => Method::polak_ribiere(),
-        quench_method_t::QUENCH_FLETCHER_REEVES => {
+        xts_method_t::XTS_POLAK_RIBIERE => Method::polak_ribiere(),
+        xts_method_t::XTS_FLETCHER_REEVES => {
             Method::nlcg(crate::Conjugacy::FletcherReeves)
         }
-        quench_method_t::QUENCH_BFGS => Method::Bfgs,
-        quench_method_t::QUENCH_LBFGS => Method::Lbfgs {
+        xts_method_t::XTS_BFGS => Method::Bfgs,
+        xts_method_t::XTS_LBFGS => Method::Lbfgs {
             memory: if memory == 0 { 10 } else { memory },
         },
-        quench_method_t::QUENCH_SR1 => Method::Sr1,
-        quench_method_t::QUENCH_ADAM => Method::adam(),
-        quench_method_t::QUENCH_STEEPEST => Method::Steepest,
-        quench_method_t::QUENCH_SR2 => Method::Sr2,
-        quench_method_t::QUENCH_PSO => Method::pso(),
-        quench_method_t::QUENCH_HESTENES_STIEFEL => {
+        xts_method_t::XTS_SR1 => Method::Sr1,
+        xts_method_t::XTS_ADAM => Method::adam(),
+        xts_method_t::XTS_STEEPEST => Method::Steepest,
+        xts_method_t::XTS_SR2 => Method::Sr2,
+        xts_method_t::XTS_PSO => Method::pso(),
+        xts_method_t::XTS_HESTENES_STIEFEL => {
             Method::nlcg(crate::Conjugacy::HestenesStiefel)
         }
-        quench_method_t::QUENCH_DAI_YUAN => Method::nlcg(crate::Conjugacy::DaiYuan),
-        quench_method_t::QUENCH_CONJUGATE_DESCENT => {
+        xts_method_t::XTS_DAI_YUAN => Method::nlcg(crate::Conjugacy::DaiYuan),
+        xts_method_t::XTS_CONJUGATE_DESCENT => {
             Method::nlcg(crate::Conjugacy::ConjugateDescent)
         }
-        quench_method_t::QUENCH_HAGER_ZHANG => Method::nlcg(crate::Conjugacy::HagerZhang),
-        quench_method_t::QUENCH_LIU_STOREY => Method::nlcg(crate::Conjugacy::LiuStorey),
-        quench_method_t::QUENCH_FR_PR => Method::nlcg(crate::Conjugacy::FrPr),
+        xts_method_t::XTS_HAGER_ZHANG => Method::nlcg(crate::Conjugacy::HagerZhang),
+        xts_method_t::XTS_LIU_STOREY => Method::nlcg(crate::Conjugacy::LiuStorey),
+        xts_method_t::XTS_FR_PR => Method::nlcg(crate::Conjugacy::FrPr),
     }
 }
 
 /// Borrow a 1-D CPU f64 buffer as a DLPack tensor. Caller must
-/// [`quench_tensor_free`] it. The buffer must outlive the tensor.
+/// [`xts_tensor_free`] it. The buffer must outlive the tensor.
 ///
 /// # Safety
 /// `data` points to `len` writable f64s.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn quench_tensor_borrow_cpu_f64(
+pub unsafe extern "C" fn xts_tensor_borrow_cpu_f64(
     data: *mut f64,
     len: usize,
 ) -> *mut DLManagedTensorVersioned {
     if data.is_null() || len == 0 {
-        set_last_error("quench_tensor_borrow_cpu_f64: null or empty");
+        set_last_error("xts_tensor_borrow_cpu_f64: null or empty");
         return std::ptr::null_mut();
     }
     unsafe { create_borrowed_f64_1d(data, len, DLDeviceType::kDLCPU, 0) }
 }
 
-/// Release a tensor created by [`quench_tensor_borrow_cpu_f64`].
+/// Release a tensor created by [`xts_tensor_borrow_cpu_f64`].
 ///
 /// # Safety
 /// `tensor` is null or a pointer from this crate's borrow helper.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn quench_tensor_free(tensor: *mut DLManagedTensorVersioned) {
+pub unsafe extern "C" fn xts_tensor_free(tensor: *mut DLManagedTensorVersioned) {
     if tensor.is_null() {
         return;
     }
@@ -243,10 +243,10 @@ unsafe fn create_borrowed_f64_1d(
 fn cpu_f64_slice<'a>(
     t: *const DLManagedTensorVersioned,
     name: &str,
-) -> Result<&'a [f64], quench_status_t> {
+) -> Result<&'a [f64], xts_status_t> {
     if t.is_null() {
         set_last_error(&format!("{name}: null tensor"));
-        return Err(quench_status_t::QUENCH_INVALID_PARAMETER);
+        return Err(xts_status_t::XTS_INVALID_PARAMETER);
     }
     let t = unsafe { &*t };
     let dl = &t.dl_tensor;
@@ -255,7 +255,7 @@ fn cpu_f64_slice<'a>(
             "{name}: device {:?} not supported in this build (CPU only)",
             dl.device.device_type as i32
         ));
-        return Err(quench_status_t::QUENCH_UNSUPPORTED_DEVICE);
+        return Err(xts_status_t::XTS_UNSUPPORTED_DEVICE);
     }
     if dl.ndim != 1
         || dl.dtype.code != DLDataTypeCode::kDLFloat
@@ -265,16 +265,16 @@ fn cpu_f64_slice<'a>(
         || dl.data.is_null()
     {
         set_last_error(&format!("{name}: need rank-1 f64 contiguous DLPack"));
-        return Err(quench_status_t::QUENCH_INVALID_PARAMETER);
+        return Err(xts_status_t::XTS_INVALID_PARAMETER);
     }
     let n = unsafe { *dl.shape as usize };
     if n == 0 {
         set_last_error(&format!("{name}: empty"));
-        return Err(quench_status_t::QUENCH_INVALID_PARAMETER);
+        return Err(xts_status_t::XTS_INVALID_PARAMETER);
     }
     if !dl.strides.is_null() && unsafe { *dl.strides } != 1 {
         set_last_error(&format!("{name}: non-unit stride"));
-        return Err(quench_status_t::QUENCH_INVALID_PARAMETER);
+        return Err(xts_status_t::XTS_INVALID_PARAMETER);
     }
     let ptr = unsafe { (dl.data as *const u8).add(dl.byte_offset as usize) as *const f64 };
     Ok(unsafe { slice::from_raw_parts(ptr, n) })
@@ -283,7 +283,7 @@ fn cpu_f64_slice<'a>(
 fn cpu_f64_slice_mut<'a>(
     t: *mut DLManagedTensorVersioned,
     name: &str,
-) -> Result<&'a mut [f64], quench_status_t> {
+) -> Result<&'a mut [f64], xts_status_t> {
     let s = cpu_f64_slice(t as *const _, name)?;
     let n = s.len();
     let p = s.as_ptr() as *mut f64;
@@ -297,35 +297,35 @@ fn cpu_f64_slice_mut<'a>(
 ///
 /// `eval` and `grad` must be callable for the lifetime of this call.
 /// `x` must be a writable rank-1 f64 tensor. Non-CPU devices return
-/// [`quench_status_t::QUENCH_UNSUPPORTED_DEVICE`].
+/// [`xts_status_t::XTS_UNSUPPORTED_DEVICE`].
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn quench_minimize_fn(
-    eval: Option<quench_eval_fn>,
-    grad: Option<quench_grad_fn>,
+pub unsafe extern "C" fn xts_minimize(
+    eval: Option<xts_eval_fn>,
+    grad: Option<xts_grad_fn>,
     user: *mut c_void,
     x: *mut DLManagedTensorVersioned,
-    ctrl: *const quench_control_t,
-    method: quench_method_t,
-    out: *mut quench_report_t,
-) -> quench_status_t {
+    ctrl: *const xts_control_t,
+    method: xts_method_t,
+    out: *mut xts_report_t,
+) -> xts_status_t {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let eval = match eval {
             Some(f) => f,
             None => {
-                set_last_error("quench_minimize_fn: eval is NULL");
-                return quench_status_t::QUENCH_INVALID_PARAMETER;
+                set_last_error("xts_minimize: eval is NULL");
+                return xts_status_t::XTS_INVALID_PARAMETER;
             }
         };
         let grad = match grad {
             Some(f) => f,
             None => {
-                set_last_error("quench_minimize_fn: grad is NULL");
-                return quench_status_t::QUENCH_INVALID_PARAMETER;
+                set_last_error("xts_minimize: grad is NULL");
+                return xts_status_t::XTS_INVALID_PARAMETER;
             }
         };
         if ctrl.is_null() || out.is_null() {
-            set_last_error("quench_minimize_fn: ctrl/out null");
-            return quench_status_t::QUENCH_INVALID_PARAMETER;
+            set_last_error("xts_minimize: ctrl/out null");
+            return xts_status_t::XTS_INVALID_PARAMETER;
         }
         let init = match cpu_f64_slice_mut(x, "x") {
             Ok(s) => s.to_vec(),
@@ -336,8 +336,8 @@ pub unsafe extern "C" fn quench_minimize_fn(
         let grad_ptr = grad as usize;
         let user_addr = user as usize;
         let obj = Oracle::unbounded(n, move |xv| {
-            let eval_fn: quench_eval_fn = unsafe { std::mem::transmute(eval_ptr) };
-            let grad_fn: quench_grad_fn = unsafe { std::mem::transmute(grad_ptr) };
+            let eval_fn: xts_eval_fn = unsafe { std::mem::transmute(eval_ptr) };
+            let grad_fn: xts_grad_fn = unsafe { std::mem::transmute(grad_ptr) };
             let user = user_addr as *mut c_void;
             let mut xs = xv.to_vec();
             let xt = unsafe {
@@ -351,11 +351,11 @@ pub unsafe extern "C" fn quench_minimize_fn(
             };
             let gr_st = unsafe { grad_fn(user, xt, gt) };
             unsafe {
-                quench_tensor_free(xt);
-                quench_tensor_free(gt);
+                xts_tensor_free(xt);
+                xts_tensor_free(gt);
             }
-            if ev_st != quench_status_t::QUENCH_SUCCESS
-                || gr_st != quench_status_t::QUENCH_SUCCESS
+            if ev_st != xts_status_t::XTS_SUCCESS
+                || gr_st != xts_status_t::XTS_SUCCESS
             {
                 return (f64::INFINITY, Array1::from(g));
             }
@@ -382,24 +382,24 @@ pub unsafe extern "C" fn quench_minimize_fn(
                 };
                 dest.copy_from_slice(rep.coords.as_slice().expect("contiguous"));
                 unsafe {
-                    *out = quench_report_t {
+                    *out = xts_report_t {
                         value: rep.value,
                         steps: rep.steps,
                         grad_norm: rep.grad_norm,
                     };
                 }
-                quench_status_t::QUENCH_SUCCESS
+                xts_status_t::XTS_SUCCESS
             }
             Err(e) => {
                 set_last_error(&e.to_string());
-                quench_status_t::QUENCH_INVALID_PARAMETER
+                xts_status_t::XTS_INVALID_PARAMETER
             }
         }
     })) {
         Ok(s) => s,
         Err(_) => {
-            set_last_error("quench_minimize_fn: panic");
-            quench_status_t::QUENCH_INTERNAL_ERROR
+            set_last_error("xts_minimize: panic");
+            xts_status_t::XTS_INTERNAL_ERROR
         }
     }
 }
@@ -415,7 +415,7 @@ mod device_tests {
             create_borrowed_f64_1d(buf.as_mut_ptr(), 2, DLDeviceType::kDLCUDA, 0)
         };
         let err = cpu_f64_slice(t, "cuda").unwrap_err();
-        unsafe { quench_tensor_free(t) };
-        assert_eq!(err, quench_status_t::QUENCH_UNSUPPORTED_DEVICE);
+        unsafe { xts_tensor_free(t) };
+        assert_eq!(err, xts_status_t::XTS_UNSUPPORTED_DEVICE);
     }
 }

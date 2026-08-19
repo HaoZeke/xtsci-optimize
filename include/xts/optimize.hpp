@@ -2,56 +2,57 @@
 
 /**
  * \file xts/optimize.hpp
- * \brief Source-compatible xts::optimize names over the quench hourglass.
+ * \brief C++ API for the Rust xtsci-optimize hourglass.
  *
- * Solvers live in Rust and are reached only through quench.hpp /
- * quench_minimize_fn. This header does not reimplement BFGS, L-BFGS, SR1,
- * Adam, NLCG, or line search in C++, and it does not pull xtensor.
- *
- * xtensor callers include quench/xtensor.hpp and then use these aliases,
- * or call quench::xt::minimize directly.
- *
- * Name map (HaoZeke/xtsci-optimize CppCore/xtsci/optimize):
- *   OptimizeControl / OptimizeResult  <-  quench::Control / quench::Report
- *   minimize::BFGSOptimizer           <-  quench::Method::Bfgs
- *   minimize::LBFGSOptimizer          <-  quench::Method::Lbfgs
- *   minimize::SR1Optimizer            <-  quench::Method::Sr1
- *   minimize::SR2Optimizer            <-  quench::Method::Sr2
- *   minimize::ADAMOptimizer           <-  quench::Method::Adam
- *   minimize::SteepestDescentOptimizer<-  quench::Method::Steepest
- *   minimize::PSOptim                 <-  quench::Method::Pso
- *   minimize::ConjugateGradientOptimizer
- *                                     <-  quench::Method::PolakRibiere
- *   nlcg::conjugacy::PolakRibiere     <-  quench::Method::PolakRibiere
- *   nlcg::conjugacy::FletcherReeves   <-  quench::Method::FletcherReeves
- *   nlcg::conjugacy::HestenesStiefel  <-  quench::Method::HestenesStiefel
- *   nlcg::conjugacy::DaiYuan          <-  quench::Method::DaiYuan
- *   nlcg::conjugacy::ConjugateDescent <-  quench::Method::ConjugateDescent
- *   nlcg::conjugacy::HagerZhang       <-  quench::Method::HagerZhang
- *   nlcg::conjugacy::LiuStorey        <-  quench::Method::LiuStorey
- *   nlcg::conjugacy::FrPr             <-  quench::Method::FrPr
+ * Solvers live in Rust. This header wraps xts_minimize over dlpk tensors.
+ * It does not reimplement BFGS, L-BFGS, NLCG, or line search in C++.
+ * xtensor callers also include xts/xtensor.hpp.
  */
 
-#include "../quench.hpp"
+#include "../xts.h"
+
+#include <cstddef>
+#include <stdexcept>
+#include <string>
 
 namespace xts {
 namespace optimize {
 
-/// Scalar used by the C ABI (original numerics.hpp alias).
+inline const char* version() noexcept { return xts_version(); }
+
+enum class Method {
+    PolakRibiere = XTS_POLAK_RIBIERE,
+    FletcherReeves = XTS_FLETCHER_REEVES,
+    Bfgs = XTS_BFGS,
+    Lbfgs = XTS_LBFGS,
+    Sr1 = XTS_SR1,
+    Adam = XTS_ADAM,
+    Steepest = XTS_STEEPEST,
+    Sr2 = XTS_SR2,
+    Pso = XTS_PSO,
+    HestenesStiefel = XTS_HESTENES_STIEFEL,
+    DaiYuan = XTS_DAI_YUAN,
+    ConjugateDescent = XTS_CONJUGATE_DESCENT,
+    HagerZhang = XTS_HAGER_ZHANG,
+    LiuStorey = XTS_LIU_STOREY,
+    FrPr = XTS_FR_PR,
+};
+
+struct Control {
+    std::size_t maxiter = 100;
+    double gtol = 1e-8;
+    double istep = 0.1;
+    std::size_t memory = 10;
+};
+
+struct Report {
+    double value = 0.0;
+    std::size_t steps = 0;
+    double grad_norm = 0.0;
+};
+
 using ScalarType = double;
 
-using Method = ::quench::Method;
-using Control = ::quench::Control;
-using Report = ::quench::Report;
-
-inline const char* version() noexcept { return ::quench::version(); }
-
-/**
- * xtsci OptimizeControl field names, converted to quench::Control at the
- * hourglass. Only max_iterations, gtol, istep, and memory cross the ABI.
- * verbose / maxmove / xtol / ftol / tol are accepted for source compatibility
- * and are not sent to Rust.
- */
 struct OptimizeControl {
     std::size_t max_iterations = 100;
     ScalarType gtol = 1e-8;
@@ -64,24 +65,14 @@ struct OptimizeControl {
     ScalarType ftol = 1e-6;
 
     OptimizeControl() = default;
-
-    /// Original three-argument constructor (base.hpp).
     OptimizeControl(std::size_t miter_val, ScalarType tol_val, bool verb_val)
-        : max_iterations{miter_val},
-          gtol{tol_val},
-          tol{tol_val},
-          verbose{verb_val} {}
+        : max_iterations{miter_val}, gtol{tol_val}, tol{tol_val}, verbose{verb_val} {}
 
-    ::quench::Control to_quench() const {
-        return ::quench::Control{max_iterations, gtol, istep, memory};
+    Control to_control() const {
+        return Control{max_iterations, gtol, istep, memory};
     }
 };
 
-/**
- * xtsci OptimizeResult names over quench::Report.
- * fun <- value, nit <- steps. Tensor fields (x, jac, hess) stay on the
- * caller side; the hourglass writes the accepted point back into x[].
- */
 struct OptimizeResult {
     ScalarType fun = 0.0;
     std::size_t nit = 0;
@@ -89,46 +80,40 @@ struct OptimizeResult {
     bool success = true;
     int status = 0;
 
-    static OptimizeResult from_quench(::quench::Report const& r) {
+    static OptimizeResult from_report(Report const& r) {
         OptimizeResult out;
         out.fun = r.value;
         out.nit = r.steps;
         out.grad_norm = r.grad_norm;
-        out.success = true;
-        out.status = 0;
         return out;
     }
 };
 
-/// Line-search bracket (original AlphaState). Unused by the hourglass.
-struct AlphaState {
-    ScalarType init = 1.0;
-    ScalarType low = 0.0;
-    ScalarType hi = 1.0;
-};
-
-inline OptimizeResult minimize(quench_eval_fn eval, quench_grad_fn grad,
-                               void* user, double* x, std::size_t n,
-                               OptimizeControl const& ctrl, Method method) {
-    Report r = ::quench::minimize_fn(eval, grad, user, x, n, ctrl.to_quench(),
-                                     method);
-    return OptimizeResult::from_quench(r);
-}
-
-inline OptimizeResult minimize(quench_eval_fn eval, quench_grad_fn grad,
-                               void* user, double* x, std::size_t n,
-                               Control const& ctrl, Method method) {
-    Report r = ::quench::minimize_fn(eval, grad, user, x, n, ctrl, method);
-    return OptimizeResult::from_quench(r);
-}
-
-inline Report minimize_fn(quench_eval_fn eval, quench_grad_fn grad, void* user,
-                          double* x, std::size_t n, Control const& ctrl,
+inline Report minimize_fn(xts_eval_fn eval, xts_grad_fn grad, void* user,
+                          DLManagedTensorVersioned* x, Control const& ctrl,
                           Method method) {
-    return ::quench::minimize_fn(eval, grad, user, x, n, ctrl, method);
+    xts_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
+    xts_report_t out{};
+    xts_status_t st =
+        xts_minimize(eval, grad, user, x, &c, static_cast<xts_method_t>(method), &out);
+    if (st != XTS_SUCCESS) {
+        char const* msg = xts_last_error();
+        throw std::runtime_error(msg ? msg : "xts_minimize failed");
+    }
+    return Report{out.value, out.steps, out.grad_norm};
 }
 
-/// Original optimizer class names as Method tags (no C++ solver bodies).
+inline OptimizeResult minimize(xts_eval_fn eval, xts_grad_fn grad, void* user,
+                               DLManagedTensorVersioned* x,
+                               OptimizeControl const& ctrl, Method method) {
+    return OptimizeResult::from_report(
+        minimize_fn(eval, grad, user, x, ctrl.to_control(), method));
+}
+
+inline DLManagedTensorVersioned* borrow_cpu_f64(double* data, std::size_t n) {
+    return xts_tensor_borrow_cpu_f64(data, n);
+}
+
 namespace minimize {
 
 inline constexpr Method BFGSOptimizer = Method::Bfgs;

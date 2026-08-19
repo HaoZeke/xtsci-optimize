@@ -1,7 +1,7 @@
 #include <stdio.h>
-#include "quench.h"
+#include "xts.h"
 
 int main(void) {
-    printf("%s\n", quench_version());
+    printf("%s\n", xts_version());
     return 0;
 }

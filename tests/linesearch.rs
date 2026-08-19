@@ -3,8 +3,8 @@
 use eindir_core::DifferentiableObjective;
 use eindir_core::objectives::Rosenbrock;
 use ndarray::{array, Array1, ArrayView1};
-use quench_core::linesearch::zoom;
-use quench_core::{Conjugacy, Control, LineSearch, Restart, minimize};
+use xtsci_optimize::linesearch::zoom;
+use xtsci_optimize::{Conjugacy, Control, LineSearch, Restart, minimize};
 
 fn control() -> Control {
     Control {

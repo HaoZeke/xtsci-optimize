@@ -3,7 +3,7 @@
 use eindir_core::DifferentiableObjective;
 use eindir_core::objectives::Rosenbrock;
 use ndarray::array;
-use quench_core::{Control, LineSearch, Method, minimize_method};
+use xtsci_optimize::{Control, LineSearch, Method, minimize_method};
 
 #[test]
 fn pso_reports_below_classic_rosenbrock_start() {

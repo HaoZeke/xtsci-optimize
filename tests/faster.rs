@@ -2,7 +2,7 @@
 
 use eindir_core::objectives::Rosenbrock;
 use ndarray::array;
-use quench_core::{Control, LineSearch, Method, minimize_method};
+use xtsci_optimize::{Control, LineSearch, Method, minimize_method};
 
 #[test]
 fn lbfgs_fewer_steps_than_steepest_on_rosenbrock() {

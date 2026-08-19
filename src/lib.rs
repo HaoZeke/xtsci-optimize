@@ -5,7 +5,7 @@
 //! Wright algorithm 5.4. Quasi-Newton methods (BFGS, L-BFGS, SR1, SR2),
 //! Adam, steepest descent, and particle swarm share the same eindir
 //! `DifferentiableObjective` handle. C and C++ reach these solvers only
-//! through `quench_minimize_fn` and the headers under `include/`.
+//! through `xts_minimize` and the headers under `include/`.
 
 #![warn(missing_docs)]
 
