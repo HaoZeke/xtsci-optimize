@@ -13,6 +13,9 @@ pub enum Error {
         /// `Objective::dim`.
         dim: usize,
     },
+    /// HiGHS rejected the L-BFGS quadratic model.
+    #[error("HiGHS: {0}")]
+    Highs(String),
 }
 
 /// Result alias for this crate.

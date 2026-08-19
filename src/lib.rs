@@ -31,6 +31,9 @@ mod error;
 pub mod ffi;
 /// Persistent L-BFGS (Nocedal-Wright 7.4) with strong Wolfe.
 pub mod lbfgs;
+/// L-BFGS quadratic model solved by HiGHS.
+#[cfg(feature = "highs")]
+pub mod lbfgs_qp;
 mod minimize;
 mod oracle;
 mod pso;
@@ -42,6 +45,8 @@ pub use adam::minimize_adam;
 pub use control::Control;
 pub use error::{Error, Result};
 pub use lbfgs::{GradNorm, Lbfgs};
+#[cfg(feature = "highs")]
+pub use lbfgs_qp::HighsStep;
 pub use linesearch::LineSearch;
 pub use method::Method;
 pub use minimize::{minimize, minimize_method};

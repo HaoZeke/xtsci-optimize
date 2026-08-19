@@ -62,6 +62,10 @@ pub struct Lbfgs {
     pub max_line_evals: usize,
     /// Norm used against [`Lbfgs::gtol`].
     pub norm: GradNorm,
+    /// When set, each direction is the HiGHS QP on the compact Hessian
+    /// rather than the two-loop recursion.
+    #[cfg(feature = "highs")]
+    pub highs: Option<crate::lbfgs_qp::HighsStep>,
 }
 
 impl Default for Lbfgs {
@@ -81,6 +85,8 @@ impl Lbfgs {
             curvature: 0.9,
             max_line_evals: 20,
             norm: GradNorm::Infinity,
+            #[cfg(feature = "highs")]
+            highs: None,
         }
     }
 
@@ -111,6 +117,26 @@ impl Lbfgs {
         }
     }
 
+    pub(crate) fn memory_len(&self) -> usize {
+        self.memory.len()
+    }
+
+    pub(crate) fn pair(&self, i: usize) -> (&Array1<f64>, &Array1<f64>) {
+        let p = &self.memory[i];
+        (&p.s, &p.y)
+    }
+
+    fn search_direction(&self, x: ArrayView1<f64>, g: ArrayView1<f64>) -> Array1<f64> {
+        #[cfg(feature = "highs")]
+        if self.highs.is_some() {
+            if let Ok(d) = self.highs_step(x, g) {
+                return d;
+            }
+        }
+        let _ = x;
+        self.direction(g)
+    }
+
     /// Two-loop recursion: applies the inverse-Hessian approximation to `g`.
     pub(crate) fn direction(&self, g: ArrayView1<f64>) -> Array1<f64> {
         let mut q = g.to_owned();
@@ -134,6 +160,16 @@ impl Lbfgs {
         }
         q.mapv_inplace(|v| -v);
         q
+    }
+
+    /// Records an accepted curvature pair (`s = x+ - x`, `y = g+ - g`).
+    pub fn record(&mut self, s: Array1<f64>, y: Array1<f64>) {
+        self.push(s, y);
+    }
+
+    /// Two-loop direction `d = −H g` (Nocedal-Wright 7.4).
+    pub fn two_loop(&self, g: ArrayView1<f64>) -> Array1<f64> {
+        self.direction(g)
     }
 
     pub(crate) fn push(&mut self, s: Array1<f64>, y: Array1<f64>) {
@@ -350,7 +386,7 @@ impl Lbfgs {
             if self.gnorm(&g) < self.gtol {
                 break;
             }
-            let d = self.direction(g.view());
+            let d = self.search_direction(x.view(), g.view());
             let slope = d.dot(&g);
             if slope >= 0.0 {
                 self.forget();
