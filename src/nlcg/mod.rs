@@ -80,7 +80,7 @@ pub enum Conjugacy {
 pub enum Restart {
     /// Never force β = 0.
     Never,
-    /// NJWS 5.52: restart when `|g·g_old| / ||g_old||^2 >= threshold`.
+    /// NJWS 5.52: restart when `|g·g_old| / ||g||^2 >= threshold`.
     ///
     /// Nocedal and Wright, *Numerical Optimization*,
     /// <https://doi.org/10.1007/978-0-387-40065-5>.
@@ -101,11 +101,11 @@ impl Restart {
         match *self {
             Self::Never => false,
             Self::Njws { threshold } => {
-                let gg_old = dot(ctx.previous_gradient, ctx.previous_gradient);
-                if gg_old <= 0.0 {
+                let gg = dot(ctx.current_gradient, ctx.current_gradient);
+                if gg <= 0.0 {
                     return true;
                 }
-                let dev = dot(ctx.current_gradient, ctx.previous_gradient).abs() / gg_old;
+                let dev = dot(ctx.current_gradient, ctx.previous_gradient).abs() / gg;
                 dev >= threshold
             }
         }
@@ -166,11 +166,7 @@ impl Conjugacy {
             Self::Hybrid { a, b, take_max } => {
                 let ba = a.beta(ctx);
                 let bb = b.beta(ctx);
-                if *take_max {
-                    ba.max(bb)
-                } else {
-                    ba.min(bb)
-                }
+                if *take_max { ba.max(bb) } else { ba.min(bb) }
             }
         }
     }
@@ -237,8 +233,7 @@ mod tests {
         assert_eq!(Conjugacy::FrPr.beta(&ctx), 2.0);
         // HybridizedConj(PR, FR, max) is 4, not the Gilbert-Nocedal clamp.
         assert_eq!(
-            Conjugacy::hybrid(Conjugacy::PolakRibiere, Conjugacy::FletcherReeves, true)
-                .beta(&ctx),
+            Conjugacy::hybrid(Conjugacy::PolakRibiere, Conjugacy::FletcherReeves, true).beta(&ctx),
             4.0
         );
         // y=[1,0], ||y||^2=1, d·y=1, d·g=-2
@@ -267,14 +262,60 @@ mod tests {
         assert_eq!(hybrid.beta(&ctx), 1.0);
         // Hybrid is max/min of the two formulas, not Gilbert-Nocedal FR-PR.
         let nested = Conjugacy::hybrid(
-            Conjugacy::hybrid(
-                Conjugacy::PolakRibiere,
-                Conjugacy::FletcherReeves,
-                true,
-            ),
+            Conjugacy::hybrid(Conjugacy::PolakRibiere, Conjugacy::FletcherReeves, true),
             Conjugacy::HestenesStiefel,
             false,
         );
         assert_eq!(nested.beta(&ctx), beta_pr.max(beta_fr).min(-1.0));
+    }
+
+    #[test]
+    fn fr_pr_clamps_below_minus_fr_hybrid_does_not() {
+        let g = array![1.0, 0.0];
+        let gold = array![3.0, 1.0];
+        let d = array![-3.0, -1.0];
+        let ctx = ConjugacyContext {
+            current_gradient: g.view(),
+            previous_gradient: gold.view(),
+            previous_direction: d.view(),
+        };
+        // ||g||^2 = 1, ||g_old||^2 = 10, g·y = -2
+        // β_FR = 0.1, β_PR = -0.2; Gilbert-Nocedal 5.48 returns -β_FR
+        assert_eq!(Conjugacy::FletcherReeves.beta(&ctx), 0.1);
+        assert_eq!(Conjugacy::PolakRibiere.beta(&ctx), -0.2);
+        assert_eq!(Conjugacy::FrPr.beta(&ctx), -0.1);
+        let take_max = Conjugacy::hybrid(Conjugacy::PolakRibiere, Conjugacy::FletcherReeves, true);
+        let take_min = Conjugacy::hybrid(Conjugacy::PolakRibiere, Conjugacy::FletcherReeves, false);
+        assert_eq!(take_max.beta(&ctx), 0.1);
+        assert_eq!(take_min.beta(&ctx), -0.2);
+        assert_ne!(take_max.beta(&ctx), Conjugacy::FrPr.beta(&ctx));
+        assert_ne!(take_min.beta(&ctx), Conjugacy::FrPr.beta(&ctx));
+    }
+
+    #[test]
+    fn njws_5_52_uses_current_gradient_norm() {
+        let g = array![10.0, 0.0];
+        let gold = array![0.5, 0.0];
+        let d = array![-0.5, 0.0];
+        let ctx = ConjugacyContext {
+            current_gradient: g.view(),
+            previous_gradient: gold.view(),
+            previous_direction: d.view(),
+        };
+        // |g·g_old| / ||g||^2 = 5 / 100 = 0.05 < 0.1
+        // The ||g_old||^2 form is 5 / 0.25 = 20, which is not 5.52.
+        assert!(!Restart::njws().should_restart(&ctx));
+        assert!(Restart::Njws { threshold: 0.04 }.should_restart(&ctx));
+
+        let g2 = array![1.0, 0.0];
+        let gold2 = array![0.2, 0.0];
+        let ctx2 = ConjugacyContext {
+            current_gradient: g2.view(),
+            previous_gradient: gold2.view(),
+            previous_direction: d.view(),
+        };
+        // |g·g_old| / ||g||^2 = 0.2 / 1 = 0.2 >= 0.1
+        assert!(Restart::njws().should_restart(&ctx2));
+        assert!(!Restart::Never.should_restart(&ctx2));
     }
 }
