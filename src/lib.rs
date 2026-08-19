@@ -6,6 +6,12 @@
 //! Adam, steepest descent, and particle swarm share the same eindir
 //! `DifferentiableObjective` handle. C and C++ reach these solvers only
 //! through `xts_minimize` and the headers under `include/`.
+//!
+//! The production unconstrained local method is [`Lbfgs`] with
+//! [`LineSearch::Wolfe`]: limited-memory BFGS (Nocedal-Wright 7.4) and
+//! the strong Wolfe conditions (algorithms 3.5 and 3.6). Hopping chains
+//! keep the pair history on that type. [`minimize_lbfgs`] is the
+//! cold-start dispatch used by [`minimize_method`].
 
 #![warn(missing_docs)]
 
@@ -23,6 +29,8 @@ mod error;
 #[cfg(feature = "capi")]
 #[allow(non_camel_case_types, missing_docs)]
 pub mod ffi;
+/// Persistent L-BFGS (Nocedal-Wright 7.4) with strong Wolfe.
+pub mod lbfgs;
 mod minimize;
 mod oracle;
 mod pso;
@@ -30,13 +38,14 @@ mod qn;
 mod report;
 mod step;
 
+pub use adam::minimize_adam;
 pub use control::Control;
 pub use error::{Error, Result};
+pub use lbfgs::{GradNorm, Lbfgs};
 pub use linesearch::LineSearch;
 pub use method::Method;
 pub use minimize::{minimize, minimize_method};
 pub use nlcg::{Conjugacy, ConjugacyContext, Restart};
-pub use adam::minimize_adam;
 pub use oracle::Oracle;
 pub use pso::minimize_pso;
 pub use qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1, minimize_sr2};

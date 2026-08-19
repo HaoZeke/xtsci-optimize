@@ -64,8 +64,11 @@ where
 
 /// L-BFGS two-loop recursion (Nocedal-Wright 7.4), scaling 7.20.
 ///
+/// Delegates the pair history and two-loop map to [`crate::Lbfgs`].
 /// Nocedal, *Updating quasi-Newton matrices with limited storage*,
 /// <https://doi.org/10.1090/s0025-5718-1980-0572855-7>.
+/// Liu and Nocedal, *On the limited memory BFGS method for large scale
+/// optimization*, <https://doi.org/10.1007/BF01589116>.
 /// Nocedal and Wright, *Numerical Optimization*,
 /// <https://doi.org/10.1007/978-0-387-40065-5>.
 pub fn minimize_lbfgs<O>(
@@ -78,42 +81,10 @@ pub fn minimize_lbfgs<O>(
 where
     O: DifferentiableObjective<f64> + ?Sized,
 {
-    let mut pos = start(obj, init)?;
-    let (mut value, mut grad) = obj.value_and_gradient(pos.view());
-    let mut s_hist: Vec<Array1<f64>> = Vec::new();
-    let mut y_hist: Vec<Array1<f64>> = Vec::new();
-    let mut istep = control.istep;
-    let mcap = memory.max(1);
-
-    for step in 0..control.maxiter {
-        let gnorm = l2(&grad);
-        if gnorm < control.gtol {
-            return Ok(done(value, pos, step, gnorm));
-        }
-        let dir = lbfgs_direction(&grad, &s_hist, &y_hist);
-        let old = pos.clone();
-        let gold = grad.clone();
-        let (npos, _, lsstep, moved) =
-            take_step(obj, &pos, value, dir.view(), istep, linesearch, control);
-        pos = npos;
-        let ev = obj.value_and_gradient(pos.view());
-        value = ev.0;
-        grad = ev.1;
-        if moved {
-            let s = &pos - &old;
-            let y = &grad - &gold;
-            if y.dot(&s) > CURVATURE {
-                if s_hist.len() == mcap {
-                    s_hist.remove(0);
-                    y_hist.remove(0);
-                }
-                s_hist.push(s);
-                y_hist.push(y);
-            }
-        }
-        istep = next_istep(lsstep, control);
-    }
-    Ok(done(value, pos, control.maxiter, l2(&grad)))
+    let mut solver = crate::lbfgs::Lbfgs::with_capacity(memory);
+    solver.norm = crate::lbfgs::GradNorm::Euclidean;
+    solver.gtol = control.gtol;
+    solver.minimize_objective(obj, init, control, linesearch)
 }
 
 /// Inverse SR1 (Nocedal-Wright 6.24 / 6.25).
@@ -378,43 +349,4 @@ fn sr1_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
             h[(i, j)] += u[i] * u[j] / uy;
         }
     }
-}
-
-/// Two-loop recursion (Nocedal-Wright 7.4).
-/// `H0 = ((s·y)/(y·y)) I` (7.20). C++ `lbfgs.hpp` uses `ρ (s·y) = 1`.
-fn lbfgs_direction(g: &Array1<f64>, s_hist: &[Array1<f64>], y_hist: &[Array1<f64>]) -> Array1<f64> {
-    let m = s_hist.len();
-    let mut q = g.clone();
-    let mut alpha = vec![0.0; m];
-    for i in (0..m).rev() {
-        let ys = y_hist[i].dot(&s_hist[i]);
-        if ys.abs() <= CURVATURE {
-            continue;
-        }
-        let rho = 1.0 / ys;
-        alpha[i] = rho * s_hist[i].dot(&q);
-        for k in 0..q.len() {
-            q[k] -= alpha[i] * y_hist[i][k];
-        }
-    }
-    if m > 0 {
-        let yy = y_hist[m - 1].dot(&y_hist[m - 1]);
-        let sy = s_hist[m - 1].dot(&y_hist[m - 1]);
-        if yy > CURVATURE {
-            q.mapv_inplace(|qi| qi * (sy / yy));
-        }
-    }
-    let mut r = q;
-    for i in 0..m {
-        let ys = y_hist[i].dot(&s_hist[i]);
-        if ys.abs() <= CURVATURE {
-            continue;
-        }
-        let rho = 1.0 / ys;
-        let beta = rho * y_hist[i].dot(&r);
-        for k in 0..r.len() {
-            r[k] += (alpha[i] - beta) * s_hist[i][k];
-        }
-    }
-    r.mapv(|ri| -ri)
 }
