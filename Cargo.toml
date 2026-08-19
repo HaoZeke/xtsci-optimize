@@ -1,0 +1,55 @@
+[package]
+name = "xtsci-optimize"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+description = "Local first-order minimization over eindir differentiable objectives."
+repository = "https://github.com/HaoZeke/xtsci-optimize"
+readme = "README.md"
+keywords = ["optimization", "conjugate-gradient", "linesearch"]
+categories = ["science", "mathematics"]
+authors = ["Rohit Goswami <rgoswami@ieee.org>"]
+
+[lib]
+name = "xtsci_optimize"
+path = "src/lib.rs"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[features]
+default = []
+capi = []
+
+[dependencies]
+eindir-core = { version = "0.6.0", git = "https://github.com/HaoZeke/eindir.git", rev = "f3c4213" }
+dlpk = { version = "0.1.5", features = ["ndarray"] }
+ndarray = "0.17"
+thiserror = "2"
+rand = "0.9"
+
+[dev-dependencies]
+approx = "0.5"
+
+[build-dependencies]
+cbindgen = "0.29"
+
+[package.metadata.capi]
+min_version = "0.10.17"
+
+[package.metadata.capi.header]
+name = "xts.h"
+subdirectory = ""
+generation = true
+enabled = true
+
+[package.metadata.capi.pkg_config]
+name = "xtsci-optimize"
+filename = "xtsci-optimize"
+description = "Local first-order minimization C ABI"
+
+[package.metadata.capi.library]
+name = "xtsci_optimize"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

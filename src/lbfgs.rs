@@ -1,0 +1,427 @@
+//! Persistent limited-memory BFGS (Nocedal-Wright 7.4, scaling 7.20).
+//!
+//! The production local method is L-BFGS with the strong Wolfe conditions
+//! (Nocedal-Wright algorithms 3.5 and 3.6). Armijo alone accepts a step
+//! that decreases the value without measuring curvature, and every later
+//! direction is built from the stored pairs, so one bad pair degrades the
+//! whole memory.
+//!
+//! Liu and Nocedal, *On the limited memory BFGS method for large scale
+//! optimization*, <https://doi.org/10.1007/BF01589116>.
+//! Nocedal, *Updating quasi-Newton matrices with limited storage*,
+//! <https://doi.org/10.1090/s0025-5718-1980-0572855-7>.
+//! Nocedal and Wright, *Numerical Optimization*,
+//! <https://doi.org/10.1007/978-0-387-40065-5>.
+//! Wolfe, *Convergence Conditions for Ascent Methods*,
+//! <https://doi.org/10.1137/1011036>.
+
+use ndarray::{Array1, ArrayView1};
+
+use crate::control::Control;
+use crate::error::{Error, Result};
+use crate::linesearch::LineSearch;
+use crate::report::Report;
+use crate::step::{l2, next_istep, take_step};
+use eindir_core::{DifferentiableObjective, Objective};
+
+const CURVATURE: f64 = 1e-12;
+
+/// How [`Lbfgs`] compares the gradient to [`Lbfgs::gtol`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum GradNorm {
+    /// Euclidean `||g||_2`. Matches [`crate::minimize_lbfgs`].
+    Euclidean,
+    /// Infinity `||g||_∞`. Matches SciPy L-BFGS-B and hopping polish.
+    Infinity,
+}
+
+/// Stored curvature pair from one accepted step.
+struct Pair {
+    s: Array1<f64>,
+    y: Array1<f64>,
+    rho: f64,
+}
+
+/// L-BFGS whose curvature pairs survive between calls.
+///
+/// A hopping chain relaxes thousands of times from perturbations of an
+/// already-relaxed structure. The curvature at a new start resembles the
+/// curvature at the old minimum; a solver that forgets between calls pays
+/// to rediscover it.
+pub struct Lbfgs {
+    memory: Vec<Pair>,
+    /// Pairs retained; the usual choice is between five and ten.
+    pub max_pairs: usize,
+    /// Gradient-norm threshold that ends a relaxation.
+    pub gtol: f64,
+    /// Armijo sufficient-decrease constant, `c1` in the Wolfe conditions.
+    pub armijo: f64,
+    /// Curvature constant, `c2`. The usual choice for quasi-Newton is 0.9.
+    pub curvature: f64,
+    /// Line-search evaluations attempted before the direction is abandoned.
+    pub max_line_evals: usize,
+    /// Norm used against [`Lbfgs::gtol`].
+    pub norm: GradNorm,
+}
+
+impl Default for Lbfgs {
+    fn default() -> Self {
+        Self::with_capacity(8)
+    }
+}
+
+impl Lbfgs {
+    /// Fresh solver with room for `max_pairs` curvature pairs.
+    pub fn with_capacity(max_pairs: usize) -> Self {
+        Self {
+            memory: Vec::new(),
+            max_pairs: max_pairs.max(1),
+            gtol: 1e-6,
+            armijo: 1e-4,
+            curvature: 0.9,
+            max_line_evals: 20,
+            norm: GradNorm::Infinity,
+        }
+    }
+
+    /// Discards the stored curvature.
+    ///
+    /// Called when the chain moves somewhere structurally different, where
+    /// the retained pairs describe a Hessian that no longer applies.
+    pub fn forget(&mut self) {
+        self.memory.clear();
+    }
+
+    /// Pairs currently held.
+    pub fn len(&self) -> usize {
+        self.memory.len()
+    }
+
+    /// True when no curvature is stored.
+    pub fn is_empty(&self) -> bool {
+        self.memory.is_empty()
+    }
+
+    /// Drops oldest pairs when `max_pairs` shrank.
+    pub fn trim(&mut self) {
+        let cap = self.max_pairs.max(1);
+        self.max_pairs = cap;
+        while self.memory.len() > cap {
+            self.memory.remove(0);
+        }
+    }
+
+    /// Two-loop recursion: applies the inverse-Hessian approximation to `g`.
+    pub(crate) fn direction(&self, g: ArrayView1<f64>) -> Array1<f64> {
+        let mut q = g.to_owned();
+        let m = self.memory.len();
+        let mut alpha = vec![0.0; m];
+        for (i, p) in self.memory.iter().enumerate().rev() {
+            let a = p.rho * p.s.dot(&q);
+            alpha[i] = a;
+            q.scaled_add(-a, &p.y);
+        }
+        // Scale by the most recent pair's curvature (Nocedal-Wright 7.20).
+        if let Some(p) = self.memory.last() {
+            let yy = p.y.dot(&p.y);
+            if yy > 0.0 {
+                q *= p.s.dot(&p.y) / yy;
+            }
+        }
+        for (i, p) in self.memory.iter().enumerate() {
+            let b = p.rho * p.y.dot(&q);
+            q.scaled_add(alpha[i] - b, &p.s);
+        }
+        q.mapv_inplace(|v| -v);
+        q
+    }
+
+    pub(crate) fn push(&mut self, s: Array1<f64>, y: Array1<f64>) {
+        let sy = s.dot(&y);
+        if sy <= CURVATURE {
+            return;
+        }
+        self.memory.push(Pair {
+            s,
+            y,
+            rho: 1.0 / sy,
+        });
+        self.trim();
+    }
+
+    fn gnorm(&self, g: &Array1<f64>) -> f64 {
+        match self.norm {
+            GradNorm::Euclidean => l2(g),
+            GradNorm::Infinity => g.iter().fold(0.0_f64, |a, v| a.max(v.abs())),
+        }
+    }
+
+    /// Strong Wolfe line search by bracketing then cubic-interpolated zoom.
+    ///
+    /// Nocedal and Wright algorithms 3.5 and 3.6. Returns whether a step
+    /// was accepted and how many evaluations it cost.
+    fn line_search<F>(
+        &mut self,
+        x: &mut Array1<f64>,
+        f: &mut f64,
+        g: &mut Array1<f64>,
+        d: &Array1<f64>,
+        slope: f64,
+        fg: &mut F,
+    ) -> (bool, usize)
+    where
+        F: FnMut(ArrayView1<f64>) -> Option<(f64, Array1<f64>)>,
+    {
+        let f0 = *f;
+        let mut evals = 0usize;
+        let probe = |a: f64, fg: &mut F, evals: &mut usize| {
+            let mut t = x.clone();
+            t.scaled_add(a, d);
+            let r = fg(t.view());
+            if r.is_some() {
+                *evals += 1;
+            }
+            r
+        };
+
+        let mut a_prev = 0.0;
+        let mut f_prev = f0;
+        let mut slope_prev = slope;
+        // A quasi-Newton direction already carries the step length. Nocedal
+        // and Wright require that alpha = 1 is tried first. With no memory
+        // the direction is the raw negative gradient and needs a length.
+        let mut a = if self.memory.is_empty() {
+            let dnorm = d.iter().fold(0.0_f64, |acc, v| acc + v * v).sqrt();
+            if dnorm > 1.0 { 1.0 / dnorm } else { 1.0 }
+        } else {
+            1.0
+        };
+        let mut lo = 0.0;
+        let mut f_lo = f0;
+        let mut slope_lo = slope;
+        let mut hi = f64::NAN;
+        let mut f_hi = f64::NAN;
+        let mut bracketed = false;
+
+        let bracket_cap = self.max_line_evals;
+        let total_cap = 2 * self.max_line_evals;
+
+        for i in 0..bracket_cap {
+            let (fa, ga) = match probe(a, fg, &mut evals) {
+                Some(v) => v,
+                None => return (false, evals),
+            };
+            let slope_a = d.dot(&ga);
+            if fa > f0 + self.armijo * a * slope || (i > 0 && fa >= f_prev) {
+                lo = a_prev;
+                f_lo = f_prev;
+                slope_lo = slope_prev;
+                hi = a;
+                f_hi = fa;
+                bracketed = true;
+                break;
+            }
+            if slope_a.abs() <= -self.curvature * slope {
+                self.accept(x, f, g, d, a, fa, ga);
+                return (true, evals);
+            }
+            if slope_a >= 0.0 {
+                lo = a;
+                f_lo = fa;
+                slope_lo = slope_a;
+                hi = a_prev;
+                f_hi = f_prev;
+                bracketed = true;
+                break;
+            }
+            a_prev = a;
+            f_prev = fa;
+            slope_prev = slope_a;
+            a *= 2.0;
+        }
+
+        if !bracketed {
+            return (false, evals);
+        }
+
+        while evals < total_cap {
+            let width = hi - lo;
+            let mut trial = lo + 0.5 * width;
+            let denom = 2.0 * (f_hi - f_lo - slope_lo * width);
+            if denom.abs() > 1e-16 {
+                let q = lo - slope_lo * width * width / denom;
+                if (q - lo) / width > 0.1 && (q - lo) / width < 0.9 {
+                    trial = q;
+                }
+            }
+            let (ft, gt) = match probe(trial, fg, &mut evals) {
+                Some(v) => v,
+                None => return (false, evals),
+            };
+            let slope_t = d.dot(&gt);
+            if ft > f0 + self.armijo * trial * slope || ft >= f_lo {
+                hi = trial;
+                f_hi = ft;
+            } else {
+                if slope_t.abs() <= -self.curvature * slope {
+                    self.accept(x, f, g, d, trial, ft, gt);
+                    return (true, evals);
+                }
+                if slope_t * (hi - lo) >= 0.0 {
+                    hi = lo;
+                    f_hi = f_lo;
+                }
+                lo = trial;
+                f_lo = ft;
+                slope_lo = slope_t;
+            }
+            if (hi - lo).abs() < 1e-14 {
+                break;
+            }
+        }
+        (false, evals)
+    }
+
+    fn accept(
+        &mut self,
+        x: &mut Array1<f64>,
+        f: &mut f64,
+        g: &mut Array1<f64>,
+        d: &Array1<f64>,
+        step: f64,
+        f_new: f64,
+        g_new: Array1<f64>,
+    ) {
+        let mut s = d.clone();
+        s *= step;
+        let mut y = g_new.clone();
+        y -= &*g;
+        self.push(s, y);
+        x.scaled_add(step, d);
+        *f = f_new;
+        *g = g_new;
+    }
+
+    /// Relaxes `x0`, calling `fg` for value and gradient.
+    ///
+    /// `fg` returns `None` when the caller's budget is spent, which ends the
+    /// relaxation where it stands. Returns the value, the point, and the
+    /// number of evaluations used.
+    pub fn minimize<F>(
+        &mut self,
+        x0: ArrayView1<f64>,
+        max_iter: usize,
+        fg: F,
+    ) -> (f64, Array1<f64>, usize)
+    where
+        F: FnMut(ArrayView1<f64>) -> Option<(f64, Array1<f64>)>,
+    {
+        self.minimize_watched(x0, max_iter, fg, |_, _| true)
+    }
+
+    /// Relaxes `x0`, offering each accepted iterate to `watch`.
+    ///
+    /// `watch` receives the iteration index and the value at that iterate,
+    /// and returning `false` ends the relaxation there.
+    pub fn minimize_watched<F, W>(
+        &mut self,
+        x0: ArrayView1<f64>,
+        max_iter: usize,
+        mut fg: F,
+        mut watch: W,
+    ) -> (f64, Array1<f64>, usize)
+    where
+        F: FnMut(ArrayView1<f64>) -> Option<(f64, Array1<f64>)>,
+        W: FnMut(usize, f64) -> bool,
+    {
+        self.trim();
+        let mut x = x0.to_owned();
+        let mut evals = 0usize;
+        let (mut f, mut g) = match fg(x.view()) {
+            Some(v) => v,
+            None => return (f64::INFINITY, x, evals),
+        };
+        evals += 1;
+
+        for it in 0..max_iter {
+            if !watch(it, f) {
+                break;
+            }
+            if self.gnorm(&g) < self.gtol {
+                break;
+            }
+            let d = self.direction(g.view());
+            let slope = d.dot(&g);
+            if slope >= 0.0 {
+                self.forget();
+                continue;
+            }
+            let (ok, evals_used) = self.line_search(&mut x, &mut f, &mut g, &d, slope, &mut fg);
+            evals += evals_used;
+            if !ok {
+                if self.memory.is_empty() {
+                    break;
+                }
+                self.forget();
+            }
+        }
+        (f, x, evals)
+    }
+
+    /// Cold-start L-BFGS over an eindir objective, any [`LineSearch`].
+    ///
+    /// Uses Euclidean `||g||_2` against `control.gtol` so
+    /// [`crate::minimize_lbfgs`] keeps its existing reports.
+    pub fn minimize_objective<O>(
+        &mut self,
+        obj: &O,
+        init: impl Into<Array1<f64>>,
+        control: &Control,
+        linesearch: LineSearch,
+    ) -> Result<Report>
+    where
+        O: DifferentiableObjective<f64> + ?Sized,
+    {
+        let mut pos = init.into();
+        if pos.len() != Objective::dim(obj) {
+            return Err(Error::Dim {
+                got: pos.len(),
+                dim: Objective::dim(obj),
+            });
+        }
+        pos = obj.bounds().clip(pos.view());
+        let (mut value, mut grad) = obj.value_and_gradient(pos.view());
+        let mut istep = control.istep;
+
+        for step in 0..control.maxiter {
+            let gnorm = l2(&grad);
+            if gnorm < control.gtol {
+                return Ok(Report {
+                    value,
+                    coords: pos,
+                    steps: step,
+                    grad_norm: gnorm,
+                });
+            }
+            let dir = self.direction(grad.view());
+            let old = pos.clone();
+            let gold = grad.clone();
+            let (npos, _, lsstep, moved) =
+                take_step(obj, &pos, value, dir.view(), istep, linesearch, control);
+            pos = npos;
+            let ev = obj.value_and_gradient(pos.view());
+            value = ev.0;
+            grad = ev.1;
+            if moved {
+                self.push(&pos - &old, &grad - &gold);
+            }
+            istep = next_istep(lsstep, control);
+        }
+        Ok(Report {
+            value,
+            coords: pos,
+            steps: control.maxiter,
+            grad_norm: l2(&grad),
+        })
+    }
+}

@@ -1,0 +1,70 @@
+#+TITLE: State of the art
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* State of the art
+
+Every DOI on this page is on [[file:../../CITATIONS.md][docs/CITATIONS.md]] after ookcite
+~verify_references~.
+
+** Unconstrained local minimization
+
+The production method for a smooth unconstrained problem with an
+analytic or fused gradient is limited-memory BFGS with the strong Wolfe
+conditions.
+
+- Nocedal 1980 introduced the limited-memory update
+  ([[https://doi.org/10.1090/s0025-5718-1980-0572855-7][10.1090/s0025-5718-1980-0572855-7]]).
+- Liu and Nocedal 1989 is the method used in practice
+  ([[https://doi.org/10.1007/BF01589116][10.1007/BF01589116]]).
+- Nocedal and Wright, *Numerical Optimization*, chapter 7, records the
+  two-loop recursion (algorithm 7.4) and the =H0 = ((s.y)/(y.y)) I=
+  scale (7.20) ([[https://doi.org/10.1007/978-0-387-40065-5][10.1007/978-0-387-40065-5]]).
+- Wolfe 1969 is the curvature condition
+  ([[https://doi.org/10.1137/1011036][10.1137/1011036]]). Algorithms 3.5 and 3.6 of Nocedal and Wright are
+  the bracketing / zoom search.
+
+Armijo alone is not enough for a quasi-Newton method. A pair that
+decreases the value without measuring curvature poisons every later
+direction. anneal measured that on Lennard-Jones 75: Armijo warm-start
+was 1.8 times worse than discarding the memory; strong Wolfe reverses
+the sign.
+
+** Bound-constrained reference
+
+SciPy's ~scipy.optimize.minimize(..., method="L-BFGS-B")~ is the Byrd,
+Lu, Nocedal, Zhu algorithm
+([[https://doi.org/10.1137/0916069][10.1137/0916069]]), with the Morales and Nocedal 2011 remark on the
+Fortran 778 code ([[https://doi.org/10.1145/2049662.2049669][10.1145/2049662.2049669]]).
+Its ~gtol~ is an infinity-norm on the projected gradient.
+~Lbfgs~ defaults to that same infinity-norm so a hopping polish is
+comparable to L-BFGS-B.
+
+On the anneal 75-point Lennard-Jones protocol (400 relaxations from
+perturbed minima, overlaps repaired first):
+
+| arm      | evals per relaxation | worst final ~|g|~ |
+|----------+----------------------+---------------------|
+| WarmLbfgs | 386.1               | 1.45e-5             |
+| L-BFGS-B | 273                  | 1.43e-5             |
+
+Both arms converge. The remaining gap is bound handling and the
+L-BFGS-B Cauchy / subspace machinery, not a different unconstrained
+update.
+
+** Nonlinear CG
+
+Hager and Zhang 2005 (~CG_DESCENT~)
+([[https://doi.org/10.1137/030601880][10.1137/030601880]]) is the strongest conjugacy-plus-line-search pair
+in this crate's NLCG family. It is the right tool when a Hessian
+approximation is not wanted. It is not a replacement for L-BFGS on
+the well-scaled, fused-gradient problems hopping and landfold solve.
+
+** Defaults in this crate
+
+- Method: ~Lbfgs~ / ~Method::Lbfgs { memory: 8 }~
+- Line search: ~LineSearch::Wolfe { c1: 1e-4, c2: 0.9, maxiter: 20 }~
+- First trial step: ~1~ when the memory is occupied (the Newton step);
+  ~1 / ||d||~ when the memory is empty (raw steepest descent)
+- Gradient stop: ~||g||_inf < 1e-6~ on ~Lbfgs~, ~||g||_2~ on
+  ~minimize_lbfgs~ so existing cold-start reports stay comparable

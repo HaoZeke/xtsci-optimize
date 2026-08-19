@@ -1,0 +1,8 @@
+#+TITLE: Changelog
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Changelog
+
+See the git history of this rewrite. The C++ xtensor tree it replaces
+recorded releases in the upstream ~CHANGELOG.md~.

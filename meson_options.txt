@@ -1,7 +1,0 @@
-# Booleans
-option('with_tests',
-      type: 'boolean',
-      value: false)
-option('with_pybind11',
-      type: 'boolean',
-      value: false)
