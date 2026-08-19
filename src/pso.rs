@@ -23,7 +23,16 @@ struct Particle {
     best_value: f64,
 }
 
-/// Particle swarm (xtsci `PSOptim`). Line search is unused.
+/// Particle swarm (xtsci `PSOptim`) over the objective box. Line search is unused.
+///
+/// Velocity is Kennedy-Eberhart with the xtsci inertia weight:
+/// `v <- w v + c1 r1 (pbest - x) + c2 r2 (gbest - x)`, with one scalar
+/// `r1`, `r2` in `[0, 1)` per particle, then `Vmax` clamp and a
+/// reflective box. `gbest` updates inside the swarm pass. The swarm RNG
+/// is `StdRng` seeded with `1`.
+///
+/// Kennedy and Eberhart, *Particle swarm optimization*,
+/// <https://doi.org/10.1109/ICNN.1995.488968>.
 pub fn minimize_pso<O>(
     obj: &O,
     init: impl Into<Array1<f64>>,
@@ -127,14 +136,13 @@ fn update_swarm<O>(
     let span = &bounds.high - &bounds.low;
     let vmax = 0.5 * l2(&span);
     let n = bounds.dims;
-    let social = gbest_position.clone();
     for particle in swarm.iter_mut() {
         let r1 = rng.random::<f64>();
         let r2 = rng.random::<f64>();
         for i in 0..n {
             let v = inertia * particle.velocity[i]
                 + c1 * r1 * (particle.best_position[i] - particle.position[i])
-                + c2 * r2 * (social[i] - particle.position[i]);
+                + c2 * r2 * (gbest_position[i] - particle.position[i]);
             particle.velocity[i] = v.clamp(-vmax, vmax);
             particle.position[i] += particle.velocity[i];
         }
@@ -169,4 +177,61 @@ fn average_velocity(swarm: &[Particle]) -> f64 {
         return 0.0;
     }
     swarm.iter().map(|p| l2(&p.velocity)).sum::<f64>() / swarm.len() as f64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eindir_core::objectives::Rosenbrock;
+    use ndarray::array;
+
+    fn control() -> Control {
+        Control {
+            maxiter: 30,
+            gtol: 1e-8,
+            istep: 0.1,
+            maxmove: None,
+        }
+    }
+
+    #[test]
+    fn seed_one_is_deterministic() {
+        let obj = Rosenbrock::<2>::new();
+        let start = array![-1.2, 1.0];
+        let a = minimize_pso(&obj, start.clone(), &control(), 10, 0.5, 1.5, 1.5).unwrap();
+        let b = minimize_pso(&obj, start, &control(), 10, 0.5, 1.5, 1.5).unwrap();
+        assert_eq!(a.value, b.value);
+        assert_eq!(a.coords, b.coords);
+        assert_eq!(a.steps, b.steps);
+    }
+
+    #[test]
+    fn kennedy_eberhart_velocity_is_inertia_plus_pulls() {
+        // c1 = c2 = 0 => v <- clip(w v, -Vmax, Vmax), independent of r1, r2.
+        let bounds = eindir_core::Bounds::new(array![-2.0], array![2.0], 0.0);
+        let obj = crate::oracle::Oracle::unbounded(1, |x| (x[0] * x[0], array![2.0 * x[0]]));
+        let mut swarm = [Particle {
+            position: array![0.5],
+            velocity: array![0.4],
+            best_position: array![0.5],
+            best_value: 0.25,
+        }];
+        let mut gbest_position = array![0.5];
+        let mut gbest_value = 0.25;
+        let mut rng = StdRng::seed_from_u64(RNG_SEED);
+        update_swarm(
+            &obj,
+            &bounds,
+            &mut swarm,
+            &mut gbest_position,
+            &mut gbest_value,
+            0.5,
+            0.0,
+            0.0,
+            &mut rng,
+        );
+        // v = 0.5 * 0.4 = 0.2; x = 0.5 + 0.2 = 0.7
+        assert!((swarm[0].velocity[0] - 0.2).abs() < 1e-15);
+        assert!((swarm[0].position[0] - 0.7).abs() < 1e-15);
+    }
 }
