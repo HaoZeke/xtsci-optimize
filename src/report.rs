@@ -1,4 +1,4 @@
-//! Result of a quench.
+//! Result of a minimization.
 
 use ndarray::Array1;
 

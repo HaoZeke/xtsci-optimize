@@ -1,8 +1,8 @@
-//! Errors from a quench.
+//! Errors from a minimization.
 
 use thiserror::Error;
 
-/// Recoverable quench failure.
+/// Recoverable minimization failure.
 #[derive(Debug, Error)]
 pub enum Error {
     /// Initial point length does not match the objective dimension.

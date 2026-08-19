@@ -723,7 +723,6 @@ dependencies = [
  "dlpk",
  "eindir-core",
  "ndarray",
- "num-traits",
  "rand",
  "thiserror",
 ]

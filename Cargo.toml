@@ -25,7 +25,6 @@ eindir-core = { path = "../eindir", version = "0.6.0" }
 dlpk = { version = "0.1.5", features = ["ndarray"] }
 ndarray = "0.17"
 thiserror = "2"
-num-traits = "0.2"
 rand = "0.9"
 
 [dev-dependencies]

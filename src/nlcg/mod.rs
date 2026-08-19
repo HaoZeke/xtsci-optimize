@@ -2,9 +2,6 @@
 
 use ndarray::ArrayView1;
 
-/// Restart policy.
-pub mod restart;
-
 /// Shared vectors for a β evaluation.
 #[derive(Clone, Debug)]
 pub struct ConjugacyContext<'a> {
@@ -16,26 +13,55 @@ pub struct ConjugacyContext<'a> {
     pub previous_direction: ArrayView1<'a, f64>,
 }
 
-/// Conjugacy coefficient β. Formulas are Nocedal and Wright chapter 5.
+/// Conjugacy coefficient β. Formulas are Nocedal and Wright chapter 5
+/// (<https://doi.org/10.1007/978-0-387-40065-5>).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Conjugacy {
     /// Fletcher-Reeves, NJWS 5.41a: `||g||^2 / ||g_old||^2`.
+    ///
+    /// Fletcher and Reeves, *Function minimization by conjugate gradients*,
+    /// <https://doi.org/10.1093/comjnl/7.2.149>.
     FletcherReeves,
     /// Polak-Ribiere, NJWS 5.44: `g·(g - g_old) / ||g_old||^2`.
+    ///
+    /// Polak and Ribiere, *Note sur la convergence de methodes de directions
+    /// conjuguees* (1969).
     PolakRibiere,
     /// Hestenes-Stiefel, NJWS 5.46: `g·y / (y·d_old)`.
+    ///
+    /// Hestenes and Stiefel, *Methods of Conjugate Gradients for Solving
+    /// Linear Systems* (1952).
     HestenesStiefel,
-    /// Dai-Yuan (1999): `||g||^2 / (d_old·y)`.
+    /// Dai-Yuan, NJWS 5.49: `||g||^2 / (d_old·y)`.
+    ///
+    /// Dai and Yuan, *A Nonlinear Conjugate Gradient Method with a Strong
+    /// Global Convergence Property*, <https://doi.org/10.1137/S1052623497318992>.
     DaiYuan,
-    /// Fletcher conjugate descent: `||g||^2 / (d_old·g_old)`.
+    /// Fletcher conjugate descent: `||g||^2 / (- d_old·g_old)`.
+    ///
+    /// Same denominator as Liu-Storey. Hager and Zhang review the formula
+    /// in *A New Conjugate Gradient Method with Guaranteed Descent and an
+    /// Efficient Line Search*, <https://doi.org/10.1137/030601880>.
     ConjugateDescent,
-    /// Hager--Zhang (2005) eq. 1.3 / NJWS 5.50.
+    /// Hager-Zhang (2005) eq. 1.3 / NJWS 5.50.
+    ///
+    /// Hager and Zhang, *A New Conjugate Gradient Method with Guaranteed
+    /// Descent and an Efficient Line Search*,
+    /// <https://doi.org/10.1137/030601880>.
     HagerZhang,
-    /// Liu--Storey (1991): `- g·y / (d_old·g_old)`.
+    /// Liu-Storey (1991): `- g·y / (d_old·g_old)`.
+    ///
+    /// Liu and Storey, *Efficient generalized conjugate gradient algorithms,
+    /// part 1: Theory*, <https://doi.org/10.1007/BF00940464>.
     LiuStorey,
-    /// Gilbert-Nocedal FR-PR hybrid, NJWS 5.50.
+    /// Gilbert-Nocedal FR-PR hybrid, NJWS 5.48.
+    ///
+    /// Nocedal and Wright, *Numerical Optimization*,
+    /// <https://doi.org/10.1007/978-0-387-40065-5>.
     FrPr,
-    /// xtsci `HybridizedConj`: `max` or `min` of two β formulas.
+    /// xtsci `HybridizedConj`: `max` or `min` of two child β formulas.
+    ///
+    /// This is not the Gilbert-Nocedal FR-PR hybrid ([`Self::FrPr`]).
     Hybrid {
         /// First formula.
         a: Box<Conjugacy>,
@@ -47,11 +73,17 @@ pub enum Conjugacy {
 }
 
 /// Restart when conjugacy is lost.
+///
+/// Nocedal and Wright, *Numerical Optimization*,
+/// <https://doi.org/10.1007/978-0-387-40065-5>.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Restart {
     /// Never force β = 0.
     Never,
     /// NJWS 5.52: restart when `|g·g_old| / ||g_old||^2 >= threshold`.
+    ///
+    /// Nocedal and Wright, *Numerical Optimization*,
+    /// <https://doi.org/10.1007/978-0-387-40065-5>.
     Njws {
         /// ν; book default is 0.1.
         threshold: f64,
@@ -109,7 +141,7 @@ impl Conjugacy {
                 let y_d = dot(g, d) - dot(gold, d);
                 div(gg, y_d)
             }
-            Self::ConjugateDescent => div(gg, dot(d, gold)),
+            Self::ConjugateDescent => div(gg, -dot(d, gold)),
             Self::HagerZhang => {
                 let y_d = dot(g, d) - dot(gold, d);
                 if y_d.abs() <= f64::EPSILON {
@@ -121,8 +153,8 @@ impl Conjugacy {
             }
             Self::LiuStorey => div(-y_g, dot(d, gold)),
             Self::FrPr => {
-                let beta_pr = div(y_g, gg_old);
-                let beta_fr = div(gg, gg_old);
+                let beta_pr = Self::PolakRibiere.beta(ctx);
+                let beta_fr = Self::FletcherReeves.beta(ctx);
                 if beta_pr < -beta_fr {
                     -beta_fr
                 } else if beta_pr.abs() <= beta_fr {
@@ -177,6 +209,41 @@ mod tests {
         assert_eq!(Conjugacy::HestenesStiefel.beta(&ctx), -1.0);
         // β_DY = 1 / (d·y) = 1 / -1 = -1
         assert_eq!(Conjugacy::DaiYuan.beta(&ctx), -1.0);
+        // d·g_old = 0, so CD and LS denominators vanish
+        assert_eq!(Conjugacy::ConjugateDescent.beta(&ctx), 0.0);
+        assert_eq!(Conjugacy::LiuStorey.beta(&ctx), 0.0);
+        // ŷ form: y=[1,-1], ||y||^2=2, d·y=-1, d·g=-1
+        // β_HZ = 1/(-1) - 2*2*(-1)/1 = -1 + 4 = 3
+        assert_eq!(Conjugacy::HagerZhang.beta(&ctx), 3.0);
+        // |β_PR| = |β_FR| = 1, so FR-PR returns β_PR
+        assert_eq!(Conjugacy::FrPr.beta(&ctx), 1.0);
+    }
+
+    #[test]
+    fn conjugate_descent_uses_minus_d_dot_g_old() {
+        let g = array![2.0, 0.0];
+        let gold = array![1.0, 0.0];
+        let d = array![-1.0, 0.0];
+        let ctx = ConjugacyContext {
+            current_gradient: g.view(),
+            previous_gradient: gold.view(),
+            previous_direction: d.view(),
+        };
+        // ||g||^2 = 4, d·g_old = -1, β_CD = 4 / (-(-1)) = 4
+        assert_eq!(Conjugacy::ConjugateDescent.beta(&ctx), 4.0);
+        // g·y = 2, β_LS = -2 / (-1) = 2
+        assert_eq!(Conjugacy::LiuStorey.beta(&ctx), 2.0);
+        // β_FR = 4, β_PR = 2, |PR| < FR so FR-PR returns PR
+        assert_eq!(Conjugacy::FrPr.beta(&ctx), 2.0);
+        // HybridizedConj(PR, FR, max) is 4, not the Gilbert-Nocedal clamp.
+        assert_eq!(
+            Conjugacy::hybrid(Conjugacy::PolakRibiere, Conjugacy::FletcherReeves, true)
+                .beta(&ctx),
+            4.0
+        );
+        // y=[1,0], ||y||^2=1, d·y=1, d·g=-2
+        // β_HZ = 2/1 - 2*1*(-2)/1 = 2 + 4 = 6
+        assert_eq!(Conjugacy::HagerZhang.beta(&ctx), 6.0);
     }
 
     #[test]
@@ -198,6 +265,7 @@ mod tests {
         };
         assert_eq!(hybrid.beta(&ctx), beta_pr.max(beta_fr));
         assert_eq!(hybrid.beta(&ctx), 1.0);
+        // Hybrid is max/min of the two formulas, not Gilbert-Nocedal FR-PR.
         let nested = Conjugacy::hybrid(
             Conjugacy::hybrid(
                 Conjugacy::PolakRibiere,
