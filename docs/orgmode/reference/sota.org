@@ -30,6 +30,15 @@ direction. anneal measured that on Lennard-Jones 75: Armijo warm-start
 was 1.8 times worse than discarding the memory; strong Wolfe reverses
 the sign.
 
+** Bound-constrained model
+
+The same compact Hessian (Nocedal-Wright 7.19) is a convex QP.
+=Lbfgs.highs= sends that QP to HiGHS
+([[https://doi.org/10.1007/s12532-017-0130-5][10.1007/s12532-017-0130-5]]).
+Unconstrained, the QP is the two-loop direction. With a box or an
+L_inf trust region it is the L-BFGS-B model without the Cauchy /
+subspace split. landfold =--highs= is this step, not sequential LP.
+
 ** Bound-constrained reference
 
 SciPy's ~scipy.optimize.minimize(..., method="L-BFGS-B")~ is the Byrd,

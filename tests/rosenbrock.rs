@@ -137,5 +137,6 @@ fn dim_mismatch_is_an_error() {
             assert_eq!(got, 1);
             assert_eq!(dim, 2);
         }
+        other => panic!("expected Dim, got {other}"),
     }
 }

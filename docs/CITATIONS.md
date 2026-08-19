@@ -15,6 +15,7 @@ ISBN). Do not invent DOIs.
 | L-BFGS Liu-Nocedal 1989 | 10.1007/BF01589116 | On the limited memory BFGS method for large scale optimization |
 | L-BFGS-B | 10.1137/0916069 | A Limited Memory Algorithm for Bound Constrained Optimization |
 | L-BFGS-B Morales-Nocedal 2011 | 10.1145/2049662.2049669 | Remark on "algorithm 778: L-BFGS-B: Fortran subroutines for large-scale bound constrained optimization" |
+| HiGHS Huangfu-Hall 2018 | 10.1007/s12532-017-0130-5 | Parallelizing the dual revised simplex method |
 | Broyden 1970 | 10.1093/imamat/6.1.76 | The Convergence of a Class of Double-rank Minimization Algorithms 1. General Considerations |
 | Fletcher 1970 (BFGS) | 10.1093/comjnl/13.3.317 | A new approach to variable metric algorithms |
 | Shanno 1970 | https://doi.org/10.1090/s0025-5718-1970-0274029-x | Conditioning of quasi-Newton methods for function minimization |

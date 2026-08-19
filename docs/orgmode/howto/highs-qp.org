@@ -1,0 +1,36 @@
+#+TITLE: L-BFGS quadratic model through HiGHS
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* L-BFGS quadratic model through HiGHS
+
+The two-loop recursion applies `H ~ B^{-1}` with no bounds. The
+production bound-constrained step is the same compact Hessian
+(Nocedal-Wright 7.19) handed to HiGHS as a convex QP:
+
+=min g.p + (1/2) p^T B p= subject to an L_inf trust region, an
+optional box on =x + p=, and optional linear equalities.
+
+Unconstrained, HiGHS recovers the two-loop direction. With a box it is
+the L-BFGS-B model without the Cauchy / subspace split.
+
+Enable the feature (HiGHS is compiled by =highs-sys=; do that on the
+remote builder):
+
+#+begin_src bash
+cargo test --features highs
+#+end_src
+
+#+begin_src rust
+use xtsci_optimize::{HighsStep, Lbfgs};
+
+let mut opt = Lbfgs::default();
+opt.highs = Some(HighsStep {
+    trust: Some(0.5),
+    lo: Some(-1.0),
+    hi: Some(1.0),
+    equalities: Vec::new(),
+});
+#+end_src
+
+landfold =--highs= is this step on chi, not sequential LP.
