@@ -7,11 +7,13 @@ extern "C" {
 
 #include <stddef.h>
 #include <stdint.h>
+#include <dlpack/dlpack.h>
 
 typedef enum quench_status_t {
     QUENCH_SUCCESS = 0,
     QUENCH_INVALID_PARAMETER = 1,
-    QUENCH_INTERNAL_ERROR = 2
+    QUENCH_INTERNAL_ERROR = 2,
+    QUENCH_UNSUPPORTED_DEVICE = 3
 } quench_status_t;
 
 typedef enum quench_method_t {
@@ -21,7 +23,9 @@ typedef enum quench_method_t {
     QUENCH_LBFGS = 3,
     QUENCH_SR1 = 4,
     QUENCH_ADAM = 5,
-    QUENCH_STEEPEST = 6
+    QUENCH_STEEPEST = 6,
+    QUENCH_SR2 = 7,
+    QUENCH_PSO = 8
 } quench_method_t;
 
 typedef struct quench_control_t {
@@ -37,13 +41,19 @@ typedef struct quench_report_t {
     double grad_norm;
 } quench_report_t;
 
-typedef double (*quench_eval_fn)(const double *x, size_t n, void *user);
-typedef void (*quench_grad_fn)(const double *x, double *g, size_t n, void *user);
+typedef quench_status_t (*quench_eval_fn)(void *user,
+                                          const DLManagedTensorVersioned *x,
+                                          double *value_out);
+typedef quench_status_t (*quench_grad_fn)(void *user,
+                                          const DLManagedTensorVersioned *x,
+                                          DLManagedTensorVersioned *grad_out);
 
 const char *quench_version(void);
 const char *quench_last_error(void);
+DLManagedTensorVersioned *quench_tensor_borrow_cpu_f64(double *data, size_t n);
+void quench_tensor_free(DLManagedTensorVersioned *tensor);
 quench_status_t quench_minimize_fn(quench_eval_fn eval, quench_grad_fn grad,
-                                   void *user, double *x, size_t n,
+                                   void *user, DLManagedTensorVersioned *x,
                                    const quench_control_t *ctrl,
                                    quench_method_t method,
                                    quench_report_t *out);

@@ -27,6 +27,8 @@ enum class Method {
     Sr1 = QUENCH_SR1,
     Adam = QUENCH_ADAM,
     Steepest = QUENCH_STEEPEST,
+    Sr2 = QUENCH_SR2,
+    Pso = QUENCH_PSO,
 };
 
 struct Control {
@@ -43,18 +45,25 @@ struct Report {
 };
 
 inline Report minimize_fn(quench_eval_fn eval, quench_grad_fn grad, void* user,
-                          double* x, std::size_t n, Control const& ctrl,
+                          DLManagedTensorVersioned* x, Control const& ctrl,
                           Method method) {
     quench_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
     quench_report_t out{};
     quench_status_t st = quench_minimize_fn(
-        eval, grad, user, x, n, &c,
-        static_cast<quench_method_t>(method), &out);
+        eval, grad, user, x, &c, static_cast<quench_method_t>(method), &out);
+    if (st == QUENCH_UNSUPPORTED_DEVICE) {
+        throw std::runtime_error(quench_last_error());
+    }
     if (st != QUENCH_SUCCESS) {
         char const* msg = quench_last_error();
         throw std::runtime_error(msg ? msg : "quench_minimize_fn failed");
     }
     return Report{out.value, out.steps, out.grad_norm};
+}
+
+/// Borrow a host f64 buffer as DLPack. Pair with quench_tensor_free.
+inline DLManagedTensorVersioned* borrow_cpu_f64(double* data, std::size_t n) {
+    return quench_tensor_borrow_cpu_f64(data, n);
 }
 
 }  // namespace quench

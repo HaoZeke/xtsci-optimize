@@ -54,8 +54,15 @@ fn every_conjugacy_descends_from_the_classic_start() {
         Conjugacy::LiuStorey,
         Conjugacy::FrPr,
     ] {
-        let report = minimize(&obj, start.clone(), &control(), c, Restart::Never, brent())
-            .unwrap();
+        let report = minimize(
+            &obj,
+            start.clone(),
+            &control(),
+            c.clone(),
+            Restart::Never,
+            brent(),
+        )
+        .unwrap();
         assert!(
             report.value < f0,
             "{c:?} did not descend: {} -> {}",

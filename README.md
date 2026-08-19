@@ -13,8 +13,8 @@ Conjugacy methods follow Nocedal and Wright, *Numerical Optimization*
 (2006), chapter 5: Fletcher-Reeves, Polak-Ribiere, Hestenes-Stiefel,
 Dai-Yuan, conjugate descent, Hager-Zhang, Liu-Storey, and the FR-PR
 hybrid. Line search is Brent (1973) or Armijo backtracking. Quasi-Newton
-methods (BFGS, L-BFGS, SR1), Adam, and steepest descent share the
-same `Method` enum and eindir handle.
+methods (BFGS, L-BFGS, SR1, SR2), Adam, steepest descent, and particle
+swarm share the same `Method` enum and eindir handle.
 
 ```rust
 use eindir_core::objectives::Rosenbrock;
@@ -33,8 +33,10 @@ let report = minimize(
 ```
 
 Hourglass (metatensor-shaped): Rust is the only implementation. The
-`capi` feature exports `quench_minimize_fn`. `include/quench.hpp` is
-the C++ wrapper; `include/quench/xtensor.hpp` adapts `xt::xarray`
-without pulling xtensor into Rust.
+`capi` feature exports `quench_minimize_fn` over **dlpk**
+(`DLManagedTensorVersioned`), the same waist as eindir. CPU f64 is
+wired now; a non-CPU tensor returns `QUENCH_UNSUPPORTED_DEVICE` so a
+CUDA path does not change the ABI. `include/quench.hpp` wraps the C
+API; `include/quench/xtensor.hpp` borrows `xt::xarray` as DLPack.
 
 MIT. Build and test on the remote builder, not a laptop.

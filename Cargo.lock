@@ -415,9 +415,11 @@ version = "0.1.0"
 dependencies = [
  "approx",
  "cbindgen",
+ "dlpk",
  "eindir-core",
  "ndarray",
  "num-traits",
+ "rand",
  "thiserror",
 ]
 
