@@ -1,0 +1,29 @@
+[package]
+name = "quench-core"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+description = "Local first-order minimization over eindir differentiable objectives."
+repository = "https://github.com/HaoZeke/quench"
+readme = "README.md"
+keywords = ["optimization", "conjugate-gradient", "linesearch"]
+categories = ["science", "mathematics"]
+authors = ["Rohit Goswami <rgoswami@ieee.org>"]
+
+[lib]
+name = "quench_core"
+path = "src/lib.rs"
+
+[dependencies]
+eindir-core = { path = "../eindir", version = "0.6.0" }
+ndarray = "0.17"
+thiserror = "2"
+num-traits = "0.2"
+
+[dev-dependencies]
+approx = "0.5"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
