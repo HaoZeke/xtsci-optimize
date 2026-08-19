@@ -29,6 +29,12 @@ enum class Method {
     Steepest = QUENCH_STEEPEST,
     Sr2 = QUENCH_SR2,
     Pso = QUENCH_PSO,
+    HestenesStiefel = QUENCH_HESTENES_STIEFEL,
+    DaiYuan = QUENCH_DAI_YUAN,
+    ConjugateDescent = QUENCH_CONJUGATE_DESCENT,
+    HagerZhang = QUENCH_HAGER_ZHANG,
+    LiuStorey = QUENCH_LIU_STOREY,
+    FrPr = QUENCH_FR_PR,
 };
 
 struct Control {
@@ -59,6 +65,28 @@ inline Report minimize_fn(quench_eval_fn eval, quench_grad_fn grad, void* user,
         throw std::runtime_error(msg ? msg : "quench_minimize_fn failed");
     }
     return Report{out.value, out.steps, out.grad_norm};
+}
+
+/// Borrow `x[0..n]` as DLPack, run the hourglass, write the accepted point back.
+inline Report minimize_fn(quench_eval_fn eval, quench_grad_fn grad, void* user,
+                          double* x, std::size_t n, Control const& ctrl,
+                          Method method) {
+    if (x == nullptr || n == 0) {
+        throw std::runtime_error("quench::minimize_fn: null or empty x");
+    }
+    DLManagedTensorVersioned* xt = quench_tensor_borrow_cpu_f64(x, n);
+    if (xt == nullptr) {
+        char const* msg = quench_last_error();
+        throw std::runtime_error(msg ? msg : "quench_tensor_borrow_cpu_f64 failed");
+    }
+    try {
+        Report r = minimize_fn(eval, grad, user, xt, ctrl, method);
+        quench_tensor_free(xt);
+        return r;
+    } catch (...) {
+        quench_tensor_free(xt);
+        throw;
+    }
 }
 
 /// Borrow a host f64 buffer as DLPack. Pair with quench_tensor_free.

@@ -1,4 +1,4 @@
-//! Dense BFGS, L-BFGS, and inverse SR1.
+//! Dense BFGS, L-BFGS, inverse SR1, and SR2.
 
 use eindir_core::{DifferentiableObjective, Objective};
 use ndarray::{Array1, Array2};
@@ -141,6 +141,50 @@ where
     Ok(done(value, pos, control.maxiter, l2(&grad)))
 }
 
+/// SR2 Hessian update from xtsci-optimize `sr2.hpp`.
+///
+/// Maintains a dense Hessian `B` (starts as `I`). The search direction is
+/// `-B^{-1} g`. After a move, `B += δ(y + Bs)^T / (δ^T s)` with `δ = y - Bs`.
+pub fn minimize_sr2<O>(
+    obj: &O,
+    init: impl Into<Array1<f64>>,
+    control: &Control,
+    linesearch: LineSearch,
+) -> Result<Report>
+where
+    O: DifferentiableObjective<f64> + ?Sized,
+{
+    let mut pos = start(obj, init)?;
+    let n = pos.len();
+    let (mut value, mut grad) = obj.value_and_gradient(pos.view());
+    let mut b = Array2::<f64>::eye(n);
+    let mut istep = control.istep;
+
+    for step in 0..control.maxiter {
+        let gnorm = l2(&grad);
+        if gnorm < control.gtol {
+            return Ok(done(value, pos, step, gnorm));
+        }
+        let rhs = grad.mapv(|g| -g);
+        let dir = solve_dense(&b, &rhs).unwrap_or_else(|| rhs);
+        let old = pos.clone();
+        let gold = grad.clone();
+        let (npos, _, lsstep, moved) =
+            take_step(obj, &pos, value, dir.view(), istep, linesearch, control);
+        pos = npos;
+        let ev = obj.value_and_gradient(pos.view());
+        value = ev.0;
+        grad = ev.1;
+        if moved {
+            let s = &pos - &old;
+            let y = &grad - &gold;
+            sr2_hessian_update(&mut b, &s, &y);
+        }
+        istep = next_istep(lsstep, control);
+    }
+    Ok(done(value, pos, control.maxiter, l2(&grad)))
+}
+
 /// Steepest descent: `d = -g` every iteration.
 pub fn minimize_sd<O>(
     obj: &O,
@@ -216,6 +260,76 @@ fn bfgs_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
         }
     }
     *h = hp;
+}
+
+fn sr2_hessian_update(b: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
+    let bs = b.dot(s);
+    let delta = y - &bs;
+    let ybs = y + &bs;
+    let denom = delta.dot(s);
+    let dn = l2(&delta);
+    let sn = l2(s);
+    if denom.abs() < SR1_SKIP * dn * sn || denom.abs() <= CURVATURE {
+        return;
+    }
+    let n = s.len();
+    for i in 0..n {
+        for j in 0..n {
+            b[(i, j)] += delta[i] * ybs[j] / denom;
+        }
+    }
+}
+
+/// Gaussian elimination with partial pivoting for `A x = rhs`.
+fn solve_dense(a: &Array2<f64>, rhs: &Array1<f64>) -> Option<Array1<f64>> {
+    let n = rhs.len();
+    let mut m = a.clone();
+    let mut x = rhs.clone();
+    for k in 0..n {
+        let mut piv = k;
+        let mut best = m[(k, k)].abs();
+        for i in (k + 1)..n {
+            let v = m[(i, k)].abs();
+            if v > best {
+                best = v;
+                piv = i;
+            }
+        }
+        if best <= CURVATURE {
+            return None;
+        }
+        if piv != k {
+            for j in 0..n {
+                let tmp = m[(k, j)];
+                m[(k, j)] = m[(piv, j)];
+                m[(piv, j)] = tmp;
+            }
+            let tmp = x[k];
+            x[k] = x[piv];
+            x[piv] = tmp;
+        }
+        let akk = m[(k, k)];
+        for i in (k + 1)..n {
+            let f = m[(i, k)] / akk;
+            m[(i, k)] = 0.0;
+            for j in (k + 1)..n {
+                m[(i, j)] -= f * m[(k, j)];
+            }
+            x[i] -= f * x[k];
+        }
+    }
+    for i in (0..n).rev() {
+        let mut acc = x[i];
+        for j in (i + 1)..n {
+            acc -= m[(i, j)] * x[j];
+        }
+        let di = m[(i, i)];
+        if di.abs() <= CURVATURE {
+            return None;
+        }
+        x[i] = acc / di;
+    }
+    Some(x)
 }
 
 fn sr1_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {

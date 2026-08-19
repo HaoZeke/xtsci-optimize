@@ -25,7 +25,13 @@ typedef enum quench_method_t {
     QUENCH_ADAM = 5,
     QUENCH_STEEPEST = 6,
     QUENCH_SR2 = 7,
-    QUENCH_PSO = 8
+    QUENCH_PSO = 8,
+    QUENCH_HESTENES_STIEFEL = 9,
+    QUENCH_DAI_YUAN = 10,
+    QUENCH_CONJUGATE_DESCENT = 11,
+    QUENCH_HAGER_ZHANG = 12,
+    QUENCH_LIU_STOREY = 13,
+    QUENCH_FR_PR = 14
 } quench_method_t;
 
 typedef struct quench_control_t {

@@ -9,7 +9,8 @@ use crate::error::{Error, Result};
 use crate::linesearch::LineSearch;
 use crate::method::Method;
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
-use crate::qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1};
+use crate::pso::minimize_pso;
+use crate::qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1, minimize_sr2};
 use crate::report::Report;
 use crate::step::{l2, next_istep, take_step};
 
@@ -56,12 +57,19 @@ where
         Method::Bfgs => minimize_bfgs(obj, init, control, linesearch),
         Method::Lbfgs { memory } => minimize_lbfgs(obj, init, control, linesearch, memory),
         Method::Sr1 => minimize_sr1(obj, init, control, linesearch),
+        Method::Sr2 => minimize_sr2(obj, init, control, linesearch),
         Method::Adam {
             beta1,
             beta2,
             eps,
         } => minimize_adam(obj, init, control, linesearch, beta1, beta2, eps),
         Method::Steepest => minimize_sd(obj, init, control, linesearch),
+        Method::Pso {
+            n_particles,
+            inertia,
+            c1,
+            c2,
+        } => minimize_pso(obj, init, control, n_particles, inertia, c1, c2),
     }
 }
 

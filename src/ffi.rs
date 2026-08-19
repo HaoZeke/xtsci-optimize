@@ -51,6 +51,18 @@ pub enum quench_method_t {
     QUENCH_SR2 = 7,
     /// Particle swarm.
     QUENCH_PSO = 8,
+    /// Hestenes-Stiefel NLCG + Brent.
+    QUENCH_HESTENES_STIEFEL = 9,
+    /// Dai-Yuan NLCG + Brent.
+    QUENCH_DAI_YUAN = 10,
+    /// Fletcher conjugate-descent NLCG + Brent.
+    QUENCH_CONJUGATE_DESCENT = 11,
+    /// Hager-Zhang NLCG + Brent.
+    QUENCH_HAGER_ZHANG = 12,
+    /// Liu-Storey NLCG + Brent.
+    QUENCH_LIU_STOREY = 13,
+    /// Gilbert-Nocedal FR-PR hybrid NLCG + Brent.
+    QUENCH_FR_PR = 14,
 }
 
 /// Iteration controls. `memory` is used only by L-BFGS (0 means 10).
@@ -120,10 +132,9 @@ pub extern "C" fn quench_version() -> *const c_char {
 fn method_from_c(m: quench_method_t, memory: usize) -> Method {
     match m {
         quench_method_t::QUENCH_POLAK_RIBIERE => Method::polak_ribiere(),
-        quench_method_t::QUENCH_FLETCHER_REEVES => Method::Nlcg {
-            conjugacy: crate::Conjugacy::FletcherReeves,
-            restart: crate::Restart::Never,
-        },
+        quench_method_t::QUENCH_FLETCHER_REEVES => {
+            Method::nlcg(crate::Conjugacy::FletcherReeves)
+        }
         quench_method_t::QUENCH_BFGS => Method::Bfgs,
         quench_method_t::QUENCH_LBFGS => Method::Lbfgs {
             memory: if memory == 0 { 10 } else { memory },
@@ -133,6 +144,16 @@ fn method_from_c(m: quench_method_t, memory: usize) -> Method {
         quench_method_t::QUENCH_STEEPEST => Method::Steepest,
         quench_method_t::QUENCH_SR2 => Method::Sr2,
         quench_method_t::QUENCH_PSO => Method::pso(),
+        quench_method_t::QUENCH_HESTENES_STIEFEL => {
+            Method::nlcg(crate::Conjugacy::HestenesStiefel)
+        }
+        quench_method_t::QUENCH_DAI_YUAN => Method::nlcg(crate::Conjugacy::DaiYuan),
+        quench_method_t::QUENCH_CONJUGATE_DESCENT => {
+            Method::nlcg(crate::Conjugacy::ConjugateDescent)
+        }
+        quench_method_t::QUENCH_HAGER_ZHANG => Method::nlcg(crate::Conjugacy::HagerZhang),
+        quench_method_t::QUENCH_LIU_STOREY => Method::nlcg(crate::Conjugacy::LiuStorey),
+        quench_method_t::QUENCH_FR_PR => Method::nlcg(crate::Conjugacy::FrPr),
     }
 }
 

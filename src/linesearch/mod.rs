@@ -2,6 +2,12 @@
 
 use ndarray::{Array1, ArrayView1};
 
+/// Accept conditions (Armijo, Wolfe, Goldstein).
+pub mod conditions;
+mod zoom;
+
+pub use zoom::zoom;
+
 /// How to pick α such that `x + α d` decreases `f`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LineSearch {
@@ -19,6 +25,28 @@ pub enum LineSearch {
         /// Step shrink `β` (default 0.5).
         beta: f64,
         /// Maximum shrinks.
+        maxiter: usize,
+    },
+    /// Goldstein condition with geometric backtracking.
+    ///
+    /// Accepts when Armijo and the Goldstein upper bound both hold
+    /// (`φ(α) <= φ(0) + c α φ'(0)` and `φ(α) <= φ(0) + (1 - c) α φ'(0)`).
+    /// `c` belongs in `(0, 0.5)`.
+    Goldstein {
+        /// Goldstein / Armijo `c`.
+        c: f64,
+        /// Step shrink `β` (default 0.5).
+        beta: f64,
+        /// Maximum shrinks.
+        maxiter: usize,
+    },
+    /// Strong Wolfe with Nocedal-Wright zoom (algorithms 3.5 and 3.6).
+    Wolfe {
+        /// Armijo `c1` (default 1e-4).
+        c1: f64,
+        /// Strong-curvature `c2` (default 0.9).
+        c2: f64,
+        /// Expand + zoom iterations.
         maxiter: usize,
     },
 }
@@ -47,13 +75,19 @@ impl LineSearch {
         match *self {
             Self::Brent { maxiter, tol } => brent_search(&mut oracle, pos, dir, istep, maxiter, tol),
             Self::Backtracking { c, beta, maxiter } => {
-                backtrack_search(&mut oracle, pos, dir, istep, c, beta, maxiter)
+                backtrack_search(&mut oracle, pos, dir, istep, c, beta, maxiter, false)
+            }
+            Self::Goldstein { c, beta, maxiter } => {
+                backtrack_search(&mut oracle, pos, dir, istep, c, beta, maxiter, true)
+            }
+            Self::Wolfe { c1, c2, maxiter } => {
+                zoom::wolfe_search(&mut oracle, pos, dir, istep, c1, c2, maxiter)
             }
         }
     }
 }
 
-fn axpy(pos: ArrayView1<'_, f64>, t: f64, dir: ArrayView1<'_, f64>) -> Array1<f64> {
+pub(crate) fn axpy(pos: ArrayView1<'_, f64>, t: f64, dir: ArrayView1<'_, f64>) -> Array1<f64> {
     Array1::from_iter(pos.iter().zip(dir.iter()).map(|(p, d)| p + t * d))
 }
 
@@ -87,6 +121,7 @@ fn backtrack_search<F>(
     c: f64,
     beta: f64,
     maxiter: usize,
+    goldstein: bool,
 ) -> (Array1<f64>, f64, f64)
 where
     F: FnMut(ArrayView1<'_, f64>) -> (f64, Array1<f64>),
@@ -103,7 +138,12 @@ where
             best_f = f;
             best_x = x.clone();
         }
-        if f <= f0 + c * alpha * slope {
+        let accept = if goldstein {
+            conditions::goldstein(f, f0, alpha, slope, c)
+        } else {
+            conditions::armijo(f, f0, alpha, slope, c)
+        };
+        if accept {
             return (x, f, alpha.abs());
         }
         alpha *= beta;

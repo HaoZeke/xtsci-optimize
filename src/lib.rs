@@ -1,15 +1,17 @@
 //! Local first-order minimization over eindir objectives.
 //!
-//! Strategy split follows HaoZeke/xtsci-optimize: conjugacy, restart, and
-//! line search are independent. Nonlinear CG is Nocedal and Wright
-//! algorithm 5.4. Quasi-Newton methods (BFGS, L-BFGS, SR1) and Adam
-//! share the same eindir `DifferentiableObjective` handle.
+//! This crate is the Rust rewrite of HaoZeke/xtsci-optimize. Conjugacy,
+//! restart, and line search stay independent. Nonlinear CG is Nocedal and
+//! Wright algorithm 5.4. Quasi-Newton methods (BFGS, L-BFGS, SR1, SR2),
+//! Adam, steepest descent, and particle swarm share the same eindir
+//! `DifferentiableObjective` handle. C and C++ reach these solvers only
+//! through `quench_minimize_fn` and the headers under `include/`.
 
 #![warn(missing_docs)]
 
-/// Line-search strategies (Brent, Armijo backtracking).
+/// Line-search strategies (Brent, Armijo, Goldstein, Wolfe/zoom).
 pub mod linesearch;
-/// Method selector (NLCG, BFGS family, Adam, steepest descent).
+/// Method selector (NLCG, BFGS family, Adam, steepest descent, PSO).
 pub mod method;
 /// Nonlinear conjugate-gradient conjugacy and restart.
 pub mod nlcg;
@@ -23,6 +25,7 @@ mod error;
 pub mod ffi;
 mod minimize;
 mod oracle;
+mod pso;
 mod qn;
 mod report;
 mod step;
@@ -33,6 +36,8 @@ pub use linesearch::LineSearch;
 pub use method::Method;
 pub use minimize::{minimize, minimize_method};
 pub use nlcg::{Conjugacy, ConjugacyContext, Restart};
+pub use adam::minimize_adam;
 pub use oracle::Oracle;
-pub use qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1};
+pub use pso::minimize_pso;
+pub use qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1, minimize_sr2};
 pub use report::Report;

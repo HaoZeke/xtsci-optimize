@@ -17,7 +17,7 @@ pub struct ConjugacyContext<'a> {
 }
 
 /// Conjugacy coefficient β. Formulas are Nocedal and Wright chapter 5.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Conjugacy {
     /// Fletcher-Reeves, NJWS 5.41a: `||g||^2 / ||g_old||^2`.
     FletcherReeves,
@@ -35,6 +35,15 @@ pub enum Conjugacy {
     LiuStorey,
     /// Gilbert-Nocedal FR-PR hybrid, NJWS 5.50.
     FrPr,
+    /// xtsci `HybridizedConj`: `max` or `min` of two β formulas.
+    Hybrid {
+        /// First formula.
+        a: Box<Conjugacy>,
+        /// Second formula.
+        b: Box<Conjugacy>,
+        /// `true` is `max(β_a, β_b)`; `false` is `min`.
+        take_max: bool,
+    },
 }
 
 /// Restart when conjugacy is lost.
@@ -72,6 +81,15 @@ impl Restart {
 }
 
 impl Conjugacy {
+    /// Combine two formulas with `max` (`take_max`) or `min`.
+    pub fn hybrid(a: Conjugacy, b: Conjugacy, take_max: bool) -> Self {
+        Self::Hybrid {
+            a: Box::new(a),
+            b: Box::new(b),
+            take_max,
+        }
+    }
+
     /// β for this method. Degenerate denominators return 0.
     pub fn beta(&self, ctx: &ConjugacyContext<'_>) -> f64 {
         let g = ctx.current_gradient;
@@ -80,7 +98,7 @@ impl Conjugacy {
         let gg = dot(g, g);
         let gg_old = dot(gold, gold);
         let y_g = dot(g, g) - dot(g, gold); // g · (g - gold)
-        match *self {
+        match self {
             Self::FletcherReeves => div(gg, gg_old),
             Self::PolakRibiere => div(y_g, gg_old),
             Self::HestenesStiefel => {
@@ -111,6 +129,15 @@ impl Conjugacy {
                     beta_pr
                 } else {
                     beta_fr
+                }
+            }
+            Self::Hybrid { a, b, take_max } => {
+                let ba = a.beta(ctx);
+                let bb = b.beta(ctx);
+                if *take_max {
+                    ba.max(bb)
+                } else {
+                    ba.min(bb)
                 }
             }
         }
@@ -150,5 +177,36 @@ mod tests {
         assert_eq!(Conjugacy::HestenesStiefel.beta(&ctx), -1.0);
         // β_DY = 1 / (d·y) = 1 / -1 = -1
         assert_eq!(Conjugacy::DaiYuan.beta(&ctx), -1.0);
+    }
+
+    #[test]
+    fn hybrid_pr_fr_take_max_is_max_of_the_two_betas() {
+        let g = array![1.0, 0.0];
+        let gold = array![0.0, 1.0];
+        let d = array![-1.0, 0.0];
+        let ctx = ConjugacyContext {
+            current_gradient: g.view(),
+            previous_gradient: gold.view(),
+            previous_direction: d.view(),
+        };
+        let beta_pr = Conjugacy::PolakRibiere.beta(&ctx);
+        let beta_fr = Conjugacy::FletcherReeves.beta(&ctx);
+        let hybrid = Conjugacy::Hybrid {
+            a: Box::new(Conjugacy::PolakRibiere),
+            b: Box::new(Conjugacy::FletcherReeves),
+            take_max: true,
+        };
+        assert_eq!(hybrid.beta(&ctx), beta_pr.max(beta_fr));
+        assert_eq!(hybrid.beta(&ctx), 1.0);
+        let nested = Conjugacy::hybrid(
+            Conjugacy::hybrid(
+                Conjugacy::PolakRibiere,
+                Conjugacy::FletcherReeves,
+                true,
+            ),
+            Conjugacy::HestenesStiefel,
+            false,
+        );
+        assert_eq!(nested.beta(&ctx), beta_pr.max(beta_fr).min(-1.0));
     }
 }
