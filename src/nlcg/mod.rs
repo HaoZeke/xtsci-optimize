@@ -236,9 +236,9 @@ mod tests {
             Conjugacy::hybrid(Conjugacy::PolakRibiere, Conjugacy::FletcherReeves, true).beta(&ctx),
             4.0
         );
-        // y=[1,0], ||y||^2=1, d·y=1, d·g=-2
-        // β_HZ = 2/1 - 2*1*(-2)/1 = 2 + 4 = 6
-        assert_eq!(Conjugacy::HagerZhang.beta(&ctx), 6.0);
+        // y=[1,0], ||y||^2=1, d·y=-1, d·g=-2
+        // β_HZ = 2/(-1) - 2*1*(-2)/1 = -2 + 4 = 2
+        assert_eq!(Conjugacy::HagerZhang.beta(&ctx), 2.0);
     }
 
     #[test]
