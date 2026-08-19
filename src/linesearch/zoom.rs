@@ -2,6 +2,11 @@
 //!
 //! Trial interpolation is bisection (`BisectionStepSize`): the next α is the
 //! midpoint of the current bracket, so every trial stays inside it.
+//!
+//! Wolfe, *Convergence Conditions for Ascent Methods*,
+//! <https://doi.org/10.1137/1011036>.
+//! Nocedal and Wright, *Numerical Optimization*,
+//! <https://doi.org/10.1007/978-0-387-40065-5>.
 
 use ndarray::{Array1, ArrayView1};
 
@@ -9,6 +14,9 @@ use super::axpy;
 use super::conditions::{armijo, strong_curvature};
 
 /// Evaluate `φ(α) = f(x + α d)` and `φ'(α) = ∇f(x + α d) · d`.
+///
+/// One oracle call yields both values so `φ` and `φ'` do not each hold a
+/// mutable borrow of the same closure.
 fn phi_pair<F>(
     oracle: &mut F,
     pos: ArrayView1<'_, f64>,
@@ -35,6 +43,9 @@ fn bisect(lo: f64, hi: f64) -> f64 {
 /// Interpolates inside the closed interval between `lo` and `hi` until the
 /// strong Wolfe conditions hold or `maxiter` is exhausted. The returned α
 /// always lies between `lo` and `hi` (inclusive).
+///
+/// Nocedal and Wright, *Numerical Optimization*,
+/// <https://doi.org/10.1007/978-0-387-40065-5>.
 pub fn zoom<F>(
     oracle: &mut F,
     pos: ArrayView1<'_, f64>,
@@ -68,8 +79,14 @@ fn zoom_into<F>(
 where
     F: FnMut(ArrayView1<'_, f64>) -> (f64, Array1<f64>),
 {
-    let (mut phi_lo, _) = phi_pair(oracle, pos, dir, lo);
-    let mut alpha = bisect(lo, hi);
+    // Last evaluated pair. If the loop never interpolates, return `lo` with
+    // `φ(lo)` rather than a midpoint tagged with a different value.
+    let mut phi_lo = if lo == 0.0 {
+        phi0
+    } else {
+        phi_pair(oracle, pos, dir, lo).0
+    };
+    let mut alpha = lo;
     let mut phi_a = phi_lo;
     for _ in 0..maxiter {
         if !lo.is_finite() || !hi.is_finite() || (hi - lo).abs() < 1e-16 {
@@ -103,6 +120,11 @@ where
 ///
 /// Initial trial is `istep`; the outer loop doubles until `alpha_max` or a
 /// bracket is formed. Returns `(x, f, |α|)` if the trial beat `f0`.
+///
+/// Wolfe, *Convergence Conditions for Ascent Methods*,
+/// <https://doi.org/10.1137/1011036>.
+/// Nocedal and Wright, *Numerical Optimization*,
+/// <https://doi.org/10.1007/978-0-387-40065-5>.
 pub(crate) fn wolfe_search<F>(
     oracle: &mut F,
     pos: ArrayView1<'_, f64>,

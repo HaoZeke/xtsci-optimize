@@ -12,6 +12,8 @@ pub use zoom::zoom;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum LineSearch {
     /// Brent (1973) on a golden-section bracket. Derivative-free in α.
+    ///
+    /// Brent, *Algorithms for Minimization without Derivatives* (1973).
     Brent {
         /// Bracket / refine iterations.
         maxiter: usize,
@@ -19,6 +21,9 @@ pub enum LineSearch {
         tol: f64,
     },
     /// Armijo backtracking with geometric reduction.
+    ///
+    /// Nocedal and Wright, *Numerical Optimization*,
+    /// <https://doi.org/10.1007/978-0-387-40065-5>.
     Backtracking {
         /// Armijo `c` (default 1e-4).
         c: f64,
@@ -27,20 +32,28 @@ pub enum LineSearch {
         /// Maximum shrinks.
         maxiter: usize,
     },
-    /// Goldstein condition with geometric backtracking.
+    /// Goldstein condition (Nocedal-Wright 3.11) with shrink/expand.
     ///
-    /// Accepts when Armijo and the Goldstein upper bound both hold
-    /// (`φ(α) <= φ(0) + c α φ'(0)` and `φ(α) <= φ(0) + (1 - c) α φ'(0)`).
+    /// Accepts when `φ(0) + (1-c) α φ'(0) <= φ(α) <= φ(0) + c α φ'(0)`.
+    /// Armijo failure shrinks α; a failed lower bound expands α.
     /// `c` belongs in `(0, 0.5)`.
+    ///
+    /// Goldstein, *Multiplier and gradient methods*,
+    /// <https://doi.org/10.1007/BF00927673>.
     Goldstein {
         /// Goldstein / Armijo `c`.
         c: f64,
-        /// Step shrink `β` (default 0.5).
+        /// Step shrink/expand `β` (default 0.5).
         beta: f64,
-        /// Maximum shrinks.
+        /// Maximum shrink or expand trials.
         maxiter: usize,
     },
     /// Strong Wolfe with Nocedal-Wright zoom (algorithms 3.5 and 3.6).
+    ///
+    /// Wolfe, *Convergence Conditions for Ascent Methods*,
+    /// <https://doi.org/10.1137/1011036>.
+    /// Nocedal and Wright, *Numerical Optimization*,
+    /// <https://doi.org/10.1007/978-0-387-40065-5>.
     Wolfe {
         /// Armijo `c1` (default 1e-4).
         c1: f64,
@@ -146,8 +159,14 @@ where
         if accept {
             return (x, f, alpha.abs());
         }
-        alpha *= beta;
-        if alpha < 1e-16 {
+        if goldstein && conditions::armijo(f, f0, alpha, slope, c) {
+            // Lower bound failed: step is too short (Nocedal-Wright 3.11).
+            alpha /= beta;
+        } else {
+            alpha *= beta;
+        }
+        let alpha_max = 64.0_f64.max(istep.abs() * 64.0);
+        if !alpha.is_finite() || alpha < 1e-16 || alpha > alpha_max {
             break;
         }
     }
