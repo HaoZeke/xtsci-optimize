@@ -1,0 +1,29 @@
+# Validated references
+
+ookcite `verify_references` / `validate_doi` on these DOIs returned VALID
+with the titles below. Rustdocs may only cite this list (or a book
+ISBN). Do not invent DOIs.
+
+| Topic | DOI | Title (ookcite) |
+|---|---|---|
+| Fletcher-Reeves | 10.1093/comjnl/7.2.149 | Function minimization by conjugate gradients |
+| Fletcher 1963 (related) | 10.1093/comjnl/6.2.163 | A Rapidly Convergent Descent Method for Minimization |
+| Dai-Yuan | 10.1137/S1052623497318992 | A Nonlinear Conjugate Gradient Method with a Strong Global Convergence Property |
+| Hager-Zhang | 10.1137/030601880 | A New Conjugate Gradient Method with Guaranteed Descent and an Efficient Line Search |
+| Liu-Storey | 10.1007/BF00940464 | Efficient generalized conjugate gradient algorithms, part 1: Theory |
+| L-BFGS Nocedal 1980 | https://doi.org/10.1090/s0025-5718-1980-0572855-7 | Updating quasi-Newton matrices with limited storage |
+| L-BFGS-B | 10.1137/0916069 | A Limited Memory Algorithm for Bound Constrained Optimization |
+| Broyden 1970 | 10.1093/imamat/6.1.76 | The Convergence of a Class of Double-rank Minimization Algorithms 1. General Considerations |
+| Fletcher 1970 (BFGS) | 10.1093/comjnl/13.3.317 | A new approach to variable metric algorithms |
+| Shanno 1970 | https://doi.org/10.1090/s0025-5718-1970-0274029-x | Conditioning of quasi-Newton methods for function minimization |
+| Wolfe 1969 | 10.1137/1011036 | Convergence Conditions for Ascent Methods |
+| Goldstein 1964 | 10.1007/BF00927673 | Multiplier and gradient methods |
+| Nocedal-Wright | 10.1007/978-0-387-40065-5 | Numerical Optimization |
+| Adam | 10.48550/arXiv.1412.6980 | Adam: A Method for Stochastic Optimization |
+| PSO Kennedy-Eberhart | 10.1109/ICNN.1995.488968 | Particle swarm optimization |
+
+Polak-Ribiere 1969 and Hestenes-Stiefel 1952: cite the paper/book
+title in rustdoc if no DOI is on this list. Do not mint a DOI.
+
+Rejected Goldfarb candidate: ookcite INVALID (not listed).
+Rejected: 10.1137/0111037 (VALID but wrong paper: Boolean formulas).
