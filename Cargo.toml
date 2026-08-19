@@ -14,6 +14,11 @@ authors = ["Rohit Goswami <rgoswami@ieee.org>"]
 [lib]
 name = "quench_core"
 path = "src/lib.rs"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[features]
+default = []
+capi = []
 
 [dependencies]
 eindir-core = { path = "../eindir", version = "0.6.0" }
@@ -23,6 +28,26 @@ num-traits = "0.2"
 
 [dev-dependencies]
 approx = "0.5"
+
+[build-dependencies]
+cbindgen = "0.29"
+
+[package.metadata.capi]
+min_version = "0.10.17"
+
+[package.metadata.capi.header]
+name = "quench.h"
+subdirectory = ""
+generation = true
+enabled = true
+
+[package.metadata.capi.pkg_config]
+name = "quench"
+filename = "quench"
+description = "Local first-order minimization C ABI"
+
+[package.metadata.capi.library]
+name = "quench_core"
 
 [profile.release]
 lto = "thin"

@@ -32,4 +32,9 @@ let report = minimize(
 );
 ```
 
+Hourglass (metatensor-shaped): Rust is the only implementation. The
+`capi` feature exports `quench_minimize_fn`. `include/quench.hpp` is
+the C++ wrapper; `include/quench/xtensor.hpp` adapts `xt::xarray`
+without pulling xtensor into Rust.
+
 MIT. Build and test on the remote builder, not a laptop.

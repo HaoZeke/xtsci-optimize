@@ -414,6 +414,7 @@ name = "quench-core"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "cbindgen",
  "eindir-core",
  "ndarray",
  "num-traits",

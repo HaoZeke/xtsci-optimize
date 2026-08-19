@@ -17,6 +17,10 @@ pub mod nlcg;
 mod adam;
 mod control;
 mod error;
+/// C ABI, gated behind the `capi` feature.
+#[cfg(feature = "capi")]
+#[allow(non_camel_case_types, missing_docs)]
+pub mod ffi;
 mod minimize;
 mod oracle;
 mod qn;
