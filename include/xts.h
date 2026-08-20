@@ -35,7 +35,7 @@ typedef struct xts_abi_stamp_t {
 
 #define XTS_ABI_VERSION_MAJOR 1
 #define XTS_ABI_VERSION_MINOR 0
-#define XTS_ABI_LAYOUT_REVISION 1
+#define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
 typedef enum xts_method_t {
@@ -62,6 +62,7 @@ typedef struct xts_control_t {
     double gtol;
     double istep;
     size_t memory;
+    double maxmove;
 } xts_control_t;
 
 /** Result of \ref xts_minimize. */

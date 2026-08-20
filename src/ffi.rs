@@ -48,7 +48,7 @@ pub struct xts_abi_stamp_t {
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
 pub const XTS_ABI_VERSION_MINOR: u16 = 0;
-pub const XTS_ABI_LAYOUT_REVISION: u16 = 1;
+pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
 #[repr(C)]
@@ -98,6 +98,8 @@ pub struct xts_control_t {
     pub istep: f64,
     /// L-BFGS correction pairs; 0 selects 10.
     pub memory: usize,
+    /// Euclidean cap on each proposed step; non-positive disables the cap.
+    pub maxmove: f64,
 }
 
 /// Result written by [`xts_minimize`].
@@ -410,7 +412,7 @@ pub unsafe extern "C" fn xts_minimize(
             maxiter: c.maxiter,
             gtol: c.gtol,
             istep: if c.istep > 0.0 { c.istep } else { 1.0 },
-            maxmove: None,
+            maxmove: if c.maxmove > 0.0 { Some(c.maxmove) } else { None },
         };
         match minimize_method(
             &obj,
@@ -530,7 +532,7 @@ pub unsafe extern "C" fn xts_minimize_eindir(
             maxiter: c.maxiter,
             gtol: c.gtol,
             istep: if c.istep > 0.0 { c.istep } else { 1.0 },
-            maxmove: None,
+            maxmove: if c.maxmove > 0.0 { Some(c.maxmove) } else { None },
         };
         match minimize_method(
             &obj,
