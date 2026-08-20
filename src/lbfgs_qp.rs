@@ -5,10 +5,11 @@
 //! Hessian and handing it to HiGHS is slower and, on a tiny accepted
 //! step, indefinite: `Highs_run` does not return.
 //!
-//! Constrained step: project that direction onto the L_inf trust
-//! region, the coordinate box, and any linear equalities. Box and
-//! trust are coordinate clamps. Equalities go to HiGHS as
-//! `min 1/2 ||p - d||^2` with `Q = I`, which is convex.
+//! Constrained step: keep the two-loop direction and scale it (eOn
+//! `maxAtomMotionAppliedV`, same idea as a CFL limit) so it fits the
+//! trust region and box. Packed layouts also subtract the per-axis
+//! mean. Arbitrary equalities still go to HiGHS as
+//! `min 1/2 ||p - d||^2` with `Q = I`.
 //!
 //! Huangfu and Hall, *Parallelizing the dual revised simplex method*,
 //! <https://doi.org/10.1007/s12532-017-0130-5>.
@@ -64,9 +65,9 @@ impl Lbfgs {
         }
         let mut p = d;
         if let Some((n_atoms, dim)) = opts.center_axes {
-            project_center_box(&mut p, x, opts, n_atoms, dim);
-        } else {
-            p = clip_step(p, x, opts);
+            project_center_scale(&mut p, x, opts, n_atoms, dim);
+        } else if opts.has_box() {
+            scale_to_bounds(&mut p, x, opts);
         }
         if !opts.needs_qp() {
             return Ok(p);
@@ -154,8 +155,9 @@ fn column_bounds(k: usize, x: ArrayView1<f64>, opts: &HighsStep) -> (f64, f64) {
     (lo, hi)
 }
 
-/// Dykstra on the intersection of the centering subspace and the box.
-fn project_center_box(
+/// Center, then scale the whole increment (eOn `maxAtomMotionAppliedV`).
+/// Component clamps bend the two-loop direction; a single scale does not.
+fn project_center_scale(
     d: &mut Array1<f64>,
     x: ArrayView1<f64>,
     opts: &HighsStep,
@@ -163,14 +165,39 @@ fn project_center_box(
     dim: usize,
 ) {
     if n_atoms == 0 || dim == 0 || d.len() != n_atoms * dim {
-        clip_in_place(d, x, opts);
+        scale_to_bounds(d, x, opts);
         return;
     }
-    for _ in 0..16 {
+    for _ in 0..8 {
         center_axes(d, n_atoms, dim);
-        clip_in_place(d, x, opts);
+        scale_site_motion(d, n_atoms, dim, opts.trust);
+        scale_to_bounds(d, x, opts);
     }
     center_axes(d, n_atoms, dim);
+}
+
+fn scale_site_motion(d: &mut Array1<f64>, n_atoms: usize, dim: usize, trust: Option<f64>) {
+    let Some(tmax) = trust else {
+        return;
+    };
+    if !(tmax > 0.0) {
+        return;
+    }
+    let mut max_mot = 0.0_f64;
+    for i in 0..n_atoms {
+        let mut n2 = 0.0;
+        for h in 0..dim {
+            let v = d[i * dim + h];
+            n2 += v * v;
+        }
+        max_mot = max_mot.max(n2.sqrt());
+    }
+    if max_mot > tmax {
+        let s = tmax / max_mot;
+        for v in d.iter_mut() {
+            *v *= s;
+        }
+    }
 }
 
 fn center_axes(d: &mut Array1<f64>, n_atoms: usize, dim: usize) {
@@ -187,15 +214,31 @@ fn center_axes(d: &mut Array1<f64>, n_atoms: usize, dim: usize) {
     }
 }
 
-fn clip_in_place(d: &mut Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) {
+fn scale_to_bounds(d: &mut Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) {
+    let mut s = 1.0_f64;
     for k in 0..d.len() {
         let (lo, hi) = column_bounds(k, x, opts);
-        d[k] = d[k].clamp(lo, hi);
+        let dk = d[k];
+        if dk > 1e-16 {
+            s = s.min(hi / dk);
+        } else if dk < -1e-16 {
+            s = s.min(lo / dk);
+        }
+    }
+    if s < 1.0 && s > 0.0 {
+        for v in d.iter_mut() {
+            *v *= s;
+        }
+    } else if s <= 0.0 {
+        for k in 0..d.len() {
+            let (lo, hi) = column_bounds(k, x, opts);
+            d[k] = d[k].clamp(lo, hi);
+        }
     }
 }
 
 fn clip_step(mut d: Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) -> Array1<f64> {
-    clip_in_place(&mut d, x, opts);
+    scale_to_bounds(&mut d, x, opts);
     d
 }
 

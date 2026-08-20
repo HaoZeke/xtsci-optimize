@@ -12,9 +12,9 @@ The QP is =min 1/2 ||p - d||^2= with =d = -H g= and =Q = I=. A dense
 compact Hessian is not formed; that matrix is indefinite after a tiny
 accepted step and =Highs_run= does not return.
 
-Unconstrained, =highs_step= is the two-loop direction. A box or trust
-region is a coordinate clamp. Packed centering (`sum_i p[i*dim+h] = 0`) is a mean subtract,
-not a QP. Arbitrary equalities still go to HiGHS.
+Unconstrained, =highs_step= is the two-loop direction. A box or trust region scales the whole increment (direction
+preserved). Packed centering is a mean subtract. Arbitrary
+equalities still go to HiGHS.
 
 Enable the feature (HiGHS is compiled by =highs-sys=; do that on the
 remote builder):

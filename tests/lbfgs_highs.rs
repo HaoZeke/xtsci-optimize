@@ -81,6 +81,29 @@ fn highs_lbfgs_converges_on_the_quadratic() {
 }
 
 #[test]
+fn trust_scale_keeps_the_two_loop_direction() {
+    let x = Array1::from(vec![0.0, 0.0]);
+    let g = Array1::from(vec![10.0, 1.0]);
+    let mut opt = Lbfgs::default();
+    let raw = opt.two_loop(g.view());
+    opt.highs = Some(HighsStep {
+        trust: Some(0.25),
+        lo: None,
+        hi: None,
+        equalities: Vec::new(),
+        center_axes: None,
+    });
+    let p = opt.highs_step(x.view(), g.view()).unwrap();
+    let n2 = raw.dot(&raw).sqrt();
+    let np = p.dot(&p).sqrt();
+    let pinf = p.iter().fold(0.0_f64, |a, v| a.max(v.abs()));
+    assert!(pinf <= 0.25 + 1e-12);
+    for i in 0..2 {
+        assert_relative_eq!(p[i] / np, raw[i] / n2, epsilon = 1e-12);
+    }
+}
+
+#[test]
 fn center_axes_kills_the_mean() {
     let mut opt = Lbfgs::default();
     opt.highs = Some(HighsStep {
