@@ -355,8 +355,8 @@ fn c_abi_respects_maxmove_when_initial_step_is_larger() {
     };
     let st = unsafe {
         xts_minimize(
-            Some(quadratic_eval),
-            Some(quadratic_grad),
+            Some(rosen_eval),
+            Some(rosen_grad),
             std::ptr::null_mut(),
             xt,
             &ctrl,
