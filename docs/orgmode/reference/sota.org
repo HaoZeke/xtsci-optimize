@@ -32,12 +32,13 @@ the sign.
 
 ** Bound-constrained model
 
-The same compact Hessian (Nocedal-Wright 7.19) is a convex QP.
-=Lbfgs.highs= sends that QP to HiGHS
-([[https://doi.org/10.1007/s12532-017-0130-5][10.1007/s12532-017-0130-5]]).
-Unconstrained, the QP is the two-loop direction. With a box or an
-L_inf trust region it is the L-BFGS-B model without the Cauchy /
-subspace split. landfold =--highs= is this step, not sequential LP.
+=Lbfgs.highs= keeps the two-loop direction and asks HiGHS only to
+project it onto the trust region, the box, and any equalities
+(=min 1/2 ||p - d||^2=, =Q = I=;
+[[https://doi.org/10.1007/s12532-017-0130-5][10.1007/s12532-017-0130-5]]).
+A dense compact Hessian is not a production QP: after a short accepted
+step it is indefinite and the HiGHS QP solver does not return.
+landfold =--highs= is this projection, not sequential LP.
 
 ** Bound-constrained reference
 

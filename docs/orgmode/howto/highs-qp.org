@@ -4,15 +4,17 @@
 
 * L-BFGS quadratic model through HiGHS
 
-The two-loop recursion applies `H ~ B^{-1}` with no bounds. The
-production bound-constrained step is the same compact Hessian
-(Nocedal-Wright 7.19) handed to HiGHS as a convex QP:
+The two-loop recursion is the unconstrained L-BFGS step. HiGHS is
+used only when that step must sit in a feasible set: an L_inf trust
+region, a box on =x + p=, and optional linear equalities.
 
-=min g.p + (1/2) p^T B p= subject to an L_inf trust region, an
-optional box on =x + p=, and optional linear equalities.
+The QP is =min 1/2 ||p - d||^2= with =d = -H g= and =Q = I=. A dense
+compact Hessian is not formed; that matrix is indefinite after a tiny
+accepted step and =Highs_run= does not return.
 
-Unconstrained, HiGHS recovers the two-loop direction. With a box it is
-the L-BFGS-B model without the Cauchy / subspace split.
+Unconstrained, =highs_step= is the two-loop direction. A box or trust
+region is a coordinate clamp. Equalities (landfold centering) go to
+HiGHS.
 
 Enable the feature (HiGHS is compiled by =highs-sys=; do that on the
 remote builder):

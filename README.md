@@ -20,9 +20,8 @@ so a CUDA path does not change the ABI.
 
 The production unconstrained local method is [`Lbfgs`] with strong Wolfe
 (Nocedal-Wright 7.4 and algorithms 3.5 / 3.6). anneal `WarmLbfgs` holds
-that type so hopping does not ship a second two-loop. Feature `highs`
-solves the compact Hessian QP (7.19) with HiGHS: unconstrained that is
-the two-loop direction; a box or trust region is the L-BFGS-B model.
+that type so hopping does not ship a second two-loop. Feature `highs` keeps the two-loop direction and projects it with
+HiGHS (`Q = I`) onto a box, trust region, or equalities.
 
 Conjugacy: Fletcher-Reeves, Polak-Ribiere, Hestenes-Stiefel, Dai-Yuan,
 conjugate descent, Hager-Zhang, Liu-Storey, FR-PR, HybridizedConj.
