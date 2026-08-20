@@ -12,6 +12,11 @@ use dlpk::sys::{
     DLTensor,
 };
 use ndarray::Array1;
+use eindir_core::ffi::{
+    eindir_abi_stamp_t, eindir_core_abi_compatible, eindir_objective_eval,
+    eindir_objective_grad, eindir_objective_has_grad, eindir_objective_t,
+    eindir_status_t,
+};
 
 use crate::{Control, LineSearch, Method, Oracle, minimize_method};
 
@@ -404,6 +409,126 @@ pub unsafe extern "C" fn xts_minimize(
     }
 }
 
+/// Minimize an eindir-compatible objective without taking ownership of it.
+///
+/// The objective must provide an analytic gradient and the producer's ABI
+/// stamp must be compatible with this build. The objective remains owned by
+/// the caller for the full duration of the call.
+///
+/// # Safety
+///
+/// `objective`, `stamp`, `x`, `ctrl`, and `out` must be valid for the duration
+/// of this call. `objective` and `stamp` must come from the same compatible
+/// eindir ABI family. `x` must be a writable rank-1 CPU f64 tensor.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_minimize_eindir(
+    objective: *const eindir_objective_t,
+    stamp: *const eindir_abi_stamp_t,
+    x: *mut DLManagedTensorVersioned,
+    ctrl: *const xts_control_t,
+    method: xts_method_t,
+    out: *mut xts_report_t,
+) -> xts_status_t {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if objective.is_null() || stamp.is_null() || ctrl.is_null() || out.is_null() {
+            set_last_error("xts_minimize_eindir: null argument");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        if unsafe { eindir_core_abi_compatible(stamp) } == 0 {
+            set_last_error("xts_minimize_eindir: incompatible eindir ABI stamp");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        if unsafe { eindir_objective_has_grad(objective) } == 0 {
+            set_last_error("xts_minimize_eindir: objective has no gradient");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        let init = match cpu_f64_slice_mut(x, "x") {
+            Ok(s) => s.to_vec(),
+            Err(st) => return st,
+        };
+        let dim = unsafe { (*objective).dim };
+        if dim != init.len() {
+            set_last_error(&format!(
+                "xts_minimize_eindir: x length {} != objective dim {}",
+                init.len(),
+                dim
+            ));
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        let objective_addr = objective as usize;
+        let obj = Oracle::unbounded(dim, move |xv| {
+            let objective = objective_addr as *const eindir_objective_t;
+            let mut xs = xv.to_vec();
+            let xt = unsafe {
+                create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
+            };
+            let mut value = 0.0;
+            let eval_status = unsafe { eindir_objective_eval(objective, xt, &mut value) };
+            let mut gradient = vec![0.0; xs.len()];
+            let gt = unsafe {
+                create_borrowed_f64_1d(
+                    gradient.as_mut_ptr(),
+                    gradient.len(),
+                    DLDeviceType::kDLCPU,
+                    0,
+                )
+            };
+            let grad_status = unsafe { eindir_objective_grad(objective, xt, gt) };
+            unsafe {
+                xts_tensor_free(xt);
+                xts_tensor_free(gt);
+            }
+            if eval_status != eindir_status_t::EINDIR_SUCCESS
+                || grad_status != eindir_status_t::EINDIR_SUCCESS
+            {
+                set_last_error("xts_minimize_eindir: eindir evaluation failed");
+                return (f64::INFINITY, Array1::from(gradient));
+            }
+            (value, Array1::from(gradient))
+        });
+        let c = unsafe { &*ctrl };
+        let control = Control {
+            maxiter: c.maxiter,
+            gtol: c.gtol,
+            istep: if c.istep > 0.0 { c.istep } else { 1.0 },
+            maxmove: None,
+        };
+        match minimize_method(
+            &obj,
+            Array1::from(init),
+            &control,
+            method_from_c(method, c.memory),
+            LineSearch::default(),
+        ) {
+            Ok(rep) => {
+                let dest = match cpu_f64_slice_mut(x, "x") {
+                    Ok(s) => s,
+                    Err(st) => return st,
+                };
+                dest.copy_from_slice(rep.coords.as_slice().expect("contiguous"));
+                unsafe {
+                    *out = xts_report_t {
+                        value: rep.value,
+                        steps: rep.steps,
+                        grad_norm: rep.grad_norm,
+                    };
+                }
+                xts_status_t::XTS_SUCCESS
+            }
+            Err(e) => {
+                set_last_error(&e.to_string());
+                xts_status_t::XTS_INVALID_PARAMETER
+            }
+        }
+    })) {
+        Ok(s) => s,
+        Err(_) => {
+            set_last_error("xts_minimize_eindir: panic");
+            xts_status_t::XTS_INTERNAL_ERROR
+        }
+    }
+}
+
 #[cfg(test)]
 mod device_tests {
     use super::*;
@@ -411,9 +536,7 @@ mod device_tests {
     #[test]
     fn cuda_tag_is_unsupported() {
         let mut buf = [0.0_f64; 2];
-        let t = unsafe {
-            create_borrowed_f64_1d(buf.as_mut_ptr(), 2, DLDeviceType::kDLCUDA, 0)
-        };
+        let t = unsafe { create_borrowed_f64_1d(buf.as_mut_ptr(), 2, DLDeviceType::kDLCUDA, 0) };
         let err = cpu_f64_slice(t, "cuda").unwrap_err();
         unsafe { xts_tensor_free(t) };
         assert_eq!(err, xts_status_t::XTS_UNSUPPORTED_DEVICE);

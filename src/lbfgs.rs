@@ -24,8 +24,6 @@ use crate::report::Report;
 use crate::step::{l2, next_istep, take_step};
 use eindir_core::{DifferentiableObjective, Objective};
 
-const CURVATURE: f64 = 1e-12;
-
 /// How [`Lbfgs`] compares the gradient to [`Lbfgs::gtol`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GradNorm {
@@ -174,7 +172,11 @@ impl Lbfgs {
 
     pub(crate) fn push(&mut self, s: Array1<f64>, y: Array1<f64>) {
         let sy = s.dot(&y);
-        if sy <= CURVATURE {
+        let sn = s.iter().map(|v| v * v).sum::<f64>().sqrt();
+        let yn = y.iter().map(|v| v * v).sum::<f64>().sqrt();
+        // Relative curvature: a tiny accepted trust step makes the
+        // compact Hessian indefinite and HiGHS's QP solver does not return.
+        if !sy.is_finite() || sy <= 1e-8 * sn * yn {
             return;
         }
         self.memory.push(Pair {

@@ -9,6 +9,12 @@ C and C++ keep the old `xts::optimize` names through an hourglass C ABI
 `include/xts/optimize.hpp` is the C++ wrapper; `include/xts/xtensor.hpp`
 adapts `xt::xarray`. There is no second solver implementation in C++.
 
+The C ABI also accepts an `eindir_objective_t*` directly through
+`xts_minimize_eindir`. The caller supplies the `eindir_abi_stamp_t`, retains
+ownership of the objective, and gets the same CPU f64 DLPack optimization path.
+This lets rgpot's first-member `eindir_objective_t` embedding reach xtsci
+without a callback shim in each consumer.
+
 CPU f64 is wired now. A non-CPU tensor returns `XTS_UNSUPPORTED_DEVICE`
 so a CUDA path does not change the ABI.
 

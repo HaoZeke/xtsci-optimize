@@ -8,6 +8,7 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 #include <dlpack/dlpack.h>
+#include <eindir-core.h>
 
 /** \file xts.h
  *  \brief C ABI for the Rust xtsci-optimize hourglass.
@@ -86,6 +87,16 @@ void xts_tensor_free(DLManagedTensorVersioned *tensor);
 xts_status_t xts_minimize(xts_eval_fn eval, xts_grad_fn grad, void *user,
                           DLManagedTensorVersioned *x, const xts_control_t *ctrl,
                           xts_method_t method, xts_report_t *out);
+
+/**
+ * Minimize an eindir-compatible objective without taking ownership of it.
+ * The stamp must be compatible with this build and include an analytic
+ * gradient. The caller retains ownership of an objective.
+ */
+xts_status_t xts_minimize_eindir(
+    const eindir_objective_t *objective, const eindir_abi_stamp_t *stamp,
+    DLManagedTensorVersioned *x, const xts_control_t *ctrl, xts_method_t method,
+    xts_report_t *out);
 
 #ifdef __cplusplus
 }
