@@ -14,8 +14,11 @@ use dlpk::sys::{
 use ndarray::Array1;
 use eindir_core::ffi::{
     eindir_abi_stamp_t, eindir_core_abi_compatible, eindir_objective_eval,
-    eindir_objective_grad, eindir_objective_has_grad, eindir_objective_t,
-    eindir_status_t,
+    eindir_objective_descriptor, eindir_objective_descriptor_compatible,
+    eindir_objective_descriptor_t, eindir_objective_grad, eindir_objective_has_grad,
+    eindir_objective_t, eindir_status_t, EINDIR_OBJECTIVE_OPERATION_ENERGY,
+    EINDIR_OBJECTIVE_OPERATION_FORCES, EINDIR_TENSOR_DEVICE_CPU, EINDIR_TENSOR_DTYPE_FLOAT,
+    EINDIR_TENSOR_LAYOUT_CONTIGUOUS, EINDIR_CALLBACK_LIFETIME_BORROWED_SYNC,
 };
 
 use crate::{Control, LineSearch, Method, Oracle, minimize_method};
@@ -477,6 +480,30 @@ pub unsafe extern "C" fn xts_minimize_eindir(
         }
         if unsafe { eindir_core_abi_compatible(stamp) } == 0 {
             set_last_error("xts_minimize_eindir: incompatible eindir ABI stamp");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        let required_descriptor = eindir_objective_descriptor_t {
+            schema_id: b"eindir.objective-descriptor.v1\0".as_ptr().cast(),
+            producer_id: std::ptr::null(),
+            length_unit: std::ptr::null(),
+            energy_unit: std::ptr::null(),
+            energy_sign: 0,
+            gradient_sign: 0,
+            operations: EINDIR_OBJECTIVE_OPERATION_ENERGY
+                | EINDIR_OBJECTIVE_OPERATION_FORCES,
+            tensor_device_type: EINDIR_TENSOR_DEVICE_CPU,
+            tensor_dtype_code: EINDIR_TENSOR_DTYPE_FLOAT,
+            tensor_dtype_bits: 64,
+            tensor_dtype_lanes: 1,
+            tensor_layout: EINDIR_TENSOR_LAYOUT_CONTIGUOUS,
+            callback_lifetime: EINDIR_CALLBACK_LIFETIME_BORROWED_SYNC,
+        };
+        let descriptor = unsafe { eindir_objective_descriptor(objective) };
+        if unsafe {
+            eindir_objective_descriptor_compatible(descriptor, &required_descriptor)
+        } == 0
+        {
+            set_last_error("xts_minimize_eindir: incompatible objective descriptor");
             return xts_status_t::XTS_INVALID_PARAMETER;
         }
         if unsafe { eindir_objective_has_grad(objective) } == 0 {

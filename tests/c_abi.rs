@@ -6,7 +6,12 @@ use std::os::raw::c_void;
 
 use dlpk::sys::{DLDeviceType, DLManagedTensorVersioned};
 use eindir_core::ffi::eindir_core_abi_stamp;
-use eindir_core::ffi::{eindir_objective_t, eindir_status_t};
+use eindir_core::ffi::{
+    eindir_objective_descriptor_t, eindir_objective_t, eindir_status_t,
+    EINDIR_CALLBACK_LIFETIME_BORROWED_SYNC, EINDIR_OBJECTIVE_OPERATION_ENERGY,
+    EINDIR_OBJECTIVE_OPERATION_FORCES, EINDIR_TENSOR_DEVICE_CPU, EINDIR_TENSOR_DTYPE_FLOAT,
+    EINDIR_TENSOR_LAYOUT_CONTIGUOUS,
+};
 use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir};
 use rgpot_core::status::rgpot_status_t;
 use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
@@ -43,6 +48,21 @@ unsafe extern "C" fn quadratic_grad(
 }
 
 fn quadratic_objective() -> Box<eindir_objective_t> {
+    let descriptor = Box::into_raw(Box::new(eindir_objective_descriptor_t {
+        schema_id: b"eindir.objective-descriptor.v1\0".as_ptr().cast(),
+        producer_id: std::ptr::null(),
+        length_unit: std::ptr::null(),
+        energy_unit: std::ptr::null(),
+        energy_sign: 1,
+        gradient_sign: 1,
+        operations: EINDIR_OBJECTIVE_OPERATION_ENERGY | EINDIR_OBJECTIVE_OPERATION_FORCES,
+        tensor_device_type: EINDIR_TENSOR_DEVICE_CPU,
+        tensor_dtype_code: EINDIR_TENSOR_DTYPE_FLOAT,
+        tensor_dtype_bits: 64,
+        tensor_dtype_lanes: 1,
+        tensor_layout: EINDIR_TENSOR_LAYOUT_CONTIGUOUS,
+        callback_lifetime: EINDIR_CALLBACK_LIFETIME_BORROWED_SYNC,
+    }));
     Box::new(eindir_objective_t {
         dim: 2,
         low: std::ptr::null_mut(),
@@ -51,7 +71,7 @@ fn quadratic_objective() -> Box<eindir_objective_t> {
         grad_fn: Some(quadratic_grad),
         user_data: std::ptr::null_mut(),
         free_fn: None,
-        descriptor: std::ptr::null(),
+        descriptor,
     })
 }
 
