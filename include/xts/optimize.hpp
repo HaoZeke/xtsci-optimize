@@ -103,6 +103,21 @@ inline Report minimize_fn(xts_eval_fn eval, xts_grad_fn grad, void* user,
     return Report{out.value, out.steps, out.grad_norm};
 }
 
+inline Report minimize_eindir(const eindir_objective_t* objective,
+                              const eindir_abi_stamp_t* stamp,
+                              DLManagedTensorVersioned* x, Control const& ctrl,
+                              Method method) {
+    xts_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
+    xts_report_t out{};
+    xts_status_t st = xts_minimize_eindir(
+        objective, stamp, x, &c, static_cast<xts_method_t>(method), &out);
+    if (st != XTS_SUCCESS) {
+        char const* msg = xts_last_error();
+        throw std::runtime_error(msg ? msg : "xts_minimize_eindir failed");
+    }
+    return Report{out.value, out.steps, out.grad_norm};
+}
+
 inline OptimizeResult minimize(xts_eval_fn eval, xts_grad_fn grad, void* user,
                                DLManagedTensorVersioned* x,
                                OptimizeControl const& ctrl, Method method) {

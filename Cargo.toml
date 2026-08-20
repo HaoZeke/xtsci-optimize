@@ -22,7 +22,7 @@ capi = []
 highs = ["dep:highs", "dep:highs-sys"]
 
 [dependencies]
-eindir-core = { path = "../eindir", version = "0.6.0" }
+eindir-core = { path = "../eindir", version = "0.6.0", features = ["capi"] }
 dlpk = { version = "0.1.5", features = ["ndarray"] }
 ndarray = "0.17"
 thiserror = "2"
