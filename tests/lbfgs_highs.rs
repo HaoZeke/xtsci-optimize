@@ -81,6 +81,19 @@ fn highs_lbfgs_converges_on_the_quadratic() {
 }
 
 #[test]
+fn equality_projection_scales_to_thirty_two_variables() {
+    let mut opt = Lbfgs::default();
+    opt.highs = Some(HighsStep {
+        equalities: vec![(vec![(0, 1.0), (1, 1.0)], 0.0)],
+        ..HighsStep::default()
+    });
+    let x0 = Array1::from_elem(32, 1.0);
+    let (_, x, _) = opt.minimize(x0.view(), 4, |v| Some(quad(v)));
+    assert!(x.iter().all(|value| value.is_finite()));
+    assert!((x[0] + x[1]).abs() < 1e-8);
+}
+
+#[test]
 fn trust_scale_keeps_the_two_loop_direction() {
     let x = Array1::from(vec![0.0, 0.0]);
     let g = Array1::from(vec![10.0, 1.0]);

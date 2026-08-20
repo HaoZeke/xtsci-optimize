@@ -238,8 +238,22 @@ fn scale_to_bounds(d: &mut Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) {
 }
 
 fn identity_csc(n: usize) -> (Vec<HighsInt>, Vec<HighsInt>, Vec<f64>) {
-    let start: Vec<HighsInt> = (0..n).map(|j| j as HighsInt).collect();
+    let mut start: Vec<HighsInt> = (0..n).map(|j| j as HighsInt).collect();
+    start.push(n as HighsInt);
     let index: Vec<HighsInt> = (0..n).map(|j| j as HighsInt).collect();
     let value = vec![1.0; n];
     (start, index, value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::identity_csc;
+
+    #[test]
+    fn identity_hessian_has_terminal_column_pointer() {
+        let (start, index, value) = identity_csc(32);
+        assert_eq!(start.len(), 33);
+        assert_eq!(start.last(), Some(&(value.len() as _)));
+        assert_eq!(index.len(), value.len());
+    }
 }
