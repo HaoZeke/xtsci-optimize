@@ -37,7 +37,8 @@ typedef struct DLManagedTensorVersioned {
     DLTensor dl_tensor;
 } DLManagedTensorVersioned;
 #endif
-#include <eindir-core.h>
+typedef struct eindir_objective_t eindir_objective_t;
+typedef struct eindir_abi_stamp_t eindir_abi_stamp_t;
 """
 cpp_compat = true
 line_length = 80
