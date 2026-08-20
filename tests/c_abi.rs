@@ -209,7 +209,7 @@ unsafe extern "C" fn rgpot_quadratic_callback(
     let input = unsafe { &*input };
     let output = unsafe { &mut *output };
     let positions = unsafe { &(*input.positions).dl_tensor };
-    let n = (positions.shape as *const i64).read() as usize * 3;
+    let n = unsafe { (positions.shape as *const i64).read() as usize * 3 };
     let values = unsafe { std::slice::from_raw_parts(positions.data as *const f64, n) };
     output.energy = values.iter().map(|value| value * value).sum();
     context

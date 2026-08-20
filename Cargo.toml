@@ -62,3 +62,6 @@ required-features = ["highs"]
 [profile.release]
 lto = "thin"
 codegen-units = 1
+
+[patch."https://github.com/HaoZeke/eindir.git"]
+eindir-core = { path = "../eindir" }
