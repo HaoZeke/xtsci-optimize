@@ -7,6 +7,9 @@ use std::os::raw::c_void;
 use dlpk::sys::{DLDeviceType, DLManagedTensorVersioned};
 use eindir_core::ffi::eindir_core_abi_stamp;
 use eindir_core::ffi::{eindir_objective_t, eindir_status_t};
+use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir};
+use rgpot_core::status::rgpot_status_t;
+use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 use xtsci_optimize::ffi::{
     xts_control_t, xts_method_t, xts_minimize, xts_minimize_eindir, xts_report_t, xts_status_t,
     xts_tensor_borrow_cpu_f64, xts_tensor_free,
@@ -191,6 +194,86 @@ fn c_abi_eindir_rejects_incompatible_stamp_before_evaluation() {
     assert_eq!(st, xts_status_t::XTS_INVALID_PARAMETER);
     assert_eq!(x, [3.0, -4.0]);
     unsafe { xts_tensor_free(xt) };
+}
+
+struct QuadraticContext {
+    forces: [f64; 6],
+}
+
+unsafe extern "C" fn rgpot_quadratic_callback(
+    user: *mut c_void,
+    input: *const rgpot_force_input_t,
+    output: *mut rgpot_force_out_t,
+) -> rgpot_status_t {
+    let context = unsafe { &mut *(user as *mut QuadraticContext) };
+    let input = unsafe { &*input };
+    let output = unsafe { &mut *output };
+    let positions = unsafe { &(*input.positions).dl_tensor };
+    let n = (positions.shape as *const i64).read() as usize * 3;
+    let values = unsafe { std::slice::from_raw_parts(positions.data as *const f64, n) };
+    output.energy = values.iter().map(|value| value * value).sum();
+    context
+        .forces
+        .iter_mut()
+        .zip(values)
+        .for_each(|(force, value)| *force = -2.0 * value);
+    output.forces = unsafe {
+        rgpot_core::tensor::rgpot_tensor_cpu_f64_2d(context.forces.as_mut_ptr(), n as i64 / 3, 3)
+    };
+    rgpot_status_t::RGPOT_SUCCESS
+}
+
+#[test]
+fn c_abi_rgpot_potential_reaches_eindir_optimizer() {
+    let atomic_numbers = [1i32, 1];
+    let cell = [10.0f64, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 10.0];
+    let mut context = QuadraticContext { forces: [0.0; 6] };
+    let potential = unsafe {
+        rgpot_potential_new_eindir(
+            rgpot_quadratic_callback,
+            (&mut context as *mut QuadraticContext).cast(),
+            None,
+            2,
+            atomic_numbers.as_ptr(),
+            cell.as_ptr(),
+            std::ptr::null(),
+            std::ptr::null(),
+        )
+    };
+    assert!(!potential.is_null());
+
+    let mut x = [2.0, -1.5, 0.5, -2.5, 1.0, -0.25];
+    let xt = unsafe { xts_tensor_borrow_cpu_f64(x.as_mut_ptr(), x.len()) };
+    let ctrl = xts_control_t {
+        maxiter: 100,
+        gtol: 1e-8,
+        istep: 0.1,
+        memory: 10,
+    };
+    let mut out = xts_report_t {
+        value: 0.0,
+        steps: 0,
+        grad_norm: 0.0,
+    };
+    let stamp = rgpot_core::eindir::rgpot_eindir_abi_stamp();
+    let status = unsafe {
+        xts_minimize_eindir(
+            potential.cast(),
+            &stamp,
+            xt,
+            &ctrl,
+            xts_method_t::XTS_LBFGS,
+            &mut out,
+        )
+    };
+
+    assert_eq!(status, xts_status_t::XTS_SUCCESS);
+    assert!(out.value < 1e-12, "rgpot objective value {}", out.value);
+    assert!(x.iter().all(|value| value.abs() < 1e-5));
+    unsafe {
+        xts_tensor_free(xt);
+        rgpot_potential_free_eindir(potential);
+    }
 }
 
 #[test]
