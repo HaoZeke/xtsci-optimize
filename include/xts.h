@@ -8,7 +8,19 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 #include <dlpack/dlpack.h>
-#include <eindir-core.h>
+
+/* The direct eindir entry point only needs opaque handles here. Consumers
+ * that use eindir_core's constructors can include its full header first. */
+#if defined(__has_include)
+#  if __has_include(<eindir-core.h>)
+#    include <eindir-core.h>
+#  else
+typedef struct eindir_objective_t eindir_objective_t;
+typedef struct eindir_abi_stamp_t eindir_abi_stamp_t;
+#  endif
+#else
+#  include <eindir-core.h>
+#endif
 
 /** \file xts.h
  *  \brief C ABI for the Rust xtsci-optimize hourglass.
