@@ -115,15 +115,6 @@ impl Lbfgs {
         }
     }
 
-    pub(crate) fn memory_len(&self) -> usize {
-        self.memory.len()
-    }
-
-    pub(crate) fn pair(&self, i: usize) -> (&Array1<f64>, &Array1<f64>) {
-        let p = &self.memory[i];
-        (&p.s, &p.y)
-    }
-
     fn search_direction(&self, x: ArrayView1<f64>, g: ArrayView1<f64>) -> Array1<f64> {
         #[cfg(feature = "highs")]
         if self.highs.is_some() {

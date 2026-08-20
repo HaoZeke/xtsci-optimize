@@ -64,8 +64,7 @@ fn main() {
     run("highs-qp", h, q0.view(), quad);
 
     println!("# boxed quadratic n=8, lo=0 hi=0.5 (true min is 0, outside the box)");
-    let mut tw = Lbfgs::default();
-    run("two-loop (no box)", tw, q0.view(), quad);
+    run("two-loop (no box)", Lbfgs::default(), q0.view(), quad);
     let mut h = Lbfgs::default();
     h.highs = Some(HighsStep {
         trust: None,
