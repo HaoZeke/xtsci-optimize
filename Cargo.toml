@@ -22,7 +22,7 @@ capi = []
 highs = ["dep:highs", "dep:highs-sys"]
 
 [dependencies]
-eindir-core = { version = "0.6.0", git = "https://github.com/HaoZeke/eindir.git", rev = "551c02137b66367564a7a833c3aafb8837e7ad1f", features = ["capi"] }
+eindir-core = { version = "0.6.0", git = "https://github.com/HaoZeke/eindir.git", rev = "513b8b7fdfaf63cca0b94b2f3316cf2c19a8daaa", features = ["capi"] }
 dlpk = { version = "0.1.5", features = ["ndarray"] }
 ndarray = "0.17"
 thiserror = "2"
@@ -32,7 +32,7 @@ highs-sys = { version = "1.12", optional = true }
 
 [dev-dependencies]
 approx = "0.5"
-rgpot-core = { package = "rgpot-core", git = "https://github.com/OmniPotentRPC/rgpot.git", rev = "65370af8180ed7ea1ab9a69e5225be99b21272f3" }
+rgpot-core = { package = "rgpot-core", git = "https://github.com/OmniPotentRPC/rgpot.git", rev = "a2ee5197a81eb9fcba57c6c6b25ed0a6f56e8056" }
 
 [build-dependencies]
 cbindgen = "0.29"
