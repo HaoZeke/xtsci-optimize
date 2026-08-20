@@ -11,8 +11,8 @@ use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir
 use rgpot_core::status::rgpot_status_t;
 use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 use xtsci_optimize::ffi::{
-    xts_control_t, xts_method_t, xts_minimize, xts_minimize_eindir, xts_report_t, xts_status_t,
-    xts_tensor_borrow_cpu_f64, xts_tensor_free,
+    xts_abi_compatible, xts_abi_stamp, xts_control_t, xts_method_t, xts_minimize,
+    xts_minimize_eindir, xts_report_t, xts_status_t, xts_tensor_borrow_cpu_f64, xts_tensor_free,
 };
 
 unsafe extern "C" fn quadratic_eval(
@@ -314,4 +314,20 @@ fn cuda_tagged_tensor_is_unsupported() {
 fn version_is_nul_terminated() {
     let p = xtsci_optimize::ffi::xts_version();
     assert!(!p.is_null());
+}
+
+#[test]
+fn abi_stamp_identifies_this_optimizer_layout() {
+    let stamp = xts_abi_stamp();
+    assert_eq!(stamp.abi_major, 1);
+    assert_eq!(stamp.abi_minor, 0);
+    assert_eq!(stamp.layout_revision, 1);
+    assert_eq!(unsafe { xts_abi_compatible(&stamp) }, 1);
+}
+
+#[test]
+fn abi_stamp_rejects_an_incompatible_layout() {
+    let mut stamp = xts_abi_stamp();
+    stamp.layout_revision += 1;
+    assert_eq!(unsafe { xts_abi_compatible(&stamp) }, 0);
 }

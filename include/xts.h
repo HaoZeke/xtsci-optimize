@@ -26,6 +26,17 @@ typedef enum xts_status_t {
     XTS_UNSUPPORTED_DEVICE = 3
 } xts_status_t;
 
+/** Compatibility identity for the xtsci-optimize C ABI. */
+typedef struct xts_abi_stamp_t {
+    uint16_t abi_major;
+    uint16_t abi_minor;
+    uint16_t layout_revision;
+} xts_abi_stamp_t;
+
+#define XTS_ABI_VERSION_MAJOR 1
+#define XTS_ABI_VERSION_MINOR 0
+#define XTS_ABI_LAYOUT_REVISION 1
+
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
 typedef enum xts_method_t {
     XTS_POLAK_RIBIERE = 0,
@@ -67,6 +78,10 @@ typedef xts_status_t (*xts_grad_fn)(void *user, const DLManagedTensorVersioned *
 
 /** Crate version string. */
 const char *xts_version(void);
+/** Return the C ABI compatibility identity for this build. */
+xts_abi_stamp_t xts_abi_stamp(void);
+/** Return nonzero when a stamp is compatible with this build. */
+int32_t xts_abi_compatible(const xts_abi_stamp_t *stamp);
 /** Thread-local last error message after a non-success status. */
 const char *xts_last_error(void);
 /** Borrow a CPU f64 buffer as a dlpk tensor. */

@@ -34,6 +34,22 @@ pub enum xts_status_t {
     XTS_UNSUPPORTED_DEVICE = 3,
 }
 
+/// Compatibility identity for the xtsci-optimize C ABI.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct xts_abi_stamp_t {
+    /// Incompatible changes increment this value.
+    pub abi_major: u16,
+    /// Additive compatible changes increment this value.
+    pub abi_minor: u16,
+    /// Struct and function-layout revision for this ABI major/minor.
+    pub layout_revision: u16,
+}
+
+pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
+pub const XTS_ABI_VERSION_MINOR: u16 = 0;
+pub const XTS_ABI_LAYOUT_REVISION: u16 = 1;
+
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,6 +148,29 @@ pub extern "C" fn xts_last_error() -> *const c_char {
 #[unsafe(no_mangle)]
 pub extern "C" fn xts_version() -> *const c_char {
     concat!(env!("CARGO_PKG_VERSION"), "\0").as_ptr() as *const c_char
+}
+
+/// Return the compatibility identity for this C ABI build.
+#[unsafe(no_mangle)]
+pub extern "C" fn xts_abi_stamp() -> xts_abi_stamp_t {
+    xts_abi_stamp_t {
+        abi_major: XTS_ABI_VERSION_MAJOR,
+        abi_minor: XTS_ABI_VERSION_MINOR,
+        layout_revision: XTS_ABI_LAYOUT_REVISION,
+    }
+}
+
+/// Return nonzero when a caller's ABI identity is accepted by this build.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_abi_compatible(stamp: *const xts_abi_stamp_t) -> i32 {
+    if stamp.is_null() {
+        return 0;
+    }
+    let stamp = unsafe { &*stamp };
+    i32::from(
+        stamp.abi_major == XTS_ABI_VERSION_MAJOR
+            && stamp.layout_revision == XTS_ABI_LAYOUT_REVISION,
+    )
 }
 
 fn method_from_c(m: xts_method_t, memory: usize) -> Method {
