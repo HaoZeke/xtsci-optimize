@@ -58,6 +58,7 @@ fn box_keeps_the_trial_inside() {
         lo: Some(-0.3),
         hi: Some(0.3),
         equalities: Vec::new(),
+        center_axes: None,
     });
     let x = Array1::from(vec![0.2, -0.2]);
     let g = Array1::from(vec![10.0, -10.0]);
@@ -77,4 +78,30 @@ fn highs_lbfgs_converges_on_the_quadratic() {
     let (f, x, evals) = opt.minimize(x0.view(), 80, |v| Some(quad(v)));
     assert!(f < 1e-8, "did not converge, f = {f}, evals = {evals}");
     assert!(x.iter().all(|v| v.abs() < 1e-3));
+}
+
+#[test]
+fn center_axes_kills_the_mean() {
+    let mut opt = Lbfgs::default();
+    opt.highs = Some(HighsStep {
+        trust: Some(0.5),
+        lo: None,
+        hi: None,
+        equalities: Vec::new(),
+        center_axes: Some((4, 2)),
+    });
+    let x = Array1::zeros(8);
+    let g = Array1::from(vec![1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0]);
+    let p = opt.highs_step(x.view(), g.view()).unwrap();
+    let mut mx = 0.0;
+    let mut my = 0.0;
+    for i in 0..4 {
+        mx += p[i * 2];
+        my += p[i * 2 + 1];
+    }
+    assert!(mx.abs() < 1e-12, "axis 0 mean {mx}");
+    assert!(my.abs() < 1e-12, "axis 1 mean {my}");
+    for v in p.iter() {
+        assert!(v.abs() <= 0.5 + 1e-12);
+    }
 }

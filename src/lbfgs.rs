@@ -203,10 +203,11 @@ impl Lbfgs {
     {
         let f0 = *f;
         let mut evals = 0usize;
-        let probe = |a: f64, fg: &mut F, evals: &mut usize| {
-            let mut t = x.clone();
-            t.scaled_add(a, d);
-            let r = fg(t.view());
+        let mut scratch = x.clone();
+        let probe = |a: f64, fg: &mut F, evals: &mut usize, scratch: &mut Array1<f64>| {
+            scratch.assign(x);
+            scratch.scaled_add(a, d);
+            let r = fg(scratch.view());
             if r.is_some() {
                 *evals += 1;
             }
@@ -236,7 +237,7 @@ impl Lbfgs {
         let total_cap = 2 * self.max_line_evals;
 
         for i in 0..bracket_cap {
-            let (fa, ga) = match probe(a, fg, &mut evals) {
+            let (fa, ga) = match probe(a, fg, &mut evals, &mut scratch) {
                 Some(v) => v,
                 None => return (false, evals),
             };
@@ -283,7 +284,7 @@ impl Lbfgs {
                     trial = q;
                 }
             }
-            let (ft, gt) = match probe(trial, fg, &mut evals) {
+            let (ft, gt) = match probe(trial, fg, &mut evals, &mut scratch) {
                 Some(v) => v,
                 None => return (false, evals),
             };

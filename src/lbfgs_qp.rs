@@ -31,6 +31,9 @@ pub struct HighsStep {
     pub hi: Option<f64>,
     /// Linear equalities `a · p = rhs`.
     pub equalities: Vec<(Vec<(usize, f64)>, f64)>,
+    /// Packed `(n_atoms, dim)`: enforce `sum_i p[i * dim + h] = 0` per axis.
+    /// This is a mean subtract, not a QP.
+    pub center_axes: Option<(usize, usize)>,
 }
 
 impl HighsStep {
@@ -56,16 +59,21 @@ impl Lbfgs {
             });
         }
         let d = self.direction(g);
-        if !opts.has_box() && !opts.needs_qp() {
+        if !opts.has_box() && !opts.needs_qp() && opts.center_axes.is_none() {
             return Ok(d);
         }
-        let clipped = clip_step(d, x, opts);
-        if !opts.needs_qp() {
-            return Ok(clipped);
+        let mut p = d;
+        if let Some((n_atoms, dim)) = opts.center_axes {
+            project_center_box(&mut p, x, opts, n_atoms, dim);
+        } else {
+            p = clip_step(p, x, opts);
         }
-        match project_qp(&clipped, x, opts) {
-            Ok(p) => Ok(p),
-            Err(_) => Ok(clipped),
+        if !opts.needs_qp() {
+            return Ok(p);
+        }
+        match project_qp(&p, x, opts) {
+            Ok(q) => Ok(q),
+            Err(_) => Ok(p),
         }
     }
 }
@@ -146,11 +154,48 @@ fn column_bounds(k: usize, x: ArrayView1<f64>, opts: &HighsStep) -> (f64, f64) {
     (lo, hi)
 }
 
-fn clip_step(mut d: Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) -> Array1<f64> {
+/// Dykstra on the intersection of the centering subspace and the box.
+fn project_center_box(
+    d: &mut Array1<f64>,
+    x: ArrayView1<f64>,
+    opts: &HighsStep,
+    n_atoms: usize,
+    dim: usize,
+) {
+    if n_atoms == 0 || dim == 0 || d.len() != n_atoms * dim {
+        clip_in_place(d, x, opts);
+        return;
+    }
+    for _ in 0..16 {
+        center_axes(d, n_atoms, dim);
+        clip_in_place(d, x, opts);
+    }
+    center_axes(d, n_atoms, dim);
+}
+
+fn center_axes(d: &mut Array1<f64>, n_atoms: usize, dim: usize) {
+    let n = n_atoms as f64;
+    for h in 0..dim {
+        let mut sum = 0.0;
+        for i in 0..n_atoms {
+            sum += d[i * dim + h];
+        }
+        let mean = sum / n;
+        for i in 0..n_atoms {
+            d[i * dim + h] -= mean;
+        }
+    }
+}
+
+fn clip_in_place(d: &mut Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) {
     for k in 0..d.len() {
         let (lo, hi) = column_bounds(k, x, opts);
         d[k] = d[k].clamp(lo, hi);
     }
+}
+
+fn clip_step(mut d: Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) -> Array1<f64> {
+    clip_in_place(&mut d, x, opts);
     d
 }
 

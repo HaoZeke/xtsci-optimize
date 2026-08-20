@@ -13,8 +13,8 @@ compact Hessian is not formed; that matrix is indefinite after a tiny
 accepted step and =Highs_run= does not return.
 
 Unconstrained, =highs_step= is the two-loop direction. A box or trust
-region is a coordinate clamp. Equalities (landfold centering) go to
-HiGHS.
+region is a coordinate clamp. Packed centering (`sum_i p[i*dim+h] = 0`) is a mean subtract,
+not a QP. Arbitrary equalities still go to HiGHS.
 
 Enable the feature (HiGHS is compiled by =highs-sys=; do that on the
 remote builder):
@@ -32,6 +32,7 @@ opt.highs = Some(HighsStep {
     lo: Some(-1.0),
     hi: Some(1.0),
     equalities: Vec::new(),
+    center_axes: None,
 });
 #+end_src
 

@@ -71,8 +71,7 @@ fn main() {
         lo: Some(0.0),
         hi: Some(0.5),
         equalities: Vec::new(),
+        center_axes: None,
     });
     run("highs-qp box[0,0.5]", h, q0.view(), quad);
-
-    let _ = tw;
 }
