@@ -349,8 +349,8 @@ fn cpu_f64_slice_mut<'a>(
 /// [`xts_status_t::XTS_UNSUPPORTED_DEVICE`].
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn xts_minimize(
-    eval: Option<xts_eval_fn>,
-    grad: Option<xts_grad_fn>,
+    eval: xts_eval_fn,
+    grad: xts_grad_fn,
     user: *mut c_void,
     x: *mut DLManagedTensorVersioned,
     ctrl: *const xts_control_t,
@@ -358,20 +358,14 @@ pub unsafe extern "C" fn xts_minimize(
     out: *mut xts_report_t,
 ) -> xts_status_t {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let eval = match eval {
-            Some(f) => f,
-            None => {
-                set_last_error("xts_minimize: eval is NULL");
-                return xts_status_t::XTS_INVALID_PARAMETER;
-            }
-        };
-        let grad = match grad {
-            Some(f) => f,
-            None => {
-                set_last_error("xts_minimize: grad is NULL");
-                return xts_status_t::XTS_INVALID_PARAMETER;
-            }
-        };
+        if eval as usize == 0 {
+            set_last_error("xts_minimize: eval is NULL");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        if grad as usize == 0 {
+            set_last_error("xts_minimize: grad is NULL");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
         if ctrl.is_null() || out.is_null() {
             set_last_error("xts_minimize: ctrl/out null");
             return xts_status_t::XTS_INVALID_PARAMETER;

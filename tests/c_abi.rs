@@ -135,8 +135,8 @@ fn c_abi_lbfgs_rosenbrock() {
     };
     let st = unsafe {
         xts_minimize(
-            Some(rosen_eval),
-            Some(rosen_grad),
+            rosen_eval,
+            rosen_grad,
             std::ptr::null_mut(),
             xt,
             &ctrl,
@@ -323,8 +323,8 @@ fn cuda_tagged_tensor_is_unsupported() {
     };
     let st = unsafe {
         xts_minimize(
-            Some(rosen_eval),
-            Some(rosen_grad),
+            rosen_eval,
+            rosen_grad,
             std::ptr::null_mut(),
             xt,
             &ctrl,
@@ -376,8 +376,8 @@ fn c_abi_respects_maxmove_when_initial_step_is_larger() {
     };
     let st = unsafe {
         xts_minimize(
-            Some(rosen_eval),
-            Some(rosen_grad),
+            rosen_eval,
+            rosen_grad,
             std::ptr::null_mut(),
             xt,
             &ctrl,
