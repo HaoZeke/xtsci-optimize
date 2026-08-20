@@ -12,14 +12,14 @@
 //! Huangfu and Hall, *Parallelizing the dual revised simplex method*,
 //! <https://doi.org/10.1007/s12532-017-0130-5>.
 
-use highs::{RowProblem, Sense};
+use highs::{HighsModelStatus, RowProblem, Sense};
 use highs_sys::{Highs_passHessian, HighsInt, STATUS_OK};
 use ndarray::{Array1, Array2, ArrayView1};
 
 use crate::error::{Error, Result};
 use crate::lbfgs::Lbfgs;
 
-const DIAG_FLOOR: f64 = 1e-8;
+const DIAG_FLOOR: f64 = 1e-6;
 const HESS_NZ: f64 = 1e-16;
 
 /// Bounds and equalities on one L-BFGS model step.
@@ -50,7 +50,10 @@ impl Lbfgs {
         let n = x.len();
         let (theta, b) = self.compact_hessian(n)?;
         let _ = theta;
-        qp_step(&b, x, g, opts)
+        match qp_step(&b, x, g, opts) {
+            Ok(p) => Ok(p),
+            Err(_) => Ok(clip_step(self.direction(g), x, opts)),
+        }
     }
 
     /// Compact L-BFGS Hessian `B` (Nocedal-Wright 7.19) and scale `θ`.
@@ -147,6 +150,21 @@ fn qp_step(
         .try_optimise(Sense::Minimise)
         .map_err(|e| Error::Highs(format!("pass LP {e:?}")))?;
     model.make_quiet();
+    // HiGHS default OpenMP workers deadlock Rayon in the next eval
+    // (landfold stress par_iter). Pin OpenMP before Highs_run so the
+    // runtime never starts a second pool.
+    unsafe {
+        std::env::set_var("OMP_NUM_THREADS", "1");
+    }
+    model
+        .try_set_option("parallel", "off")
+        .map_err(|_| Error::Highs("cannot set parallel=off".into()))?;
+    model
+        .try_set_option("threads", 1_i32)
+        .map_err(|_| Error::Highs("cannot set threads=1".into()))?;
+    model
+        .try_set_option("time_limit", 0.05_f64)
+        .map_err(|_| Error::Highs("cannot set time_limit".into()))?;
 
     let (q_start, q_index, q_value) = lower_csc(b);
     let q_nnz = q_value.len();
@@ -168,12 +186,33 @@ fn qp_step(
     let solved = model
         .try_solve()
         .map_err(|e| Error::Highs(format!("solve {e:?}")))?;
+    if solved.status() != HighsModelStatus::Optimal {
+        return Err(Error::Highs(format!("status {:?}", solved.status())));
+    }
     let sol = solved.get_solution();
     let p = sol.columns();
     if p.len() != n {
         return Err(Error::Highs(format!("column count {} != {n}", p.len())));
     }
     Ok(Array1::from(p.to_vec()))
+}
+
+fn clip_step(mut d: Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) -> Array1<f64> {
+    for k in 0..d.len() {
+        let mut lo = opts.trust.map(|t| -t).unwrap_or(f64::NEG_INFINITY);
+        let mut hi = opts.trust.map(|t| t).unwrap_or(f64::INFINITY);
+        if let Some(b0) = opts.lo {
+            lo = lo.max(b0 - x[k]);
+        }
+        if let Some(b1) = opts.hi {
+            hi = hi.min(b1 - x[k]);
+        }
+        if lo > hi {
+            lo = hi;
+        }
+        d[k] = d[k].clamp(lo, hi);
+    }
+    d
 }
 
 fn lower_csc(b: &Array2<f64>) -> (Vec<HighsInt>, Vec<HighsInt>, Vec<f64>) {

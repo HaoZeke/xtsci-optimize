@@ -53,6 +53,11 @@ description = "Local first-order minimization C ABI"
 [package.metadata.capi.library]
 name = "xtsci_optimize"
 
+[[example]]
+name = "compare_highs"
+required-features = ["highs"]
+
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
