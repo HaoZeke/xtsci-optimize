@@ -237,11 +237,6 @@ fn scale_to_bounds(d: &mut Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) {
     }
 }
 
-fn clip_step(mut d: Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) -> Array1<f64> {
-    scale_to_bounds(&mut d, x, opts);
-    d
-}
-
 fn identity_csc(n: usize) -> (Vec<HighsInt>, Vec<HighsInt>, Vec<f64>) {
     let start: Vec<HighsInt> = (0..n).map(|j| j as HighsInt).collect();
     let index: Vec<HighsInt> = (0..n).map(|j| j as HighsInt).collect();
