@@ -243,6 +243,7 @@ dependencies = [
 [[package]]
 name = "eindir-core"
 version = "0.6.0"
+source = "git+https://github.com/HaoZeke/eindir.git?rev=f3c4213#f3c42130bb389ba6cd6e4cfdc8b2e182f4a764e9"
 dependencies = [
  "cbindgen",
  "dlpk",
@@ -670,6 +671,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "rgpot-core"
+version = "3.0.2"
+source = "git+https://github.com/OmniPotentRPC/rgpot.git?rev=402f53d1c3bded07f6f6f9ce3391b4d91d79c899#402f53d1c3bded07f6f6f9ce3391b4d91d79c899"
+dependencies = [
+ "dlpk",
+ "eindir-core",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -918,6 +928,7 @@ dependencies = [
  "highs-sys",
  "ndarray",
  "rand",
+ "rgpot-core",
  "thiserror",
 ]
 
