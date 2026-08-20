@@ -32,7 +32,7 @@ highs-sys = { version = "1.12", optional = true }
 
 [dev-dependencies]
 approx = "0.5"
-rgpot-core = { package = "rgpot-core", git = "https://github.com/OmniPotentRPC/rgpot.git", rev = "a2ee5197a81eb9fcba57c6c6b25ed0a6f56e8056" }
+rgpot-core = { package = "rgpot-core", git = "https://github.com/OmniPotentRPC/rgpot.git", rev = "857aa8e2b71d4365db516e3be9b31bb607b8e9d0" }
 
 [build-dependencies]
 cbindgen = "0.29"
