@@ -10,7 +10,7 @@ use crate::linesearch::LineSearch;
 use crate::method::Method;
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
 use crate::pso::minimize_pso;
-use crate::newton::{minimize_newton, HessianObjective, NewtonKind};
+use crate::newton::{minimize_newton, HessianObjective};
 use crate::qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1, minimize_sr2};
 use crate::report::Report;
 use crate::step::{l2, next_istep, take_step};
