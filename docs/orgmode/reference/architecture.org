@@ -35,8 +35,11 @@ Rust, C sees a small ABI, C++ is a header wrapper.
   choice for quasi-Newton directions.
 - =Oracle= :: Closure adapter that implements
   =DifferentiableObjective= for a fused =(f, g)= function.
-- =xts_minimize= :: Only C entry. CPU f64 tensors only; other devices
-  return =XTS_UNSUPPORTED_DEVICE=.
+- =xts_minimize= :: First-order / quasi-Newton C entry. CPU f64
+  tensors only; other devices return =XTS_UNSUPPORTED_DEVICE=.
+- =xts_minimize_hess= :: Newton / RFO C entry. Caller supplies a
+  dense row-major Hessian. This is a different solver, not an
+  L-BFGS option.
 
 ** What does not live here
 
