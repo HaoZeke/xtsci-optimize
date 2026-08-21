@@ -11,14 +11,17 @@ use dlpk::sys::{
     DLDataType, DLDataTypeCode, DLDevice, DLDeviceType, DLManagedTensorVersioned, DLPackVersion,
     DLTensor,
 };
-use ndarray::Array1;
+use ndarray::{Array1, Array2};
 use eindir_core::ffi::{
     eindir_abi_stamp_t, eindir_core_abi_compatible, eindir_objective_eval,
     eindir_objective_grad, eindir_objective_has_grad, eindir_objective_t,
     eindir_status_t,
 };
 
-use crate::{Control, LineSearch, Method, Oracle, minimize_method};
+use crate::{
+    Control, HessianOracle, LineSearch, Method, NewtonKind, Oracle, minimize_method,
+    minimize_newton,
+};
 
 /// Status codes. 0 is success, matching metatensor / eindir.
 #[repr(C)]
@@ -47,7 +50,7 @@ pub struct xts_abi_stamp_t {
 }
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
-pub const XTS_ABI_VERSION_MINOR: u16 = 0;
+pub const XTS_ABI_VERSION_MINOR: u16 = 1;
 pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -84,6 +87,10 @@ pub enum xts_method_t {
     XTS_LIU_STOREY = 13,
     /// Gilbert-Nocedal FR-PR hybrid NLCG + Brent.
     XTS_FR_PR = 14,
+    /// Shifted Newton on a caller-supplied Hessian.
+    XTS_NEWTON = 15,
+    /// Banerjee / Baker RFO on a caller-supplied Hessian.
+    XTS_RFO = 16,
 }
 
 /// Iteration controls. `memory` is used only by L-BFGS (0 means 10).
@@ -126,6 +133,13 @@ pub type xts_grad_fn = unsafe extern "C" fn(
     user: *mut c_void,
     x: *const DLManagedTensorVersioned,
     grad_out: *mut DLManagedTensorVersioned,
+) -> xts_status_t;
+
+/// `∇²f(x)` callback. Writes a length-`n²` row-major Hessian into `hess_out`.
+pub type xts_hess_fn = unsafe extern "C" fn(
+    user: *mut c_void,
+    x: *const DLManagedTensorVersioned,
+    hess_out: *mut DLManagedTensorVersioned,
 ) -> xts_status_t;
 
 thread_local! {
@@ -200,6 +214,12 @@ fn method_from_c(m: xts_method_t, memory: usize) -> Method {
         xts_method_t::XTS_HAGER_ZHANG => Method::nlcg(crate::Conjugacy::HagerZhang),
         xts_method_t::XTS_LIU_STOREY => Method::nlcg(crate::Conjugacy::LiuStorey),
         xts_method_t::XTS_FR_PR => Method::nlcg(crate::Conjugacy::FrPr),
+        xts_method_t::XTS_NEWTON => Method::Newton {
+            kind: NewtonKind::Shifted,
+        },
+        xts_method_t::XTS_RFO => Method::Newton {
+            kind: NewtonKind::Rfo,
+        },
     }
 }
 
@@ -369,6 +389,10 @@ pub unsafe extern "C" fn xts_minimize(
                 return xts_status_t::XTS_INVALID_PARAMETER;
             }
         };
+        if matches!(method, xts_method_t::XTS_NEWTON | xts_method_t::XTS_RFO) {
+            set_last_error("xts_minimize: Newton/RFO needs xts_minimize_hess");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
         if ctrl.is_null() || out.is_null() {
             set_last_error("xts_minimize: ctrl/out null");
             return xts_status_t::XTS_INVALID_PARAMETER;
@@ -445,6 +469,160 @@ pub unsafe extern "C" fn xts_minimize(
         Ok(s) => s,
         Err(_) => {
             set_last_error("xts_minimize: panic");
+            xts_status_t::XTS_INTERNAL_ERROR
+        }
+    }
+}
+
+/// Minimize with a Newton / RFO direction. `hess` writes a length-`n²`
+/// row-major Hessian at the current `x`.
+///
+/// # Safety
+///
+/// Same as [`xts_minimize`]. `hess` must be callable for the lifetime
+/// of this call.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_minimize_hess(
+    eval: Option<xts_eval_fn>,
+    grad: Option<xts_grad_fn>,
+    hess: Option<xts_hess_fn>,
+    user: *mut c_void,
+    x: *mut DLManagedTensorVersioned,
+    ctrl: *const xts_control_t,
+    method: xts_method_t,
+    out: *mut xts_report_t,
+) -> xts_status_t {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let eval = match eval {
+            Some(f) => f,
+            None => {
+                set_last_error("xts_minimize_hess: eval is NULL");
+                return xts_status_t::XTS_INVALID_PARAMETER;
+            }
+        };
+        let grad = match grad {
+            Some(f) => f,
+            None => {
+                set_last_error("xts_minimize_hess: grad is NULL");
+                return xts_status_t::XTS_INVALID_PARAMETER;
+            }
+        };
+        let hess = match hess {
+            Some(f) => f,
+            None => {
+                set_last_error("xts_minimize_hess: hess is NULL");
+                return xts_status_t::XTS_INVALID_PARAMETER;
+            }
+        };
+        if ctrl.is_null() || out.is_null() {
+            set_last_error("xts_minimize_hess: ctrl/out null");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        let init = match cpu_f64_slice_mut(x, "x") {
+            Ok(s) => s.to_vec(),
+            Err(st) => return st,
+        };
+        let n = init.len();
+        let eval_ptr = eval as usize;
+        let grad_ptr = grad as usize;
+        let hess_ptr = hess as usize;
+        let user_addr = user as usize;
+        let obj = HessianOracle::unbounded(
+            n,
+            move |xv| {
+                let eval_fn: xts_eval_fn = unsafe { std::mem::transmute(eval_ptr) };
+                let grad_fn: xts_grad_fn = unsafe { std::mem::transmute(grad_ptr) };
+                let user = user_addr as *mut c_void;
+                let mut xs = xv.to_vec();
+                let xt = unsafe {
+                    create_borrowed_f64_1d(
+                        xs.as_mut_ptr(),
+                        xs.len(),
+                        DLDeviceType::kDLCPU,
+                        0,
+                    )
+                };
+                let mut value = 0.0;
+                let ev_st = unsafe { eval_fn(user, xt, &mut value) };
+                let mut g = vec![0.0; xs.len()];
+                let gt = unsafe {
+                    create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0)
+                };
+                let gr_st = unsafe { grad_fn(user, xt, gt) };
+                unsafe {
+                    xts_tensor_free(xt);
+                    xts_tensor_free(gt);
+                }
+                if ev_st != xts_status_t::XTS_SUCCESS
+                    || gr_st != xts_status_t::XTS_SUCCESS
+                {
+                    return (f64::INFINITY, Array1::from(g));
+                }
+                (value, Array1::from(g))
+            },
+            move |xv| {
+                let hess_fn: xts_hess_fn = unsafe { std::mem::transmute(hess_ptr) };
+                let user = user_addr as *mut c_void;
+                let mut xs = xv.to_vec();
+                let xt = unsafe {
+                    create_borrowed_f64_1d(
+                        xs.as_mut_ptr(),
+                        xs.len(),
+                        DLDeviceType::kDLCPU,
+                        0,
+                    )
+                };
+                let mut h = vec![0.0; n * n];
+                let ht = unsafe {
+                    create_borrowed_f64_1d(h.as_mut_ptr(), h.len(), DLDeviceType::kDLCPU, 0)
+                };
+                let st = unsafe { hess_fn(user, xt, ht) };
+                unsafe {
+                    xts_tensor_free(xt);
+                    xts_tensor_free(ht);
+                }
+                if st != xts_status_t::XTS_SUCCESS {
+                    return Array2::eye(n);
+                }
+                Array2::from_shape_vec((n, n), h).unwrap_or_else(|_| Array2::eye(n))
+            },
+        );
+        let c = unsafe { &*ctrl };
+        let control = Control {
+            maxiter: c.maxiter,
+            gtol: c.gtol,
+            istep: if c.istep > 0.0 { c.istep } else { 1.0 },
+            maxmove: if c.maxmove > 0.0 { Some(c.maxmove) } else { None },
+        };
+        let kind = match method {
+            xts_method_t::XTS_RFO => NewtonKind::Rfo,
+            _ => NewtonKind::Shifted,
+        };
+        match minimize_newton(&obj, Array1::from(init), &control, kind) {
+            Ok(rep) => {
+                let dest = match cpu_f64_slice_mut(x, "x") {
+                    Ok(s) => s,
+                    Err(st) => return st,
+                };
+                dest.copy_from_slice(rep.coords.as_slice().expect("contiguous"));
+                unsafe {
+                    *out = xts_report_t {
+                        value: rep.value,
+                        steps: rep.steps,
+                        grad_norm: rep.grad_norm,
+                    };
+                }
+                xts_status_t::XTS_SUCCESS
+            }
+            Err(e) => {
+                set_last_error(&e.to_string());
+                xts_status_t::XTS_INVALID_PARAMETER
+            }
+        }
+    })) {
+        Ok(s) => s,
+        Err(_) => {
+            set_last_error("xts_minimize_hess: panic");
             xts_status_t::XTS_INTERNAL_ERROR
         }
     }

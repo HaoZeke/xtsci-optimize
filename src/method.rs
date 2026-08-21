@@ -64,6 +64,16 @@ pub enum Method {
     /// Nocedal and Wright, *Numerical Optimization*,
     /// <https://doi.org/10.1007/978-0-387-40065-5>.
     Steepest,
+    /// Shifted Newton on a caller-supplied dense Hessian.
+    ///
+    /// Banerjee, Adams, Simons, Shepard,
+    /// <https://doi.org/10.1021/j100247a015>.
+    /// Nocedal and Wright, *Numerical Optimization*,
+    /// <https://doi.org/10.1007/978-0-387-40065-5>.
+    Newton {
+        /// Shifted Newton or Banerjee RFO.
+        kind: crate::newton::NewtonKind,
+    },
     /// Particle swarm (xtsci `PSOptim`) over the objective box.
     ///
     /// Kennedy and Eberhart, *Particle swarm optimization*,

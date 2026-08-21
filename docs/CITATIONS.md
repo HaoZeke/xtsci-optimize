@@ -24,6 +24,8 @@ ISBN). Do not invent DOIs.
 | Nocedal-Wright | 10.1007/978-0-387-40065-5 | Numerical Optimization |
 | Adam | 10.48550/arXiv.1412.6980 | Adam: A Method for Stochastic Optimization |
 | PSO Kennedy-Eberhart | 10.1109/ICNN.1995.488968 | Particle swarm optimization |
+| Banerjee RFO | 10.1021/j100247a015 | Search for stationary points on surfaces |
+| Baker TS / RFO | 10.1002/jcc.540070402 | An algorithm for the location of transition states |
 
 Polak-Ribiere 1969 and Hestenes-Stiefel 1952: cite the paper/book
 title in rustdoc if no DOI is on this list. Do not mint a DOI.

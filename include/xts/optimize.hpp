@@ -36,6 +36,8 @@ enum class Method {
     HagerZhang = XTS_HAGER_ZHANG,
     LiuStorey = XTS_LIU_STOREY,
     FrPr = XTS_FR_PR,
+    Newton = XTS_NEWTON,
+    Rfo = XTS_RFO,
 };
 
 struct Control {
@@ -99,6 +101,20 @@ inline Report minimize_fn(xts_eval_fn eval, xts_grad_fn grad, void* user,
     if (st != XTS_SUCCESS) {
         char const* msg = xts_last_error();
         throw std::runtime_error(msg ? msg : "xts_minimize failed");
+    }
+    return Report{out.value, out.steps, out.grad_norm};
+}
+
+inline Report minimize_hess_fn(xts_eval_fn eval, xts_grad_fn grad, xts_hess_fn hess,
+                               void* user, DLManagedTensorVersioned* x,
+                               Control const& ctrl, Method method) {
+    xts_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
+    xts_report_t out{};
+    xts_status_t st = xts_minimize_hess(
+        eval, grad, hess, user, x, &c, static_cast<xts_method_t>(method), &out);
+    if (st != XTS_SUCCESS) {
+        char const* msg = xts_last_error();
+        throw std::runtime_error(msg ? msg : "xts_minimize_hess failed");
     }
     return Report{out.value, out.steps, out.grad_norm};
 }

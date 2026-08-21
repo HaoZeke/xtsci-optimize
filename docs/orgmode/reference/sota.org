@@ -62,6 +62,24 @@ Both arms converge. The remaining gap is bound handling and the
 L-BFGS-B Cauchy / subspace machinery, not a different unconstrained
 update.
 
+** Newton and RFO when the Hessian is cheap
+
+L-BFGS is the production method when only =f= and =∇f= are available.
+When a dense Hessian is cheap (analytic pair potential, model Hessian),
+the direction is a Newton step, not a two-loop pair history.
+
+- Banerjee, Adams, Simons, Shepard 1985 is rational function
+  optimization
+  ([[https://doi.org/10.1021/j100247a015][10.1021/j100247a015]]).
+- Baker 1986 is the restricted-step form used in geometry codes
+  ([[https://doi.org/10.1002/jcc.540070402][10.1002/jcc.540070402]]).
+- Nocedal and Wright, chapter 3 / 6, record the Levenberg-shifted
+  Newton step =(H + μ I)^{-1} g=.
+
+~Method::Newton { kind: NewtonKind::Shifted | NewtonKind::Rfo }~ and
+~minimize_newton~ are that solver. The C waist is
+~xts_minimize_hess~. It is not an L-BFGS option.
+
 ** Nonlinear CG
 
 Hager and Zhang 2005 (~CG_DESCENT~)

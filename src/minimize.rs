@@ -10,6 +10,7 @@ use crate::linesearch::LineSearch;
 use crate::method::Method;
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
 use crate::pso::minimize_pso;
+use crate::newton::{minimize_newton, HessianObjective, NewtonKind};
 use crate::qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1, minimize_sr2};
 use crate::report::Report;
 use crate::step::{l2, next_istep, take_step};
@@ -70,6 +71,24 @@ where
             c1,
             c2,
         } => minimize_pso(obj, init, control, n_particles, inertia, c1, c2),
+        Method::Newton { kind: _ } => Err(Error::NeedHessian),
+    }
+}
+
+/// Minimize with any [`Method`], including Newton / RFO.
+pub fn minimize_method_hess<O>(
+    obj: &O,
+    init: impl Into<Array1<f64>>,
+    control: &Control,
+    method: Method,
+    linesearch: LineSearch,
+) -> Result<Report>
+where
+    O: HessianObjective + ?Sized,
+{
+    match method {
+        Method::Newton { kind } => minimize_newton(obj, init, control, kind),
+        other => minimize_method(obj, init, control, other, linesearch),
     }
 }
 

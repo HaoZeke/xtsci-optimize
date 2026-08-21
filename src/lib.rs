@@ -35,6 +35,8 @@ pub mod lbfgs;
 #[cfg(feature = "highs")]
 pub mod lbfgs_qp;
 mod minimize;
+/// Shifted Newton and Banerjee RFO on a dense Hessian.
+pub mod newton;
 mod oracle;
 mod pso;
 mod qn;
@@ -49,7 +51,8 @@ pub use lbfgs::{GradNorm, Lbfgs};
 pub use lbfgs_qp::HighsStep;
 pub use linesearch::LineSearch;
 pub use method::Method;
-pub use minimize::{minimize, minimize_method};
+pub use minimize::{minimize, minimize_method, minimize_method_hess};
+pub use newton::{minimize_newton, HessianObjective, HessianOracle, NewtonKind};
 pub use nlcg::{Conjugacy, ConjugacyContext, Restart};
 pub use oracle::Oracle;
 pub use pso::minimize_pso;

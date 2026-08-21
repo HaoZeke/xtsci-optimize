@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 0
+#define XTS_ABI_VERSION_MINOR 1
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -65,7 +65,9 @@ typedef enum xts_method_t {
     XTS_CONJUGATE_DESCENT = 11,
     XTS_HAGER_ZHANG = 12,
     XTS_LIU_STOREY = 13,
-    XTS_FR_PR = 14
+    XTS_FR_PR = 14,
+    XTS_NEWTON = 15,
+    XTS_RFO = 16
 } xts_method_t;
 
 /** Outer-loop controls. \c memory is the L-BFGS pair cap. */
@@ -88,6 +90,8 @@ typedef xts_status_t (*xts_eval_fn)(void *user, const DLManagedTensorVersioned *
                                     double *value_out);
 typedef xts_status_t (*xts_grad_fn)(void *user, const DLManagedTensorVersioned *x,
                                     DLManagedTensorVersioned *grad_out);
+typedef xts_status_t (*xts_hess_fn)(void *user, const DLManagedTensorVersioned *x,
+                                    DLManagedTensorVersioned *hess_out);
 
 /** Crate version string. */
 const char *xts_version(void);
@@ -115,6 +119,15 @@ void xts_tensor_free(DLManagedTensorVersioned *tensor);
 xts_status_t xts_minimize(xts_eval_fn eval, xts_grad_fn grad, void *user,
                           DLManagedTensorVersioned *x, const xts_control_t *ctrl,
                           xts_method_t method, xts_report_t *out);
+/**
+ * Newton / RFO. \a hess writes a length-\c n*n row-major Hessian.
+ * \c method is \c XTS_NEWTON or \c XTS_RFO.
+ */
+xts_status_t xts_minimize_hess(xts_eval_fn eval, xts_grad_fn grad,
+                               xts_hess_fn hess, void *user,
+                               DLManagedTensorVersioned *x,
+                               const xts_control_t *ctrl, xts_method_t method,
+                               xts_report_t *out);
 
 /**
  * Minimize an eindir-compatible objective without taking ownership of it.
