@@ -183,7 +183,7 @@ where
     })
 }
 
-fn energy_backtrack<O>(
+pub(crate) fn energy_backtrack<O>(
     obj: &O,
     pos: &Array1<f64>,
     value: f64,
@@ -209,7 +209,7 @@ where
     (pos.clone(), value, Array1::zeros(pos.len()), false)
 }
 
-fn shifted_newton(h: &Array2<f64>, g: &Array1<f64>) -> Array1<f64> {
+pub(crate) fn shifted_newton(h: &Array2<f64>, g: &Array1<f64>) -> Array1<f64> {
     let n = g.len();
     let mut mu = 0.0;
     for _ in 0..24 {
@@ -225,7 +225,7 @@ fn shifted_newton(h: &Array2<f64>, g: &Array1<f64>) -> Array1<f64> {
     g.mapv(|v| -v)
 }
 
-fn rfo_direction(h: &Array2<f64>, g: &Array1<f64>) -> Array1<f64> {
+pub(crate) fn rfo_direction(h: &Array2<f64>, g: &Array1<f64>) -> Array1<f64> {
     // Banerjee: [H g; g^T 0] [d; 1] = λ [d; 1]  =>  (H - λ I) d = -g, λ = g·d.
     let n = g.len();
     let mut lambda = -l2(g);

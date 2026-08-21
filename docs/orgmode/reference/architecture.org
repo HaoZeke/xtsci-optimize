@@ -17,10 +17,11 @@ Rust, C sees a small ABI, C++ is a header wrapper.
 +-----------------------------------------------+
 |  C ABI (cbindgen + hand headers)              |
 |  include/xts.h                                |
+|  xts_solver_t create/step/free                |
 |  xts_minimize over dlpk tensors               |
 +-----------------------------------------------+
 |  Rust core                                    |
-|  Lbfgs / NLCG / BFGS / SR1 / SR2 / Adam / PSO |
+|  Solver / Lbfgs / NLCG / BFGS / Newton        |
 |  LineSearch (Brent, Armijo, Goldstein, Wolfe) |
 |  eindir DifferentiableObjective               |
 +-----------------------------------------------+
@@ -30,11 +31,15 @@ Rust, C sees a small ABI, C++ is a header wrapper.
 
 - =Lbfgs= :: Persistent pair history, two-loop recursion, strong Wolfe.
   Hopping chains hold this type (anneal ~WarmLbfgs~ is a handle).
+- =Solver= :: Method-agnostic session. One =step= is one outer
+  iteration. The C type =xts_solver_t= is a pointer to this.
 - =minimize_method= :: Cold-start dispatch for every =Method=.
 - =LineSearch::Wolfe= :: Nocedal-Wright 3.5 / 3.6. Default production
   choice for quasi-Newton directions.
 - =Oracle= :: Closure adapter that implements
   =DifferentiableObjective= for a fused =(f, g)= function.
+- =xts_solver_create= / =xts_solver_step= / =xts_solver_free= ::
+  Stateful C waist. Callbacks are per step. =abi_minor= 2.
 - =xts_minimize= :: First-order / quasi-Newton C entry. CPU f64
   tensors only; other devices return =XTS_UNSUPPORTED_DEVICE=.
 - =xts_minimize_hess= :: Newton / RFO C entry. Caller supplies a

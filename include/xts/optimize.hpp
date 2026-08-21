@@ -158,6 +158,47 @@ inline constexpr Method PSOptim = Method::Pso;
 
 }  // namespace minimize
 
+/// RAII session. One step() is one outer iteration.
+class Solver {
+    xts_solver_t* ptr_ = nullptr;
+
+public:
+    Solver(Method method, Control const& ctrl, std::size_t dim) {
+        xts_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
+        ptr_ = xts_solver_create(static_cast<xts_method_t>(method), &c, dim);
+        if (ptr_ == nullptr) {
+            char const* msg = xts_last_error();
+            throw std::runtime_error(msg ? msg : "xts_solver_create failed");
+        }
+    }
+    ~Solver() { xts_solver_free(ptr_); }
+    Solver(Solver const&) = delete;
+    Solver& operator=(Solver const&) = delete;
+    Solver(Solver&& o) noexcept : ptr_(o.ptr_) { o.ptr_ = nullptr; }
+    Solver& operator=(Solver&& o) noexcept {
+        if (this != &o) {
+            xts_solver_free(ptr_);
+            ptr_ = o.ptr_;
+            o.ptr_ = nullptr;
+        }
+        return *this;
+    }
+
+    void forget() { xts_solver_forget(ptr_); }
+    void set_maxmove(double m) { xts_solver_set_maxmove(ptr_, m); }
+
+    Report step(xts_eval_fn eval, xts_grad_fn grad, void* user,
+                DLManagedTensorVersioned* x) {
+        xts_report_t out{};
+        xts_status_t st = xts_solver_step(ptr_, eval, grad, user, x, &out);
+        if (st != XTS_SUCCESS) {
+            char const* msg = xts_last_error();
+            throw std::runtime_error(msg ? msg : "xts_solver_step failed");
+        }
+        return Report{out.value, out.steps, out.grad_norm};
+    }
+};
+
 namespace nlcg {
 namespace conjugacy {
 

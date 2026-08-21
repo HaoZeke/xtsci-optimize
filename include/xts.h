@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 1
+#define XTS_ABI_VERSION_MINOR 2
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -138,6 +138,35 @@ xts_status_t xts_minimize_eindir(
     const eindir_objective_t *objective, const eindir_abi_stamp_t *stamp,
     DLManagedTensorVersioned *x, const xts_control_t *ctrl, xts_method_t method,
     xts_report_t *out);
+
+/**
+ * Opaque session. Algorithm memory (L-BFGS pairs, NLCG directions,
+ * dense H, Adam moments, PSO swarm) lives here. \c x stays a dlpk
+ * tensor. Callbacks are arguments of each step, not stored.
+ */
+typedef struct xts_solver_t xts_solver_t;
+
+/** Allocate a session. \a dim is the length of \c x. Null on error. */
+xts_solver_t *xts_solver_create(xts_method_t method, const xts_control_t *ctrl,
+                                size_t dim);
+/** Release a session from \ref xts_solver_create. */
+void xts_solver_free(xts_solver_t *solver);
+/** Drop method memory. The next step is a cold start from the current \c x. */
+void xts_solver_forget(xts_solver_t *solver);
+/** Euclidean step cap for the next \ref xts_solver_step (saddle \c max_move). */
+void xts_solver_set_maxmove(xts_solver_t *solver, double maxmove);
+/**
+ * One outer iteration: direction, line search, curvature update.
+ * \a eval and \a grad are valid for this call only. \a x is in/out.
+ */
+xts_status_t xts_solver_step(xts_solver_t *solver, xts_eval_fn eval,
+                             xts_grad_fn grad, void *user,
+                             DLManagedTensorVersioned *x, xts_report_t *out);
+/** One Newton / RFO iteration. \a hess writes a length-\c n*n Hessian. */
+xts_status_t xts_solver_step_hess(xts_solver_t *solver, xts_eval_fn eval,
+                                  xts_grad_fn grad, xts_hess_fn hess,
+                                  void *user, DLManagedTensorVersioned *x,
+                                  xts_report_t *out);
 
 #ifdef __cplusplus
 }

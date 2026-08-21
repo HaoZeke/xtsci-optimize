@@ -12,7 +12,8 @@ use rgpot_core::status::rgpot_status_t;
 use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 use xtsci_optimize::ffi::{
     xts_abi_compatible, xts_abi_stamp, xts_control_t, xts_method_t, xts_minimize,
-    xts_minimize_eindir, xts_report_t, xts_status_t, xts_tensor_borrow_cpu_f64, xts_tensor_free,
+    xts_minimize_eindir, xts_report_t, xts_solver_create, xts_solver_free, xts_solver_step,
+    xts_status_t, xts_tensor_borrow_cpu_f64, xts_tensor_free,
 };
 
 unsafe extern "C" fn quadratic_eval(
@@ -316,6 +317,76 @@ fn cuda_tagged_tensor_is_unsupported() {
 }
 
 #[test]
+fn c_abi_solver_step_keeps_lbfgs_history() {
+    let mut warm = [-1.2, 1.0];
+    let mut cold = [-1.2, 1.0];
+    let ctrl = xts_control_t {
+        maxiter: 80,
+        gtol: 1e-10,
+        istep: 0.1,
+        memory: 10,
+        maxmove: 0.0,
+    };
+    let session = unsafe { xts_solver_create(xts_method_t::XTS_LBFGS, &ctrl, 2) };
+    assert!(!session.is_null());
+    let mut out = xts_report_t {
+        value: 0.0,
+        steps: 0,
+        grad_norm: 0.0,
+    };
+    for _ in 0..80 {
+        let xt = unsafe { xts_tensor_borrow_cpu_f64(warm.as_mut_ptr(), 2) };
+        let st = unsafe {
+            xts_solver_step(
+                session,
+                Some(rosen_eval),
+                Some(rosen_grad),
+                std::ptr::null_mut(),
+                xt,
+                &mut out,
+            )
+        };
+        unsafe { xts_tensor_free(xt) };
+        assert_eq!(st, xts_status_t::XTS_SUCCESS);
+        if out.grad_norm < 1e-8 {
+            break;
+        }
+    }
+    unsafe { xts_solver_free(session) };
+    assert!(out.value < 1e-6, "session value {}", out.value);
+
+    for _ in 0..80 {
+        let one = unsafe { xts_solver_create(xts_method_t::XTS_LBFGS, &ctrl, 2) };
+        let xt = unsafe { xts_tensor_borrow_cpu_f64(cold.as_mut_ptr(), 2) };
+        let st = unsafe {
+            xts_solver_step(
+                one,
+                Some(rosen_eval),
+                Some(rosen_grad),
+                std::ptr::null_mut(),
+                xt,
+                &mut out,
+            )
+        };
+        unsafe {
+            xts_tensor_free(xt);
+            xts_solver_free(one);
+        }
+        assert_eq!(st, xts_status_t::XTS_SUCCESS);
+        if out.grad_norm < 1e-8 {
+            break;
+        }
+    }
+    // A live session is L-BFGS. Recreating every step is steepest-plus-Wolfe.
+    assert!(
+        (warm[0] - 1.0).abs() < 1e-3,
+        "warm end {} {}",
+        warm[0],
+        warm[1]
+    );
+}
+
+#[test]
 fn version_is_nul_terminated() {
     let p = xtsci_optimize::ffi::xts_version();
     assert!(!p.is_null());
@@ -325,7 +396,7 @@ fn version_is_nul_terminated() {
 fn abi_stamp_identifies_this_optimizer_layout() {
     let stamp = xts_abi_stamp();
     assert_eq!(stamp.abi_major, 1);
-    assert_eq!(stamp.abi_minor, 0);
+    assert_eq!(stamp.abi_minor, 2);
     assert_eq!(stamp.layout_revision, 2);
     assert_eq!(unsafe { xts_abi_compatible(&stamp) }, 1);
 }

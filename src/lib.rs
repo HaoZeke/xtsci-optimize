@@ -4,8 +4,9 @@
 //! restart, and line search stay independent. Nonlinear CG is Nocedal and
 //! Wright algorithm 5.4. Quasi-Newton methods (BFGS, L-BFGS, SR1, SR2),
 //! Adam, steepest descent, and particle swarm share the same eindir
-//! `DifferentiableObjective` handle. C and C++ reach these solvers only
-//! through `xts_minimize` and the headers under `include/`.
+//! `DifferentiableObjective` handle. C and C++ reach these solvers
+//! through an `xts_solver_t` session (`create` / `step` / `free`)
+//! and the one-shot `xts_minimize` wrappers.
 //!
 //! The production unconstrained local method is [`Lbfgs`] with
 //! [`LineSearch::Wolfe`]: limited-memory BFGS (Nocedal-Wright 7.4) and
@@ -35,6 +36,7 @@ pub mod lbfgs;
 #[cfg(feature = "highs")]
 pub mod lbfgs_qp;
 mod minimize;
+mod session;
 /// Shifted Newton and Banerjee RFO on a dense Hessian.
 pub mod newton;
 mod oracle;
@@ -58,3 +60,4 @@ pub use oracle::Oracle;
 pub use pso::minimize_pso;
 pub use qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1, minimize_sr2};
 pub use report::Report;
+pub use session::Solver;

@@ -12,15 +12,15 @@ use crate::report::Report;
 use crate::step::l2;
 
 /// Swarm RNG seed. Tests and the public API share this value.
-const RNG_SEED: u64 = 1;
+pub(crate) const RNG_SEED: u64 = 1;
 const STAGNANT_LIMIT: usize = 50;
 const AVG_VEL_TOL: f64 = 1e-8;
 
-struct Particle {
-    position: Array1<f64>,
-    velocity: Array1<f64>,
-    best_position: Array1<f64>,
-    best_value: f64,
+pub(crate) struct Particle {
+    pub(crate) position: Array1<f64>,
+    pub(crate) velocity: Array1<f64>,
+    pub(crate) best_position: Array1<f64>,
+    pub(crate) best_value: f64,
 }
 
 /// Particle swarm (xtsci `PSOptim`) over the objective box. Line search is unused.
@@ -120,7 +120,7 @@ where
     })
 }
 
-fn update_swarm<O>(
+pub(crate) fn update_swarm<O>(
     obj: &O,
     bounds: &Bounds<f64>,
     swarm: &mut [Particle],
@@ -165,7 +165,7 @@ fn update_swarm<O>(
     }
 }
 
-fn random_velocity<R: Rng>(bounds: &Bounds<f64>, rng: &mut R) -> Array1<f64> {
+pub(crate) fn random_velocity<R: Rng>(bounds: &Bounds<f64>, rng: &mut R) -> Array1<f64> {
     Array1::from_iter((0..bounds.dims).map(|i| {
         let span = (bounds.high[i] - bounds.low[i]).abs();
         rng.random_range(-span..=span)

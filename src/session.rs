@@ -1,0 +1,562 @@
+//! Persistent solver session. One [`Solver::step`] is one outer iteration.
+
+use eindir_core::{DifferentiableObjective, Objective};
+use ndarray::{Array1, Array2};
+use rand::SeedableRng;
+use rand::rngs::StdRng;
+
+use crate::adam::adam_direction;
+use crate::control::Control;
+use crate::error::{Error, Result};
+use crate::lbfgs::{GradNorm, Lbfgs};
+use crate::linesearch::LineSearch;
+use crate::method::Method;
+use crate::newton::{
+    energy_backtrack, rfo_direction, shifted_newton, HessianObjective, NewtonKind,
+};
+use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
+use crate::pso::{random_velocity, update_swarm, Particle, RNG_SEED};
+use crate::qn::{bfgs_inverse_update, solve_dense, sr1_inverse_update, sr2_hessian_update};
+use crate::report::Report;
+use crate::step::{l2, next_istep, take_step};
+
+/// Long-lived solver. Algorithm memory lives here; `x` stays with the caller.
+pub struct Solver {
+    dim: usize,
+    control: Control,
+    linesearch: LineSearch,
+    istep: f64,
+    steps: usize,
+    inner: Inner,
+}
+
+enum Inner {
+    Lbfgs(Lbfgs),
+    Nlcg {
+        conjugacy: Conjugacy,
+        restart: Restart,
+        dir: Array1<f64>,
+        g_old: Array1<f64>,
+        d_old: Array1<f64>,
+        initialized: bool,
+    },
+    Bfgs {
+        h: Array2<f64>,
+    },
+    Sr1 {
+        h: Array2<f64>,
+    },
+    Sr2 {
+        b: Array2<f64>,
+    },
+    Adam {
+        m: Array1<f64>,
+        v: Array1<f64>,
+        b1p: f64,
+        b2p: f64,
+        beta1: f64,
+        beta2: f64,
+        eps: f64,
+    },
+    Steepest,
+    Pso {
+        n_particles: usize,
+        inertia: f64,
+        c1: f64,
+        c2: f64,
+        swarm: Option<PsoState>,
+    },
+    Newton {
+        kind: NewtonKind,
+    },
+}
+
+struct PsoState {
+    swarm: Vec<Particle>,
+    gbest_position: Array1<f64>,
+    gbest_value: f64,
+    rng: StdRng,
+}
+
+impl Solver {
+    /// Fresh session for `method` in dimension `dim`.
+    pub fn new(method: Method, control: Control, dim: usize) -> Self {
+        let istep = control.istep;
+        let inner = Inner::from_method(&method, dim);
+        Self {
+            dim,
+            control,
+            linesearch: LineSearch::default(),
+            istep,
+            steps: 0,
+            inner,
+        }
+    }
+
+    /// Euclidean cap applied on the next [`Self::step`].
+    pub fn set_maxmove(&mut self, maxmove: f64) {
+        self.control.maxmove = if maxmove > 0.0 { Some(maxmove) } else { None };
+    }
+
+    /// Drop method memory. The next step is a cold start from the current `x`.
+    pub fn forget(&mut self) {
+        self.istep = self.control.istep;
+        match &mut self.inner {
+            Inner::Lbfgs(solver) => solver.forget(),
+            Inner::Nlcg { initialized, .. } => *initialized = false,
+            Inner::Bfgs { h } => *h = Array2::<f64>::eye(self.dim),
+            Inner::Sr1 { h } => *h = Array2::<f64>::eye(self.dim),
+            Inner::Sr2 { b } => *b = Array2::<f64>::eye(self.dim),
+            Inner::Adam {
+                m,
+                v,
+                b1p,
+                b2p,
+                beta1,
+                beta2,
+                ..
+            } => {
+                m.fill(0.0);
+                v.fill(0.0);
+                *b1p = *beta1;
+                *b2p = *beta2;
+            }
+            Inner::Steepest => {}
+            Inner::Pso { swarm, .. } => *swarm = None,
+            Inner::Newton { .. } => {}
+        }
+    }
+
+    /// One outer iteration. `x` is the iterate and is overwritten in place.
+    pub fn step<O>(&mut self, obj: &O, x: &mut Array1<f64>) -> Result<Report>
+    where
+        O: DifferentiableObjective<f64> + ?Sized,
+    {
+        if matches!(self.inner, Inner::Newton { .. }) {
+            return Err(Error::NeedHessian);
+        }
+        self.step_first_order(obj, x)
+    }
+
+    /// One Newton / RFO iteration. Hessian is rebuilt at the current `x`.
+    pub fn step_hess<O>(&mut self, obj: &O, x: &mut Array1<f64>) -> Result<Report>
+    where
+        O: HessianObjective + ?Sized,
+    {
+        if x.len() != self.dim || self.dim != Objective::dim(obj) {
+            return Err(Error::Dim {
+                got: x.len(),
+                dim: self.dim,
+            });
+        }
+        let kind = match self.inner {
+            Inner::Newton { kind } => kind,
+            _ => return self.step_first_order(obj, x),
+        };
+        *x = obj.bounds().clip(x.view());
+        let (mut value, mut grad) = obj.value_and_gradient(x.view());
+        let gnorm = l2(&grad);
+        if gnorm < self.control.gtol {
+            return Ok(Report {
+                value,
+                coords: x.clone(),
+                steps: self.steps,
+                grad_norm: gnorm,
+            });
+        }
+        let hess = obj.hessian(x.view());
+        let dir = match kind {
+            NewtonKind::Shifted => shifted_newton(&hess, &grad),
+            NewtonKind::Rfo => rfo_direction(&hess, &grad),
+        };
+        let (npos, nval, ngrad, moved) =
+            energy_backtrack(obj, x, value, &dir, &self.control);
+        if moved {
+            *x = npos;
+            value = nval;
+            grad = ngrad;
+        } else {
+            let sd = grad.mapv(|g| -g);
+            let (spos, sval, sgrad, sok) =
+                energy_backtrack(obj, x, value, &sd, &self.control);
+            if sok {
+                *x = spos;
+                value = sval;
+                grad = sgrad;
+            }
+        }
+        self.steps += 1;
+        Ok(Report {
+            value,
+            coords: x.clone(),
+            steps: self.steps,
+            grad_norm: l2(&grad),
+        })
+    }
+
+    fn step_first_order<O>(&mut self, obj: &O, x: &mut Array1<f64>) -> Result<Report>
+    where
+        O: DifferentiableObjective<f64> + ?Sized,
+    {
+        if x.len() != self.dim || self.dim != Objective::dim(obj) {
+            return Err(Error::Dim {
+                got: x.len(),
+                dim: self.dim,
+            });
+        }
+        *x = obj.bounds().clip(x.view());
+
+        if let Inner::Pso { .. } = &self.inner {
+            return self.step_pso(obj, x);
+        }
+
+        let (mut value, mut grad) = obj.value_and_gradient(x.view());
+        let gnorm = l2(&grad);
+        if gnorm < self.control.gtol {
+            return Ok(Report {
+                value,
+                coords: x.clone(),
+                steps: self.steps,
+                grad_norm: gnorm,
+            });
+        }
+
+        match &mut self.inner {
+            Inner::Lbfgs(solver) => {
+                solver.step_objective(
+                    obj,
+                    x,
+                    &mut value,
+                    &mut grad,
+                    &mut self.istep,
+                    self.linesearch,
+                    &self.control,
+                );
+            }
+            Inner::Steepest => {
+                let dir = grad.mapv(|g| -g);
+                let (npos, _, lsstep, _) = take_step(
+                    obj,
+                    x,
+                    value,
+                    dir.view(),
+                    self.istep,
+                    self.linesearch,
+                    &self.control,
+                );
+                *x = npos;
+                let ev = obj.value_and_gradient(x.view());
+                value = ev.0;
+                grad = ev.1;
+                self.istep = next_istep(lsstep, &self.control);
+            }
+            Inner::Nlcg {
+                conjugacy,
+                restart,
+                dir,
+                g_old,
+                d_old,
+                initialized,
+            } => {
+                if !*initialized {
+                    *dir = grad.mapv(|g| -g);
+                    *g_old = grad.clone();
+                    *d_old = dir.clone();
+                    *initialized = true;
+                }
+                let (npos, _, lsstep, _) = take_step(
+                    obj,
+                    x,
+                    value,
+                    dir.view(),
+                    self.istep,
+                    self.linesearch,
+                    &self.control,
+                );
+                *x = npos;
+                let ev = obj.value_and_gradient(x.view());
+                value = ev.0;
+                grad = ev.1;
+                let ctx = ConjugacyContext {
+                    current_gradient: grad.view(),
+                    previous_gradient: g_old.view(),
+                    previous_direction: d_old.view(),
+                };
+                let mut beta = conjugacy.beta(&ctx);
+                if restart.should_restart(&ctx) {
+                    beta = 0.0;
+                }
+                *dir = Array1::from_iter(
+                    grad.iter()
+                        .zip(d_old.iter())
+                        .map(|(g, d)| -g + beta * d),
+                );
+                g_old.assign(&grad);
+                d_old.assign(dir);
+                self.istep = next_istep(lsstep, &self.control);
+            }
+            Inner::Bfgs { h } => {
+                let direction = -h.dot(&grad);
+                let old = x.clone();
+                let gold = grad.clone();
+                let (npos, _, lsstep, moved) = take_step(
+                    obj,
+                    x,
+                    value,
+                    direction.view(),
+                    self.istep,
+                    self.linesearch,
+                    &self.control,
+                );
+                *x = npos;
+                let ev = obj.value_and_gradient(x.view());
+                value = ev.0;
+                grad = ev.1;
+                if moved {
+                    bfgs_inverse_update(h, &(&*x - &old), &(&grad - &gold));
+                }
+                self.istep = next_istep(lsstep, &self.control);
+            }
+            Inner::Sr1 { h } => {
+                let direction = -h.dot(&grad);
+                let old = x.clone();
+                let gold = grad.clone();
+                let (npos, _, lsstep, moved) = take_step(
+                    obj,
+                    x,
+                    value,
+                    direction.view(),
+                    self.istep,
+                    self.linesearch,
+                    &self.control,
+                );
+                *x = npos;
+                let ev = obj.value_and_gradient(x.view());
+                value = ev.0;
+                grad = ev.1;
+                if moved {
+                    sr1_inverse_update(h, &(&*x - &old), &(&grad - &gold));
+                }
+                self.istep = next_istep(lsstep, &self.control);
+            }
+            Inner::Sr2 { b } => {
+                let rhs = grad.mapv(|g| -g);
+                let direction = solve_dense(b, &rhs).unwrap_or_else(|| rhs);
+                let old = x.clone();
+                let gold = grad.clone();
+                let (npos, _, lsstep, moved) = take_step(
+                    obj,
+                    x,
+                    value,
+                    direction.view(),
+                    self.istep,
+                    self.linesearch,
+                    &self.control,
+                );
+                *x = npos;
+                let ev = obj.value_and_gradient(x.view());
+                value = ev.0;
+                grad = ev.1;
+                if moved {
+                    sr2_hessian_update(b, &(&*x - &old), &(&grad - &gold));
+                }
+                self.istep = next_istep(lsstep, &self.control);
+            }
+            Inner::Adam {
+                m,
+                v,
+                b1p,
+                b2p,
+                beta1,
+                beta2,
+                eps,
+            } => {
+                let dir = adam_direction(m, v, &grad, *beta1, *beta2, *b1p, *b2p, *eps);
+                let (npos, _, lsstep, _) = take_step(
+                    obj,
+                    x,
+                    value,
+                    dir.view(),
+                    self.istep,
+                    self.linesearch,
+                    &self.control,
+                );
+                *x = npos;
+                let ev = obj.value_and_gradient(x.view());
+                value = ev.0;
+                grad = ev.1;
+                *b1p *= *beta1;
+                *b2p *= *beta2;
+                self.istep = next_istep(lsstep, &self.control);
+            }
+            Inner::Pso { .. } | Inner::Newton { .. } => unreachable!(),
+        }
+
+        self.steps += 1;
+        Ok(Report {
+            value,
+            coords: x.clone(),
+            steps: self.steps,
+            grad_norm: l2(&grad),
+        })
+    }
+
+    fn step_pso<O>(&mut self, obj: &O, x: &mut Array1<f64>) -> Result<Report>
+    where
+        O: DifferentiableObjective<f64> + ?Sized,
+    {
+        let bounds = obj.bounds();
+        let (n_particles, inertia, c1, c2) = match &self.inner {
+            Inner::Pso {
+                n_particles,
+                inertia,
+                c1,
+                c2,
+                ..
+            } => (*n_particles, *inertia, *c1, *c2),
+            _ => unreachable!(),
+        };
+        if match &self.inner {
+            Inner::Pso { swarm, .. } => swarm.is_none(),
+            _ => true,
+        } {
+            let mut rng = StdRng::seed_from_u64(RNG_SEED);
+            let start_val = obj.eval(x.view());
+            let mut swarm = Vec::with_capacity(n_particles);
+            swarm.push(Particle {
+                velocity: random_velocity(bounds, &mut rng),
+                best_position: x.clone(),
+                best_value: start_val,
+                position: x.clone(),
+            });
+            let mut gbest_position = swarm[0].best_position.clone();
+            let mut gbest_value = start_val;
+            for _ in 1..n_particles {
+                let position = bounds.mkpoint(&mut rng);
+                let value = obj.eval(position.view());
+                let particle = Particle {
+                    velocity: random_velocity(bounds, &mut rng),
+                    best_position: position.clone(),
+                    best_value: value,
+                    position,
+                };
+                if particle.best_value < gbest_value {
+                    gbest_position = particle.best_position.clone();
+                    gbest_value = particle.best_value;
+                }
+                swarm.push(particle);
+            }
+            if let Inner::Pso {
+                swarm: slot,
+                ..
+            } = &mut self.inner
+            {
+                *slot = Some(PsoState {
+                    swarm,
+                    gbest_position,
+                    gbest_value,
+                    rng,
+                });
+            }
+        }
+        if let Inner::Pso {
+            swarm: Some(state),
+            inertia,
+            c1,
+            c2,
+            ..
+        } = &mut self.inner
+        {
+            update_swarm(
+                obj,
+                bounds,
+                &mut state.swarm,
+                &mut state.gbest_position,
+                &mut state.gbest_value,
+                *inertia,
+                *c1,
+                *c2,
+                &mut state.rng,
+            );
+            *x = state.gbest_position.clone();
+            let (value, grad) = obj.value_and_gradient(x.view());
+            self.steps += 1;
+            return Ok(Report {
+                value,
+                coords: x.clone(),
+                steps: self.steps,
+                grad_norm: l2(&grad),
+            });
+        }
+        unreachable!("PSO slot populated above")
+    }
+}
+
+impl Inner {
+    fn from_method(method: &Method, dim: usize) -> Self {
+        match method {
+            Method::Lbfgs { memory } => {
+                let mut solver = Lbfgs::with_capacity(*memory);
+                solver.norm = GradNorm::Euclidean;
+                Inner::Lbfgs(solver)
+            }
+            Method::Nlcg {
+                conjugacy,
+                restart,
+            } => Inner::Nlcg {
+                conjugacy: conjugacy.clone(),
+                restart: *restart,
+                dir: Array1::zeros(dim),
+                g_old: Array1::zeros(dim),
+                d_old: Array1::zeros(dim),
+                initialized: false,
+            },
+            Method::Bfgs => Inner::Bfgs {
+                h: Array2::<f64>::eye(dim),
+            },
+            Method::Sr1 => Inner::Sr1 {
+                h: Array2::<f64>::eye(dim),
+            },
+            Method::Sr2 => Inner::Sr2 {
+                b: Array2::<f64>::eye(dim),
+            },
+            Method::Adam {
+                beta1,
+                beta2,
+                eps,
+            } => Inner::Adam {
+                m: Array1::zeros(dim),
+                v: Array1::zeros(dim),
+                b1p: *beta1,
+                b2p: *beta2,
+                beta1: *beta1,
+                beta2: *beta2,
+                eps: *eps,
+            },
+            Method::Steepest => Inner::Steepest,
+            Method::Pso {
+                n_particles,
+                inertia,
+                c1,
+                c2,
+            } => Inner::Pso {
+                n_particles: (*n_particles).max(1),
+                inertia: *inertia,
+                c1: *c1,
+                c2: *c2,
+                swarm: None,
+            },
+            Method::Newton { kind } => Inner::Newton { kind: *kind },
+        }
+    }
+}
+
+impl Solver {
+    /// Apply [`Control::gtol`] to a newly built L-BFGS session.
+    pub fn with_gtol(mut self, gtol: f64) -> Self {
+        if let Inner::Lbfgs(solver) = &mut self.inner {
+            solver.gtol = gtol;
+        }
+        self
+    }
+}

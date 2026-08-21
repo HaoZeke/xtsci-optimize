@@ -433,19 +433,7 @@ impl Lbfgs {
                     grad_norm: gnorm,
                 });
             }
-            let dir = self.direction(grad.view());
-            let old = pos.clone();
-            let gold = grad.clone();
-            let (npos, _, lsstep, moved) =
-                take_step(obj, &pos, value, dir.view(), istep, linesearch, control);
-            pos = npos;
-            let ev = obj.value_and_gradient(pos.view());
-            value = ev.0;
-            grad = ev.1;
-            if moved {
-                self.push(&pos - &old, &grad - &gold);
-            }
-            istep = next_istep(lsstep, control);
+            self.step_objective(obj, &mut pos, &mut value, &mut grad, &mut istep, linesearch, control);
         }
         Ok(Report {
             value,
@@ -453,5 +441,33 @@ impl Lbfgs {
             steps: control.maxiter,
             grad_norm: l2(&grad),
         })
+    }
+
+    /// One outer L-BFGS iteration: two-loop direction, line search, pair.
+    pub fn step_objective<O>(
+        &mut self,
+        obj: &O,
+        pos: &mut Array1<f64>,
+        value: &mut f64,
+        grad: &mut Array1<f64>,
+        istep: &mut f64,
+        linesearch: LineSearch,
+        control: &Control,
+    ) where
+        O: DifferentiableObjective<f64> + ?Sized,
+    {
+        let dir = self.direction(grad.view());
+        let old = pos.clone();
+        let gold = grad.clone();
+        let (npos, _, lsstep, moved) =
+            take_step(obj, pos, *value, dir.view(), *istep, linesearch, control);
+        *pos = npos;
+        let ev = obj.value_and_gradient(pos.view());
+        *value = ev.0;
+        *grad = ev.1;
+        if moved {
+            self.push(&*pos - &old, &*grad - &gold);
+        }
+        *istep = next_istep(lsstep, control);
     }
 }

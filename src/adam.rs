@@ -77,7 +77,7 @@ where
 }
 
 /// Kingma-Ba moment update and bias-corrected direction (Algorithm 1).
-fn adam_direction(
+pub(crate) fn adam_direction(
     m: &mut Array1<f64>,
     v: &mut Array1<f64>,
     grad: &Array1<f64>,

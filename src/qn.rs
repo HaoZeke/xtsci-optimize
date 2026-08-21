@@ -239,7 +239,7 @@ fn done(value: f64, coords: Array1<f64>, steps: usize, grad_norm: f64) -> Report
 
 /// Inverse BFGS, Nocedal-Wright 6.17:
 /// `H+ = (I - ρ s y^T) H (I - ρ y s^T) + ρ s s^T`, `ρ = 1/(y·s)`.
-fn bfgs_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
+pub(crate) fn bfgs_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
     let ys = y.dot(s);
     if ys <= CURVATURE {
         return;
@@ -263,7 +263,7 @@ fn bfgs_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
 }
 
 /// `B += δ (y + Bs)^T / (δ·s)`, `δ = y - Bs` (`sr2.hpp`).
-fn sr2_hessian_update(b: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
+pub(crate) fn sr2_hessian_update(b: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
     let bs = b.dot(s);
     let delta = y - &bs;
     let ybs = y + &bs;
@@ -282,7 +282,7 @@ fn sr2_hessian_update(b: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
 }
 
 /// Gaussian elimination with partial pivoting for `A x = rhs`.
-fn solve_dense(a: &Array2<f64>, rhs: &Array1<f64>) -> Option<Array1<f64>> {
+pub(crate) fn solve_dense(a: &Array2<f64>, rhs: &Array1<f64>) -> Option<Array1<f64>> {
     let n = rhs.len();
     let mut m = a.clone();
     let mut x = rhs.clone();
@@ -334,7 +334,7 @@ fn solve_dense(a: &Array2<f64>, rhs: &Array1<f64>) -> Option<Array1<f64>> {
 }
 
 /// Inverse SR1: `H += u u^T / (u·y)`, `u = s - Hy` (Nocedal-Wright 6.25).
-fn sr1_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
+pub(crate) fn sr1_inverse_update(h: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
     let hy = h.dot(y);
     let u = s - &hy;
     let uy = u.dot(y);

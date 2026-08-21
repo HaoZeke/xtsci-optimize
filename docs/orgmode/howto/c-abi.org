@@ -4,10 +4,31 @@
 
 * C and C++ ABI
 
-Solvers live in Rust. C and C++ call ~xts_minimize~ with dlpk
-~DLManagedTensorVersioned~ tensors.
+Solvers live in Rust. Geometry hosts that call one outer iteration at
+a time hold an opaque ~xts_solver_t~; scripts that want a one-shot
+solve still call ~xts_minimize~. Every vector is a dlpk
+~DLManagedTensorVersioned~ tensor.
 
-** C
+** Session (eOn / ASE ~step~)
+
+#+begin_src c
+#include "xts.h"
+
+xts_control_t ctrl = { .maxiter = 200, .gtol = 1e-8, .istep = 1.0, .memory = 8 };
+xts_solver_t *s = xts_solver_create(XTS_LBFGS, &ctrl, n);
+xts_report_t report;
+while (!done) {
+    xts_solver_set_maxmove(s, max_move);
+    xts_solver_step(s, eval, grad, user, x, &report);
+}
+xts_solver_free(s);
+#+end_src
+
+~xts_solver_forget~ drops pairs / conjugacy / moments. Newton and RFO
+use ~xts_solver_step_hess~. Callbacks are arguments of each step, not
+stored on the handle.
+
+** One-shot
 
 #+begin_src c
 #include "xts.h"
