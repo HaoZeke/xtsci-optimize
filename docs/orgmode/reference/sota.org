@@ -128,8 +128,9 @@ Do not beat rematch (100/100 unless noted):
 | xtsci Fletcher–Reeves | 429282 (97 fail) | 44414 (69 fail) |
 | xtsci PSO | fail 100/100 | fail 100/100 |
 | sphere / Stiefel | fail 100/100 (maxiter) | maxiter ~11000 FC, 0 conv |
-| SO(3) | fail 100/100 (dim panic) | dim panic 9 vs 768 |
-| SE(3) | fail 100/100 (maxiter) | maxiter ~8000--9000 FC, 0 conv |
+| SO(3) | reject ~n!=9~ | not a 3N packing |
+| SE(3) | reject ~n!=12~ | not a 3N packing |
+| rigid_quotient / mw_rigid | Sella / IRC | ~R^{3N}/SE(3)~; Elja clocks not yet run |
 
 Dogleg is the only token that beats rematch, and only on LJ38.
 HiGHS on rematch is 153 on LJ38: better than OPTIM, worse than
@@ -140,8 +141,8 @@ tokens do not converge on these cluster / bulk geometries.
 
 | method | Borda | Class | Evidence |
 |---+---|---|---|
-| SO(3) | 11/12 crash bug | ~pack~ returns length 9 | ~so3.rs:23-34,109-121~; eindir ~bounds.rs:73~ is correct |
-| SE(3) | 10/12 contract | silent 9-prefix on any ~n>=12~ | ~se3.rs:12-37~; must reject ~n!=12~ |
+| SO(3) | 11/12 crash bug | ~n!=9~ is ~Error::ManifoldDim~ | ~so3.rs~ ~required_dim~; ~pack~ is never called on 3N |
+| SE(3) | 10/12 contract | ~n!=12~ is ~Error::ManifoldDim~ | ~se3.rs~ exact-12; no 9-prefix |
 | sphere | 12/12 misuse | impl correct, ~S^{3N-1}~ | ~sphere.rs:22-39~; cluster not on the unit sphere |
 | Stiefel | 12/12 alias | ~St(n,1)~ = sphere | ~stiefel.rs:11-23~; ~stiefel_p~ is always 1 |
 | HiGHS | 9/12 wrong QP | ~step_hess~ solves dense Newton QP | ~session.rs:322-336~; Morse ~n=768~ times out |
@@ -149,8 +150,9 @@ tokens do not converge on these cluster / bulk geometries.
 | SR2 | 8/12 bad update | non-secant rank-1 | ~qn.rs:265-281~ ~B += δ(y+Bs)^T / (δ·s)~ |
 | model Hessians | 11/12 wrong chemistry | covalent ~B^T k B~ vs pair | pair is the rematch ~P~ |
 
-SO(3) is the only panic: retract/project must not shrink ~x~.
-Sphere/Stiefel/SE(3) keep length and die on maxiter. PSO force
+SO(3) and SE(3) reject a 3N cluster. Sphere/Stiefel on 3N stay
+on ~S^{3N-1}~ and die on maxiter. Isolated molecules use
+~rigid_quotient~ or ~mw_rigid~. PSO force
 counts match ~max_iterations~ (10000 LJ38 / 1000 Morse) times
 swarm work, not a 230x230 product. SR2 has a denom skip; the
 update still fails the secant condition.
