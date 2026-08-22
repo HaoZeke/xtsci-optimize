@@ -1,10 +1,10 @@
-//! Stiefel \(\mathrm{St}(n,1)\): columns of an \(n\times p\) frame, \(p=1\) is the sphere.
+//! Stiefel \(\mathrm{St}(n,1)\): a single orthonormal column is the sphere.
 
 use ndarray::Array1;
 
-use super::{Manifold, sphere::Sphere};
+use super::{sphere::Sphere, Manifold};
 
-/// Stiefel with \(p=1\) (sphere). Wider frames land on a later branch.
+/// Stiefel with \(p=1\), packed as a length-\(n\) unit vector.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Stiefel;
 

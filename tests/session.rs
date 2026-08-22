@@ -1,7 +1,7 @@
 //! Persistent Session: one step is one outer iteration.
 
 use eindir_core::objectives::Rosenbrock;
-use ndarray::array;
+use ndarray::{array, Array1};
 use xtsci_optimize::{Control, Method, Solver};
 
 fn control() -> Control {
@@ -184,6 +184,161 @@ fn sphere_rayleigh_stays_on_the_sphere() {
         let nrm = (x[0] * x[0] + x[1] * x[1] + x[2] * x[2]).sqrt();
         assert!((nrm - 1.0).abs() < 1e-10, "left the sphere {x:?}");
     }
+}
+
+#[test]
+fn stiefel_p1_matches_sphere_retract() {
+    use xtsci_optimize::{Manifold, ManifoldKind};
+    let x = array![0.0, 1.0, 0.0];
+    let v = array![0.1, 0.0, -0.2];
+    let ys = ManifoldKind::Sphere.retract(&x, &v);
+    let yv = ManifoldKind::Stiefel.retract(&x, &v);
+    assert!((&ys - &yv).mapv(f64::abs).sum() < 1e-15);
+}
+
+#[test]
+fn so3_session_stays_orthogonal() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use xtsci_optimize::ManifoldKind;
+
+    struct FrobeniusI;
+    impl Objective<f64> for FrobeniusI {
+        fn dim(&self) -> usize {
+            9
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(9, -2.0), Array1::from_elem(9, 2.0), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            let i = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+            0.5 * x.iter().zip(i).map(|(a, b)| (a - b) * (a - b)).sum::<f64>()
+        }
+    }
+    impl Gradient<f64> for FrobeniusI {
+        fn dim(&self) -> usize {
+            9
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            let i = [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
+            Array1::from_iter(x.iter().zip(i).map(|(a, b)| a - b))
+        }
+    }
+    impl DifferentiableObjective<f64> for FrobeniusI {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = FrobeniusI;
+    let mut x = array![1.0, 0.1, 0.0, -0.1, 1.0, 0.0, 0.0, 0.0, 1.0];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 20,
+            gtol: 1e-8,
+            istep: 0.1,
+            maxmove: None,
+        },
+        9,
+    );
+    solver.set_manifold(ManifoldKind::So3);
+    solver.set_accept(xtsci_optimize::Accept::None);
+    for _ in 0..20 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        let mut rtr = [[0.0; 3]; 3];
+        for i in 0..3 {
+            for j in 0..3 {
+                rtr[i][j] = (0..3).map(|k| x[3 * k + i] * x[3 * k + j]).sum();
+            }
+        }
+        for i in 0..3 {
+            for j in 0..3 {
+                let want = if i == j { 1.0 } else { 0.0 };
+                assert!(
+                    (rtr[i][j] - want).abs() < 1e-10,
+                    "left SO(3) rtr={rtr:?} x={x:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn se3_session_keeps_rotation_and_moves_translation() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use xtsci_optimize::ManifoldKind;
+
+    struct Se3Target;
+    impl Objective<f64> for Se3Target {
+        fn dim(&self) -> usize {
+            12
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(12, -4.0), Array1::from_elem(12, 4.0), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            0.5 * (x[9] * x[9] + x[10] * x[10] + x[11] * x[11])
+        }
+    }
+    impl Gradient<f64> for Se3Target {
+        fn dim(&self) -> usize {
+            12
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            let mut g = Array1::zeros(12);
+            g[9] = x[9];
+            g[10] = x[10];
+            g[11] = x[11];
+            g
+        }
+    }
+    impl DifferentiableObjective<f64> for Se3Target {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = Se3Target;
+    let mut x = array![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 1.5, -0.7, 0.4];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 30,
+            gtol: 1e-10,
+            istep: 0.4,
+            maxmove: None,
+        },
+        12,
+    );
+    solver.set_manifold(ManifoldKind::Se3);
+    solver.set_accept(xtsci_optimize::Accept::None);
+    for _ in 0..30 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        let mut rtr = [[0.0; 3]; 3];
+        for i in 0..3 {
+            for j in 0..3 {
+                rtr[i][j] = (0..3).map(|k| x[3 * k + i] * x[3 * k + j]).sum();
+            }
+        }
+        for i in 0..3 {
+            for j in 0..3 {
+                let want = if i == j { 1.0 } else { 0.0 };
+                assert!((rtr[i][j] - want).abs() < 1e-10, "left SE(3) rot {rtr:?}");
+            }
+        }
+    }
+    let t2 = x[9] * x[9] + x[10] * x[10] + x[11] * x[11];
+    assert!(t2 < 1e-6, "translation not killed {x:?}");
 }
 
 #[test]
