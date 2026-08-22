@@ -261,6 +261,32 @@ impl Solver {
         g
     }
 
+    /// Vector transport. Quotient manifolds project at the arrival point.
+    fn transport_vec(
+        &self,
+        x_from: &Array1<f64>,
+        x_to: &Array1<f64>,
+        v: &Array1<f64>,
+    ) -> Array1<f64> {
+        match self.manifold {
+            ManifoldKind::RigidQuotient | ManifoldKind::MwRigid => self.project_vec(x_to, v),
+            other => other.transport(x_from, x_to, v),
+        }
+    }
+
+    /// Riemannian L-BFGS pair at `x`: `s = T(x - old)`, `y = g - T(g_old)`.
+    fn lbfgs_sy(
+        &self,
+        old: &Array1<f64>,
+        x: &Array1<f64>,
+        gold: &Array1<f64>,
+        grad: &Array1<f64>,
+    ) -> (Array1<f64>, Array1<f64>) {
+        let s = self.transport_vec(old, x, &(x - old));
+        let y = grad - &self.transport_vec(old, x, gold);
+        (s, y)
+    }
+
     fn same_last_x(&self, x: &Array1<f64>) -> bool {
         match &self.last_pos {
             Some(p) if p.len() == x.len() => p
@@ -406,11 +432,16 @@ impl Solver {
                     value = nval;
                     grad = ngrad;
                 }
+                grad = self.horizontal_grad(x, &grad);
                 self.remember(x, value, &grad);
-                if let Inner::Lbfgs(solver) = &mut self.inner {
-                    if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
-                        solver.push_pair(&*x - &old, &grad - &gold, Some(l2(&grad)));
-                    }
+                let pair = if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
+                    let (s, y) = self.lbfgs_sy(&old, x, &gold, &grad);
+                    Some((s, y, l2(&grad)))
+                } else {
+                    None
+                };
+                if let (Inner::Lbfgs(solver), Some((s, y, gn))) = (&mut self.inner, pair) {
+                    solver.push_pair(s, y, Some(gn));
                 }
                 self.steps += 1;
                 return Ok(Report {
@@ -457,7 +488,8 @@ impl Solver {
         grad = self.horizontal_grad(x, &grad);
         self.remember(x, value, &grad);
         let pair = if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
-            Some((self.project_vec(x, &(&*x - &old)), &grad - &gold, l2(&grad)))
+            let (s, y) = self.lbfgs_sy(&old, x, &gold, &grad);
+            Some((s, y, l2(&grad)))
         } else {
             None
         };
@@ -571,6 +603,7 @@ impl Solver {
         }
 
         let start = x.clone();
+        let gold = grad.clone();
         match &mut self.inner {
             Inner::Lbfgs(solver) => {
                 solver.step_objective(
@@ -788,6 +821,18 @@ impl Solver {
             grad = ev.1;
         }
         grad = self.horizontal_grad(x, &grad);
+
+        let pair = if matches!(self.inner, Inner::Lbfgs(_))
+            && x.iter().zip(start.iter()).any(|(a, b)| a != b)
+        {
+            let (s, y) = self.lbfgs_sy(&start, x, &gold, &grad);
+            Some((s, y, l2(&grad)))
+        } else {
+            None
+        };
+        if let (Inner::Lbfgs(solver), Some((s, y, gn))) = (&mut self.inner, pair) {
+            solver.replace_newest(s, y, Some(gn));
+        }
 
         self.remember(x, value, &grad);
         self.steps += 1;

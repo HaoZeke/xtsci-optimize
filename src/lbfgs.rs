@@ -203,6 +203,12 @@ impl Lbfgs {
         self.push_pair(s, y, None);
     }
 
+    /// Drop the newest pair, then push. Used after a manifold retract.
+    pub(crate) fn replace_newest(&mut self, s: Array1<f64>, y: Array1<f64>, gnorm: Option<f64>) {
+        let _ = self.memory.pop();
+        self.push_pair(s, y, gnorm);
+    }
+
     pub(crate) fn push_pair(&mut self, s: Array1<f64>, y: Array1<f64>, gnorm: Option<f64>) {
         let sy = s.dot(&y);
         let sn = s.iter().map(|v| v * v).sum::<f64>().sqrt();
