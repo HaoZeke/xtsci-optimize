@@ -19,8 +19,8 @@ use eindir_core::ffi::{
 };
 
 use crate::{
-    Control, HessianOracle, LineSearch, Method, NewtonKind, Oracle, Solver, minimize_method,
-    minimize_newton,
+    Control, HessianOracle, LineSearch, Method, NewtonKind, Oracle, QnStep, Solver,
+    minimize_method, minimize_newton,
 };
 
 /// Status codes. 0 is success, matching metatensor / eindir.
@@ -50,7 +50,7 @@ pub struct xts_abi_stamp_t {
 }
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
-pub const XTS_ABI_VERSION_MINOR: u16 = 2;
+pub const XTS_ABI_VERSION_MINOR: u16 = 3;
 pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -802,6 +802,35 @@ pub unsafe extern "C" fn xts_solver_set_maxmove(solver: *mut xts_solver_t, maxmo
         return;
     }
     unsafe { (*solver).solver.set_maxmove(maxmove) };
+}
+
+/// How an L-BFGS session uses a caller Hessian (eOn `lbfgs_step`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum xts_qn_step_t {
+    /// Two-loop. A supplied Hessian is \(H_0 = P^{-1}\).
+    XTS_QN_LBFGS = 0,
+    /// Regularized Newton on the caller Hessian.
+    XTS_QN_NEWTON = 1,
+    /// Banerjee RFO on the caller Hessian.
+    XTS_QN_RFO = 2,
+}
+
+/// eOn `lbfgs_step`. Legal on an `XTS_LBFGS` session with [`xts_solver_step_hess`].
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_qn_step(
+    solver: *mut xts_solver_t,
+    step: xts_qn_step_t,
+) {
+    if solver.is_null() {
+        return;
+    }
+    let qn = match step {
+        xts_qn_step_t::XTS_QN_NEWTON => QnStep::Newton,
+        xts_qn_step_t::XTS_QN_RFO => QnStep::Rfo,
+        xts_qn_step_t::XTS_QN_LBFGS => QnStep::TwoLoop,
+    };
+    unsafe { (*solver).solver.set_qn_step(qn) };
 }
 
 /// One outer iteration. `x` is in/out. Callbacks live for this call only.

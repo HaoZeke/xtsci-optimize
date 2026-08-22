@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 2
+#define XTS_ABI_VERSION_MINOR 3
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -155,6 +155,14 @@ void xts_solver_free(xts_solver_t *solver);
 void xts_solver_forget(xts_solver_t *solver);
 /** Euclidean step cap for the next \ref xts_solver_step (saddle \c max_move). */
 void xts_solver_set_maxmove(xts_solver_t *solver, double maxmove);
+/** How an L-BFGS session uses a caller Hessian (eOn \c lbfgs_step). */
+typedef enum xts_qn_step_t {
+    XTS_QN_LBFGS = 0,
+    XTS_QN_NEWTON = 1,
+    XTS_QN_RFO = 2
+} xts_qn_step_t;
+/** Two-loop + H0, or Newton/RFO on P. Legal with \ref xts_solver_step_hess. */
+void xts_solver_set_qn_step(xts_solver_t *solver, xts_qn_step_t step);
 /**
  * One outer iteration: direction, line search, curvature update.
  * \a eval and \a grad are valid for this call only. \a x is in/out.

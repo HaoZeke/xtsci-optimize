@@ -396,7 +396,7 @@ fn version_is_nul_terminated() {
 fn abi_stamp_identifies_this_optimizer_layout() {
     let stamp = xts_abi_stamp();
     assert_eq!(stamp.abi_major, 1);
-    assert_eq!(stamp.abi_minor, 2);
+    assert_eq!(stamp.abi_minor, 3);
     assert_eq!(stamp.layout_revision, 2);
     assert_eq!(unsafe { xts_abi_compatible(&stamp) }, 1);
 }

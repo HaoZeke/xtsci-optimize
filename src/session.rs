@@ -17,6 +17,7 @@ use crate::newton::{
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
 use crate::pso::{random_velocity, update_swarm, Particle, RNG_SEED};
 use crate::qn::{bfgs_inverse_update, solve_dense, sr1_inverse_update, sr2_hessian_update};
+use crate::qn_step::QnStep;
 use crate::report::Report;
 use crate::step::{l2, next_istep, take_step};
 
@@ -27,6 +28,7 @@ pub struct Solver {
     linesearch: LineSearch,
     istep: f64,
     steps: usize,
+    qn_step: QnStep,
     inner: Inner,
 }
 
@@ -89,8 +91,14 @@ impl Solver {
             linesearch: LineSearch::default(),
             istep,
             steps: 0,
+            qn_step: QnStep::TwoLoop,
             inner,
         }
+    }
+
+    /// eOn `lbfgs_step`. Newton / RFO need a Hessian on [`Self::step_hess`].
+    pub fn set_qn_step(&mut self, step: QnStep) {
+        self.qn_step = step;
     }
 
     /// Euclidean cap applied on the next [`Self::step`].
@@ -149,8 +157,13 @@ impl Solver {
                 dim: self.dim,
             });
         }
-        let kind = match self.inner {
-            Inner::Newton { kind } => kind,
+        let newton_kind = match &self.inner {
+            Inner::Newton { kind } => Some(*kind),
+            Inner::Lbfgs(_) => match self.qn_step {
+                QnStep::Newton => Some(NewtonKind::Shifted),
+                QnStep::Rfo => Some(NewtonKind::Rfo),
+                QnStep::TwoLoop => None,
+            },
             _ => return self.step_first_order(obj, x),
         };
         *x = obj.bounds().clip(x.view());
@@ -165,10 +178,18 @@ impl Solver {
             });
         }
         let hess = obj.hessian(x.view());
-        let dir = match kind {
-            NewtonKind::Shifted => shifted_newton(&hess, &grad),
-            NewtonKind::Rfo => rfo_direction(&hess, &grad),
+        let dir = if let Some(kind) = newton_kind {
+            match kind {
+                NewtonKind::Shifted => shifted_newton(&hess, &grad),
+                NewtonKind::Rfo => rfo_direction(&hess, &grad),
+            }
+        } else if let Inner::Lbfgs(solver) = &self.inner {
+            solver.direction_with_precon(grad.view(), Some(&hess))
+        } else {
+            return self.step_first_order(obj, x);
         };
+        let old = x.clone();
+        let gold = grad.clone();
         let (npos, nval, ngrad, moved) =
             energy_backtrack(obj, x, value, &dir, &self.control);
         if moved {
@@ -176,13 +197,18 @@ impl Solver {
             value = nval;
             grad = ngrad;
         } else {
-            let sd = grad.mapv(|g| -g);
+            let sd = gold.mapv(|g| -g);
             let (spos, sval, sgrad, sok) =
-                energy_backtrack(obj, x, value, &sd, &self.control);
+                energy_backtrack(obj, &old, value, &sd, &self.control);
             if sok {
                 *x = spos;
                 value = sval;
                 grad = sgrad;
+            }
+        }
+        if let Inner::Lbfgs(solver) = &mut self.inner {
+            if (*x - &old).iter().any(|v| *v != 0.0) {
+                solver.push(&*x - &old, &grad - &gold);
             }
         }
         self.steps += 1;

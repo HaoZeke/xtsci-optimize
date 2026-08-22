@@ -19,7 +19,8 @@ xts_solver_t *s = xts_solver_create(XTS_LBFGS, &ctrl, n);
 xts_report_t report;
 while (!done) {
     xts_solver_set_maxmove(s, max_move);
-    xts_solver_step(s, eval, grad, user, x, &report);
+    xts_solver_set_qn_step(s, XTS_QN_NEWTON); /* or XTS_QN_LBFGS + P as H0 */
+    xts_solver_step_hess(s, eval, grad, hess, user, x, &report);
 }
 xts_solver_free(s);
 #+end_src

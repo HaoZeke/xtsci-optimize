@@ -42,6 +42,7 @@ pub mod newton;
 mod oracle;
 mod pso;
 mod qn;
+mod qn_step;
 mod report;
 mod step;
 
@@ -59,5 +60,6 @@ pub use nlcg::{Conjugacy, ConjugacyContext, Restart};
 pub use oracle::Oracle;
 pub use pso::minimize_pso;
 pub use qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1, minimize_sr2};
+pub use qn_step::QnStep;
 pub use report::Report;
 pub use session::Solver;

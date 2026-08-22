@@ -21,6 +21,7 @@ use crate::control::Control;
 use crate::error::{Error, Result};
 use crate::linesearch::LineSearch;
 use crate::report::Report;
+use crate::qn::solve_dense;
 use crate::step::{l2, next_istep, take_step};
 use eindir_core::{DifferentiableObjective, Objective};
 
@@ -128,6 +129,16 @@ impl Lbfgs {
 
     /// Two-loop recursion: applies the inverse-Hessian approximation to `g`.
     pub(crate) fn direction(&self, g: ArrayView1<f64>) -> Array1<f64> {
+        self.direction_with_precon(g, None)
+    }
+
+    /// Two-loop with optional \(H_0 = P^{-1}\). `precon` is the pair / Lindh
+    /// matrix \(P\); the middle product is `solve(P, q)`, not a scalar γ.
+    pub(crate) fn direction_with_precon(
+        &self,
+        g: ArrayView1<f64>,
+        precon: Option<&ndarray::Array2<f64>>,
+    ) -> Array1<f64> {
         let mut q = g.to_owned();
         let m = self.memory.len();
         let mut alpha = vec![0.0; m];
@@ -136,18 +147,26 @@ impl Lbfgs {
             alpha[i] = a;
             q.scaled_add(-a, &p.y);
         }
-        // Scale by the most recent pair's curvature (Nocedal-Wright 7.20).
-        if let Some(p) = self.memory.last() {
-            let yy = p.y.dot(&p.y);
-            if yy > 0.0 {
-                q *= p.s.dot(&p.y) / yy;
-            }
+        if let Some(pmat) = precon {
+            q = solve_dense(pmat, &q).unwrap_or_else(|| self.scale_gamma(q));
+        } else {
+            q = self.scale_gamma(q);
         }
         for (i, p) in self.memory.iter().enumerate() {
             let b = p.rho * p.y.dot(&q);
             q.scaled_add(alpha[i] - b, &p.s);
         }
         q.mapv_inplace(|v| -v);
+        q
+    }
+
+    fn scale_gamma(&self, mut q: Array1<f64>) -> Array1<f64> {
+        if let Some(p) = self.memory.last() {
+            let yy = p.y.dot(&p.y);
+            if yy > 0.0 {
+                q *= p.s.dot(&p.y) / yy;
+            }
+        }
         q
     }
 

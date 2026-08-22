@@ -83,6 +83,56 @@ fn retained_pairs_beat_a_cold_start() {
 }
 
 #[test]
+#[test]
+fn lbfgs_newton_on_a_supplied_hessian_kills_a_quadratic() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::{Array2, ArrayView1};
+    use xtsci_optimize::{HessianObjective, QnStep};
+
+    struct Quad;
+    impl Objective<f64> for Quad {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(array![-1e6, -1e6], array![1e6, 1e6], 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            5.0 * x[0] * x[0] + 0.5 * x[1] * x[1]
+        }
+    }
+    impl Gradient<f64> for Quad {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> ndarray::Array1<f64> {
+            array![10.0 * x[0], x[1]]
+        }
+    }
+    impl DifferentiableObjective<f64> for Quad {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, ndarray::Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+    impl HessianObjective for Quad {
+        fn hessian(&self, _x: ArrayView1<f64>) -> Array2<f64> {
+            Array2::from_shape_vec((2, 2), vec![10.0, 0.0, 0.0, 1.0]).unwrap()
+        }
+    }
+
+    let obj = Quad;
+    let mut x = array![2.0, -3.0];
+    let mut solver = Solver::new(Method::lbfgs(), control(), 2).with_gtol(1e-10);
+    solver.set_qn_step(QnStep::Newton);
+    let rep = solver.step_hess(&obj, &mut x).unwrap();
+    assert!(rep.value < 1e-12, "newton-on-P value {}", rep.value);
+    assert!(x.iter().all(|v| v.abs() < 1e-6));
+}
+
 fn nlcg_second_step_is_not_steepest() {
     let obj = Rosenbrock::<2>::new();
     let mut a = array![-1.2, 1.0];
