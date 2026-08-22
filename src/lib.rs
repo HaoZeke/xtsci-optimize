@@ -44,6 +44,7 @@ mod pso;
 mod qn;
 mod qn_step;
 mod report;
+mod rigid;
 mod session;
 mod step;
 

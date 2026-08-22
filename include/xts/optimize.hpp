@@ -188,6 +188,16 @@ public:
     void set_maxmove(double m) { xts_solver_set_maxmove(ptr_, m); }
     void set_qn_step(xts_qn_step_t step) { xts_solver_set_qn_step(ptr_, step); }
     void set_accept(xts_accept_t accept) { xts_solver_set_accept(ptr_, accept); }
+    void set_atom_maxmove(double m) { xts_solver_set_atom_maxmove(ptr_, m); }
+    void set_project_rigid(bool on) {
+        xts_solver_set_project_rigid(ptr_, on ? 1 : 0);
+    }
+    void set_extra_updates(std::size_t n) {
+        xts_solver_set_extra_updates(ptr_, n);
+    }
+    void set_cautious(double eps, double alpha) {
+        xts_solver_set_cautious(ptr_, eps, alpha);
+    }
 
     Report step(xts_eval_fn eval, xts_grad_fn grad, void* user,
                 DLManagedTensorVersioned* x) {

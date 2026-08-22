@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 4
+#define XTS_ABI_VERSION_MINOR 5
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -175,6 +175,10 @@ typedef enum xts_accept_t {
     XTS_ACCEPT_NONMONOTONE = 2
 } xts_accept_t;
 void xts_solver_set_accept(xts_solver_t *solver, xts_accept_t accept);
+void xts_solver_set_atom_maxmove(xts_solver_t *solver, double maxmove);
+void xts_solver_set_project_rigid(xts_solver_t *solver, int32_t enabled);
+void xts_solver_set_extra_updates(xts_solver_t *solver, size_t extra);
+void xts_solver_set_cautious(xts_solver_t *solver, double eps, double alpha);
 /**
  * One outer iteration: direction, line search, curvature update.
  * \a eval and \a grad are valid for this call only. \a x is in/out.

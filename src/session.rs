@@ -20,6 +20,7 @@ use crate::pso::{random_velocity, update_swarm, Particle, RNG_SEED};
 use crate::qn::{bfgs_inverse_update, solve_dense, sr1_inverse_update, sr2_hessian_update};
 use crate::qn_step::QnStep;
 use crate::report::Report;
+use crate::rigid::project_out_rot_trans;
 use crate::step::{l2, next_istep, take_step};
 
 /// Long-lived solver. Algorithm memory lives here; `x` stays with the caller.
@@ -32,6 +33,8 @@ pub struct Solver {
     qn_step: QnStep,
     accept: Accept,
     e_hist: VecDeque<f64>,
+    atom_maxmove: Option<f64>,
+    project_rigid: bool,
     inner: Inner,
 }
 
@@ -97,6 +100,8 @@ impl Solver {
             qn_step: QnStep::TwoLoop,
             accept: Accept::None,
             e_hist: VecDeque::new(),
+            atom_maxmove: None,
+            project_rigid: false,
             inner,
         }
     }
@@ -114,6 +119,31 @@ impl Solver {
     /// Euclidean cap applied on the next [`Self::step`].
     pub fn set_maxmove(&mut self, maxmove: f64) {
         self.control.maxmove = if maxmove > 0.0 { Some(maxmove) } else { None };
+    }
+
+    /// eOn `maxAtomMotionAppliedV`. Preferred over the Euclidean cap.
+    pub fn set_atom_maxmove(&mut self, maxmove: f64) {
+        self.atom_maxmove = if maxmove > 0.0 { Some(maxmove) } else { None };
+    }
+
+    /// eOn `lbfgs_project_rigid`. Isolated clusters only.
+    pub fn set_project_rigid(&mut self, enabled: bool) {
+        self.project_rigid = enabled;
+    }
+
+    /// Al-Baali extra-updates on the newest L-BFGS pair.
+    pub fn set_extra_updates(&mut self, extra: usize) {
+        if let Inner::Lbfgs(solver) = &mut self.inner {
+            solver.extra_updates = extra;
+        }
+    }
+
+    /// Li-Fukushima cautious pair filter. `eps <= 0` disables it.
+    pub fn set_cautious(&mut self, eps: f64, alpha: f64) {
+        if let Inner::Lbfgs(solver) = &mut self.inner {
+            solver.cautious_eps = eps;
+            solver.cautious_alpha = alpha;
+        }
     }
 
     /// Drop method memory. The next step is a cold start from the current `x`.
@@ -179,6 +209,9 @@ impl Solver {
         };
         *x = obj.bounds().clip(x.view());
         let (mut value, mut grad) = obj.value_and_gradient(x.view());
+        if self.project_rigid {
+            project_out_rot_trans(&mut grad, x.view());
+        }
         let gnorm = l2(&grad);
         if gnorm < self.control.gtol {
             return Ok(Report {
@@ -189,7 +222,7 @@ impl Solver {
             });
         }
         let hess = obj.hessian(x.view());
-        let dir = if let Some(kind) = newton_kind {
+        let mut dir = if let Some(kind) = newton_kind {
             match kind {
                 NewtonKind::Shifted => shifted_newton(&hess, &grad),
                 NewtonKind::Rfo => rfo_direction(&hess, &grad),
@@ -199,6 +232,9 @@ impl Solver {
         } else {
             return self.step_first_order(obj, x);
         };
+        if self.project_rigid {
+            project_out_rot_trans(&mut dir, x.view());
+        }
         let old = x.clone();
         let gold = grad.clone();
         let (npos, nval, ngrad, moved) = accept_step(
@@ -210,6 +246,7 @@ impl Solver {
             &self.control,
             self.accept,
             &mut self.e_hist,
+            self.atom_maxmove,
         );
         if moved {
             *x = npos;
@@ -218,7 +255,7 @@ impl Solver {
         }
         if let Inner::Lbfgs(solver) = &mut self.inner {
             if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
-                solver.push(&*x - &old, &grad - &gold);
+                solver.push_pair(&*x - &old, &grad - &gold, Some(l2(&grad)));
             }
         }
         self.steps += 1;

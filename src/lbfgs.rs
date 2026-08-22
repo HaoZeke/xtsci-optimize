@@ -61,6 +61,12 @@ pub struct Lbfgs {
     pub max_line_evals: usize,
     /// Norm used against [`Lbfgs::gtol`].
     pub norm: GradNorm,
+    /// Al-Baali extra-updates: replay the newest pair this many extra times.
+    pub extra_updates: usize,
+    /// Li-Fukushima cautious `ε`. Zero disables the filter.
+    pub cautious_eps: f64,
+    /// Li-Fukushima cautious `α`.
+    pub cautious_alpha: f64,
     /// When set, each direction is the HiGHS QP on the compact Hessian
     /// rather than the two-loop recursion.
     #[cfg(feature = "highs")]
@@ -84,6 +90,9 @@ impl Lbfgs {
             curvature: 0.9,
             max_line_evals: 20,
             norm: GradNorm::Infinity,
+            extra_updates: 0,
+            cautious_eps: 0.0,
+            cautious_alpha: 0.01,
             #[cfg(feature = "highs")]
             highs: None,
         }
@@ -141,10 +150,18 @@ impl Lbfgs {
     ) -> Array1<f64> {
         let mut q = g.to_owned();
         let m = self.memory.len();
-        let mut alpha = vec![0.0; m];
-        for (i, p) in self.memory.iter().enumerate().rev() {
+        let mut idxs: Vec<usize> = (0..m).collect();
+        for _ in 0..self.extra_updates {
+            if m > 0 {
+                idxs.push(m - 1);
+            }
+        }
+        let mut alpha = vec![0.0; idxs.len()];
+        for k in (0..idxs.len()).rev() {
+            let i = idxs[k];
+            let p = &self.memory[i];
             let a = p.rho * p.s.dot(&q);
-            alpha[i] = a;
+            alpha[k] = a;
             q.scaled_add(-a, &p.y);
         }
         if let Some(pmat) = precon {
@@ -152,9 +169,11 @@ impl Lbfgs {
         } else {
             q = self.scale_gamma(q);
         }
-        for (i, p) in self.memory.iter().enumerate() {
+        for k in 0..idxs.len() {
+            let i = idxs[k];
+            let p = &self.memory[i];
             let b = p.rho * p.y.dot(&q);
-            q.scaled_add(alpha[i] - b, &p.s);
+            q.scaled_add(alpha[k] - b, &p.s);
         }
         q.mapv_inplace(|v| -v);
         q
@@ -181,9 +200,22 @@ impl Lbfgs {
     }
 
     pub(crate) fn push(&mut self, s: Array1<f64>, y: Array1<f64>) {
+        self.push_pair(s, y, None);
+    }
+
+    pub(crate) fn push_pair(&mut self, s: Array1<f64>, y: Array1<f64>, gnorm: Option<f64>) {
         let sy = s.dot(&y);
         let sn = s.iter().map(|v| v * v).sum::<f64>().sqrt();
         let yn = y.iter().map(|v| v * v).sum::<f64>().sqrt();
+        let ss = sn * sn;
+        if self.cautious_eps > 0.0 {
+            if let Some(g) = gnorm {
+                let thresh = self.cautious_eps * ss * g.max(1.0e-30).powf(self.cautious_alpha);
+                if sy < thresh {
+                    return;
+                }
+            }
+        }
         // Relative curvature: a tiny accepted trust step makes the
         // compact Hessian indefinite and HiGHS's QP solver does not return.
         if !sy.is_finite() || sy <= 1e-8 * sn * yn {

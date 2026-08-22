@@ -49,7 +49,7 @@ pub struct xts_abi_stamp_t {
 }
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
-pub const XTS_ABI_VERSION_MINOR: u16 = 4;
+pub const XTS_ABI_VERSION_MINOR: u16 = 5;
 pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -855,6 +855,42 @@ pub unsafe extern "C" fn xts_solver_set_accept(solver: *mut xts_solver_t, accept
         xts_accept_t::XTS_ACCEPT_NONE => Accept::None,
     };
     unsafe { (*solver).solver.set_accept(a) };
+}
+
+/// eOn `maxAtomMotionAppliedV`. Non-positive disables it.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_atom_maxmove(solver: *mut xts_solver_t, maxmove: f64) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_atom_maxmove(maxmove) };
+}
+
+/// eOn `lbfgs_project_rigid`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_project_rigid(solver: *mut xts_solver_t, enabled: i32) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_project_rigid(enabled != 0) };
+}
+
+/// Al-Baali extra-updates on the newest L-BFGS pair.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_extra_updates(solver: *mut xts_solver_t, extra: usize) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_extra_updates(extra) };
+}
+
+/// Li-Fukushima cautious pair filter. `eps <= 0` disables it.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_cautious(solver: *mut xts_solver_t, eps: f64, alpha: f64) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_cautious(eps, alpha) };
 }
 
 /// One outer iteration. `x` is in/out. Callbacks live for this call only.

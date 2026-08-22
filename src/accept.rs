@@ -6,7 +6,7 @@ use eindir_core::DifferentiableObjective;
 use ndarray::Array1;
 
 use crate::control::Control;
-use crate::step::scale_step;
+use crate::step::{scale_step, scale_step_atom};
 
 const ENERGY_RISE: f64 = 1.0e-8;
 const WINDOW: usize = 5;
@@ -29,12 +29,15 @@ fn trial_point<O>(
     dir: &Array1<f64>,
     alpha: f64,
     control: &Control,
+    atom_maxmove: Option<f64>,
 ) -> Array1<f64>
 where
     O: DifferentiableObjective<f64> + ?Sized,
 {
     let mut trial = pos + &(dir * alpha);
-    if let Some(cap) = control.maxmove {
+    if let Some(cap) = atom_maxmove {
+        scale_step_atom(pos, &mut trial, cap);
+    } else if let Some(cap) = control.maxmove {
         scale_step(pos, &mut trial, cap);
     }
     obj.bounds().clip(trial.view())
@@ -57,13 +60,14 @@ pub(crate) fn accept_step<O>(
     control: &Control,
     accept: Accept,
     e_hist: &mut VecDeque<f64>,
+    atom_maxmove: Option<f64>,
 ) -> (Array1<f64>, f64, Array1<f64>, bool)
 where
     O: DifferentiableObjective<f64> + ?Sized,
 {
     match accept {
         Accept::None => {
-            let trial = trial_point(obj, pos, dir, 1.0, control);
+            let trial = trial_point(obj, pos, dir, 1.0, control, atom_maxmove);
             let (ft, gt) = obj.value_and_gradient(trial.view());
             push_energy(e_hist, ft);
             (trial, ft, gt, true)
@@ -77,7 +81,7 @@ where
             }
             let mut alpha = 1.0;
             for _ in 0..10 {
-                let trial = trial_point(obj, pos, dir, alpha, control);
+                let trial = trial_point(obj, pos, dir, alpha, control, atom_maxmove);
                 let (ft, gt) = obj.value_and_gradient(trial.view());
                 if ft - ref_e <= ENERGY_RISE {
                     push_energy(e_hist, ft);
@@ -86,7 +90,7 @@ where
                 alpha *= 0.5;
             }
             let sd = grad.mapv(|g| -g);
-            let trial = trial_point(obj, pos, &sd, 0.1, control);
+            let trial = trial_point(obj, pos, &sd, 0.1, control, atom_maxmove);
             let (ft, gt) = obj.value_and_gradient(trial.view());
             push_energy(e_hist, ft);
             (trial, ft, gt, true)
@@ -151,8 +155,17 @@ mod tests {
         let dir = array![1.0];
         let g = array![2.0];
         let mut hist = VecDeque::new();
-        let (x, f, _, moved) =
-            accept_step(&obj, &pos, 1.0, &g, &dir, &ctrl(), Accept::None, &mut hist);
+        let (x, f, _, moved) = accept_step(
+            &obj,
+            &pos,
+            1.0,
+            &g,
+            &dir,
+            &ctrl(),
+            Accept::None,
+            &mut hist,
+            None,
+        );
         assert!(moved);
         assert!((x[0] - 2.0).abs() < 1e-15);
         assert!((f - 4.0).abs() < 1e-15);
@@ -177,6 +190,7 @@ mod tests {
             &ctrl(),
             Accept::Energy,
             &mut hist,
+            None,
         );
         // 10 rejected halvings + one short steepest fallback.
         assert_eq!(obj.evals.load(Ordering::Relaxed), 11);

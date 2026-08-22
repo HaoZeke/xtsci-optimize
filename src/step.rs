@@ -25,6 +25,59 @@ pub(crate) fn scale_step(origin: &Array1<f64>, trial: &mut Array1<f64>, cap: f64
     }
 }
 
+/// eOn `maxAtomMotionAppliedV`: scale the whole step so the largest
+/// per-atom displacement is at most `cap`.
+pub(crate) fn scale_step_atom(origin: &Array1<f64>, trial: &mut Array1<f64>, cap: f64) {
+    let n = trial.len();
+    let mut max_atom = 0.0;
+    let mut i = 0;
+    while i + 3 <= n {
+        let dx = trial[i] - origin[i];
+        let dy = trial[i + 1] - origin[i + 1];
+        let dz = trial[i + 2] - origin[i + 2];
+        let r = (dx * dx + dy * dy + dz * dz).sqrt();
+        if r > max_atom {
+            max_atom = r;
+        }
+        i += 3;
+    }
+    if i < n {
+        let mut r2 = 0.0;
+        while i < n {
+            let d = trial[i] - origin[i];
+            r2 += d * d;
+            i += 1;
+        }
+        max_atom = max_atom.max(r2.sqrt());
+    }
+    if max_atom > cap && max_atom > 0.0 {
+        let s = cap / max_atom;
+        for k in 0..n {
+            trial[k] = origin[k] + s * (trial[k] - origin[k]);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ndarray::array;
+
+    #[test]
+    fn atom_cap_does_not_crush_a_uniform_cluster_step() {
+        // 2 atoms each move 0.15. Per-atom cap 0.2 keeps the step.
+        // A Euclidean 0.2 cap would scale it down.
+        let origin = array![0.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+        let mut trial = array![0.15, 0.0, 0.0, 1.15, 0.0, 0.0];
+        scale_step_atom(&origin, &mut trial, 0.2);
+        assert!((trial[0] - 0.15).abs() < 1e-15);
+        assert!((trial[3] - 1.15).abs() < 1e-15);
+        let mut eucl = array![0.15, 0.0, 0.0, 1.15, 0.0, 0.0];
+        scale_step(&origin, &mut eucl, 0.2);
+        assert!(eucl[0] < 0.15 - 1e-6);
+    }
+}
+
 /// Line search, clip to bounds, optional maxmove. Returns `(x, f, |α|, moved)`.
 pub(crate) fn take_step<O>(
     obj: &O,
