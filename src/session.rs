@@ -154,7 +154,10 @@ impl Solver {
 
     fn same_last_x(&self, x: &Array1<f64>) -> bool {
         match &self.last_pos {
-            Some(p) if p.len() == x.len() => p.iter().zip(x.iter()).all(|(a, b)| a == b),
+            Some(p) if p.len() == x.len() => p
+                .iter()
+                .zip(x.iter())
+                .all(|(a, b)| (*a - *b).abs() <= 1e-15),
             _ => false,
         }
     }
@@ -227,8 +230,11 @@ impl Solver {
             },
             _ => return self.step_first_order(obj, x),
         };
-        *x = obj.bounds().clip(x.view());
-        let (mut value, mut grad) = if self.same_last_x(x) {
+        let cached = self.same_last_x(x);
+        if !cached {
+            *x = obj.bounds().clip(x.view());
+        }
+        let (mut value, mut grad) = if cached {
             (self.last_value, self.last_grad.clone())
         } else {
             obj.value_and_gradient(x.view())
