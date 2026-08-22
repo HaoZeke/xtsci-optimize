@@ -352,6 +352,101 @@ fn default_manifold_is_euclidean() {
 }
 
 #[test]
+fn so3_rejects_a_3n_cluster() {
+    let obj = Rosenbrock::<6>::new();
+    let mut x = Array1::from_elem(6, 0.1);
+    let mut solver = Solver::new(Method::Steepest, control(), 6);
+    solver.set_manifold(xtsci_optimize::ManifoldKind::So3);
+    let err = solver.step(&obj, &mut x).unwrap_err();
+    match err {
+        xtsci_optimize::Error::ManifoldDim { kind, got } => {
+            assert_eq!(kind, "so3");
+            assert_eq!(got, 6);
+        }
+        other => panic!("expected ManifoldDim, got {other:?}"),
+    }
+}
+
+#[test]
+fn se3_rejects_a_3n_cluster() {
+    let obj = Rosenbrock::<114>::new();
+    let mut x = Array1::from_elem(114, 0.1);
+    let mut solver = Solver::new(Method::Steepest, control(), 114);
+    solver.set_manifold(xtsci_optimize::ManifoldKind::Se3);
+    let err = solver.step(&obj, &mut x).unwrap_err();
+    match err {
+        xtsci_optimize::Error::ManifoldDim { kind, got } => {
+            assert_eq!(kind, "se3");
+            assert_eq!(got, 114);
+        }
+        other => panic!("expected ManifoldDim, got {other:?}"),
+    }
+}
+
+#[test]
+fn rigid_quotient_drops_translation_and_keeps_3n() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+
+    struct Pair;
+    impl Objective<f64> for Pair {
+        fn dim(&self) -> usize {
+            9
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(9, -4.0), Array1::from_elem(9, 4.0), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            let d01 = (x[0] - x[3]).powi(2) + (x[1] - x[4]).powi(2) + (x[2] - x[5]).powi(2);
+            let d02 = (x[0] - x[6]).powi(2) + (x[1] - x[7]).powi(2) + (x[2] - x[8]).powi(2);
+            0.5 * ((d01.sqrt() - 1.0).powi(2) + (d02.sqrt() - 1.0).powi(2))
+        }
+    }
+    impl Gradient<f64> for Pair {
+        fn dim(&self) -> usize {
+            9
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            let e = 1e-6;
+            let f0 = self.eval(x);
+            let mut g = Array1::zeros(9);
+            let mut y = x.to_owned();
+            for i in 0..9 {
+                y[i] += e;
+                g[i] = (self.eval(y.view()) - f0) / e;
+                y[i] = x[i];
+            }
+            g
+        }
+    }
+    impl DifferentiableObjective<f64> for Pair {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = Pair;
+    let mut x = array![0.0, 0.0, 0.0, 1.2, 0.0, 0.0, 0.0, 1.2, 0.0];
+    let mut solver = Solver::new(Method::Steepest, control(), 9);
+    solver.set_manifold(xtsci_optimize::ManifoldKind::RigidQuotient);
+    let com0 = [(x[0] + x[3] + x[6]) / 3.0, (x[1] + x[4] + x[7]) / 3.0];
+    for _ in 0..20 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        assert_eq!(x.len(), 9);
+    }
+    let com1 = [(x[0] + x[3] + x[6]) / 3.0, (x[1] + x[4] + x[7]) / 3.0];
+    assert!(
+        (com1[0] - com0[0]).abs() < 1e-8,
+        "COM drifted {com0:?} -> {com1:?}"
+    );
+    assert!((com1[1] - com0[1]).abs() < 1e-8);
+}
+
+#[test]
 fn nlcg_second_step_is_not_steepest() {
     let obj = Rosenbrock::<2>::new();
     let mut a = array![-1.2, 1.0];

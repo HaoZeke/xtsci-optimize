@@ -19,6 +19,14 @@ pub enum Error {
     /// Newton / RFO / dogleg needs a Hessian oracle.
     #[error("Newton/RFO/dogleg needs a Hessian; call step_hess")]
     NeedHessian,
+    /// Packed manifold rejected this ambient dimension.
+    #[error("{kind} rejected dimension {got}")]
+    ManifoldDim {
+        /// Token (`so3`, `se3`, `rigid_quotient`, `mw_rigid`).
+        kind: &'static str,
+        /// Length of the working vector.
+        got: usize,
+    },
 }
 
 /// Result alias for this crate.

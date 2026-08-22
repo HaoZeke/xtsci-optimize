@@ -7,8 +7,10 @@
  * - \c xts_solver_t is the stateful waist (\c create / \c step / \c free).
  * - \c xts_minimize is the one-shot entry. Tensors are dlpk
  *   `DLManagedTensorVersioned`.
- * - \c xts_solver_set_manifold retracts onto Sphere, SO(3), Stiefel,
- *   or SE(3). Euclidean is the default.
+ * - \c xts_solver_set_manifold retracts onto RigidQuotient
+ *   (Sella Cartesian R^{3N}/SE(3)), MwRigid (Page-McIver Eckart),
+ *   Sphere, SO(3) (length 9), Stiefel St(n,1), or SE(3) (length 12).
+ *   Euclidean is the default.
  * - \c include/xts/optimize.hpp wraps that entry for C++.
  * - \c include/xts/xtensor.hpp adapts `xt::xarray`.
  *

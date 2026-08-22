@@ -40,6 +40,9 @@ ISBN). Do not invent DOIs.
 | Boumal 2023 | 10.1017/9781009166164 | An Introduction to Optimization on Smooth Manifolds |
 | Manopt 2014 | 10.5555/2627435.2638581 | Manopt, a matlab toolbox for optimization on manifolds |
 | ROPTLIB | 10.1145/3218822 | ROPTLIB |
+| Sella Hermes–Sarsfield–Zádor 2022 | 10.1021/acs.jctc.2c00395 | Sella, an Open-Source Automation-Friendly Molecular Saddle Point Optimizer |
+| Page–McIver 1988 | 10.1063/1.454172 | On evaluating the reaction path Hamiltonian |
+| Ishida–Morokuma–Komornicki 1977 | 10.1063/1.434152 | The intrinsic reaction coordinate |
 
 Polak-Ribiere 1969 and Hestenes-Stiefel 1952: cite the paper/book
 title in rustdoc if no DOI is on this list. Do not mint a DOI.

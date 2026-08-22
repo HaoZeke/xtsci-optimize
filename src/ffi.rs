@@ -18,8 +18,8 @@ use eindir_core::ffi::{
 use ndarray::{Array1, Array2};
 
 use crate::{
-    Accept, Control, HessianOracle, LineSearch, ManifoldKind, Method, NewtonKind, Oracle, QnStep,
-    Solver, minimize_method, minimize_method_hess,
+    minimize_method, minimize_method_hess, Accept, Control, HessianOracle, LineSearch,
+    ManifoldKind, Method, NewtonKind, Oracle, QnStep, Solver,
 };
 
 /// Status codes. 0 is success, matching metatensor / eindir.
@@ -49,7 +49,7 @@ pub struct xts_abi_stamp_t {
 }
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
-pub const XTS_ABI_VERSION_MINOR: u16 = 8;
+pub const XTS_ABI_VERSION_MINOR: u16 = 9;
 pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -935,8 +935,7 @@ pub unsafe extern "C" fn xts_solver_set_highs(solver: *mut xts_solver_t, enabled
     }
 }
 
-/// Embedded manifold. Tokens other than Euclidean are filled on
-/// `feat/manifold-*` branches.
+/// Embedded manifold.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum xts_manifold_t {
@@ -945,6 +944,10 @@ pub enum xts_manifold_t {
     XTS_MANIFOLD_SO3 = 2,
     XTS_MANIFOLD_STIEFEL = 3,
     XTS_MANIFOLD_SE3 = 4,
+    /// Sella Cartesian \(R^{3N}/\mathrm{SE}(3)\). 3N, N >= 2.
+    XTS_MANIFOLD_RIGID_QUOTIENT = 5,
+    /// Mass-weighted Eckart (Sella IRC / Page–McIver). 3N, N >= 2.
+    XTS_MANIFOLD_MW_RIGID = 6,
 }
 
 #[unsafe(no_mangle)]
@@ -960,9 +963,30 @@ pub unsafe extern "C" fn xts_solver_set_manifold(
         xts_manifold_t::XTS_MANIFOLD_SO3 => ManifoldKind::So3,
         xts_manifold_t::XTS_MANIFOLD_STIEFEL => ManifoldKind::Stiefel,
         xts_manifold_t::XTS_MANIFOLD_SE3 => ManifoldKind::Se3,
+        xts_manifold_t::XTS_MANIFOLD_RIGID_QUOTIENT => ManifoldKind::RigidQuotient,
+        xts_manifold_t::XTS_MANIFOLD_MW_RIGID => ManifoldKind::MwRigid,
         xts_manifold_t::XTS_MANIFOLD_EUCLIDEAN => ManifoldKind::Euclidean,
     };
     unsafe { (*solver).solver.set_manifold(kind) };
+}
+
+/// Per-atom masses for `XTS_MANIFOLD_MW_RIGID`. `n_atoms == 0` or a
+/// null pointer clears them (unit mass).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_masses(
+    solver: *mut xts_solver_t,
+    masses: *const f64,
+    n_atoms: usize,
+) {
+    if solver.is_null() {
+        return;
+    }
+    if masses.is_null() || n_atoms == 0 {
+        unsafe { (*solver).solver.set_masses(Array1::zeros(0)) };
+        return;
+    }
+    let slice = unsafe { slice::from_raw_parts(masses, n_atoms) };
+    unsafe { (*solver).solver.set_masses(Array1::from(slice.to_vec())) };
 }
 
 /// One outer iteration. `x` is in/out. Callbacks live for this call only.

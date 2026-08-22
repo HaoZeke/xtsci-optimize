@@ -1,4 +1,7 @@
 //! Stiefel \(\mathrm{St}(n,1)\): a single orthonormal column is the sphere.
+//!
+//! `p > 1` is not a length-\(n\) token. A 3N cluster is
+//! [`super::RigidQuotient`], not \(\mathrm{St}(3N, 1)\).
 
 use ndarray::Array1;
 

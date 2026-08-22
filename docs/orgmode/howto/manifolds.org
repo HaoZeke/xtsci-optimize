@@ -26,10 +26,26 @@ vector: ~project~, ~retract~, ~transport~. Citations:
 | Token | Packing | Retraction |
 |---+---|---|
 | ~Euclidean~ | length ~n~ | ~x + v~ |
+| ~RigidQuotient~ | 3N Cartesians, N >= 2 | horizontal lift ~x + v~ |
+| ~MwRigid~ | same; masses on the session | same; Eckart inner product |
 | ~Sphere~ | unit vector, length ~n~ | ~(x+v)/||x+v||~ |
 | ~So3~ | row-major ~R~, length 9 | QR with positive diagonal |
 | ~Stiefel~ | ~St(n,1)~: same as the sphere | same as the sphere |
 | ~Se3~ | row-major ~R~ then ~t~, length 12 | SO(3) on the rotation, Euclidean on ~t~ |
+
+An isolated molecule or cluster lives on ~RigidQuotient~
+(~R^{3N}/SE(3)~): Sella Cartesian ~fix_translation~ plus
+~fix_rotation~ (Hermes, Sarsfield, Zádor, JCTC 2022,
+doi:10.1021/acs.jctc.2c00395). ~MwRigid~ is the same quotient
+with the Page–McIver mass-weighted metric used by Sella IRC and
+gpr_optim ~IRCDriver~ (doi:10.1063/1.454172,
+doi:10.1063/1.434152). Call ~set_masses~ with N atomic masses;
+unit mass makes ~MwRigid~ identical to ~RigidQuotient~.
+
+~Sphere~, ~So3~, ~Stiefel~, and ~Se3~ are matrix-manifold
+embeddings. ~So3~ rejects any length other than 9. ~Se3~ rejects
+any length other than 12. They do not pack or prefix-interpret a
+3N cluster.
 
 Euclidean is the default. Existing eOn / rgpot / eindir paths do
 not change until a host calls the setter.
@@ -54,6 +70,9 @@ accept rule.
 ** C
 
 #+begin_src c
+xts_solver_set_manifold(s, XTS_MANIFOLD_RIGID_QUOTIENT);
+xts_solver_set_manifold(s, XTS_MANIFOLD_MW_RIGID);
+xts_solver_set_masses(s, masses, n_atoms);
 xts_solver_set_manifold(s, XTS_MANIFOLD_SPHERE);
 xts_solver_set_manifold(s, XTS_MANIFOLD_SO3);
 xts_solver_set_manifold(s, XTS_MANIFOLD_STIEFEL);
@@ -65,10 +84,19 @@ Changing the manifold drops method memory (~forget~).
 
 ** Packing notes
 
+- ~RigidQuotient~ is 3N Cartesians. The tangent is the kernel of
+  three translations and three infinitesimal rotations. Sella
+  TRICs (bonds / angles / dihedrals plus fragment T/R) are a
+  different *chart* of the same physical manifold, not a
+  different packing here.
+- ~MwRigid~ is the same 3N packing. Masses are per atom (length
+  N). The IRC path itself is steepest descent in that metric,
+  not a separate token.
 - ~So3~ is a 9-vector, row-major. The tangent projection returns
   the embedded vector ~R Omega~, not the skew factor alone.
 - ~Se3~ is twelve numbers: the same 9-vector, then a translation.
-  Rigid projection on ~R^{3N}~ (~set_project_rigid~) is a
-  different operation and stays off by default.
+  It is one rigid body, not N atoms.
 - ~Stiefel~ is ~St(n,1)~. A frame with ~p > 1~ is not a length
   token: ~n p~ does not name ~p~.
+- ~set_project_rigid~ is the same horizontal projection as
+  ~RigidQuotient~ and stays available on Euclidean.

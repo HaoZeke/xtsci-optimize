@@ -23,8 +23,8 @@ Rust, C sees a small ABI, C++ is a header wrapper.
 +-----------------------------------------------+
 |  Rust core                                    |
 |  Solver / Lbfgs / NLCG / BFGS / Newton        |
-|  Manifold (Euclidean, Sphere, SO3, Stiefel,   |
-|            SE3)                               |
+|  Manifold (Euclidean, RigidQuotient, MwRigid) |
+|  Sphere / SO3 / Stiefel / SE3 embeddings      |
 |  LineSearch (Brent, Armijo, Goldstein, Wolfe) |
 |  eindir DifferentiableObjective               |
 +-----------------------------------------------+
@@ -43,7 +43,7 @@ Rust, C sees a small ABI, C++ is a header wrapper.
   =DifferentiableObjective= for a fused =(f, g)= function.
 - =xts_solver_create= / =xts_solver_step= / =xts_solver_free= ::
   Stateful C waist. Callbacks are per step. =abi_major= 1,
-  =abi_minor= 8, =layout_revision= 2. Compatibility checks major
+  =abi_minor= 9, =layout_revision= 2. Compatibility checks major
   and layout only.
 - =ManifoldKind= :: Embedded geometry. Euclidean is the identity.
   Sphere, SO(3), Stiefel ~St(n,1)~, and SE(3) implement

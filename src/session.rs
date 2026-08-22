@@ -4,26 +4,26 @@ use std::collections::VecDeque;
 
 use eindir_core::{DifferentiableObjective, Objective};
 use ndarray::{Array1, Array2};
-use rand::SeedableRng;
 use rand::rngs::StdRng;
+use rand::SeedableRng;
 
-use crate::accept::{Accept, accept_step};
+use crate::accept::{accept_step, Accept};
 use crate::adam::adam_direction;
 use crate::bb::bb_direction;
 use crate::control::Control;
 use crate::error::{Error, Result};
-use crate::fire::{FireState, fire_after_v1, fire_displacement};
+use crate::fire::{fire_after_v1, fire_displacement, FireState};
 use crate::lbfgs::{GradNorm, Lbfgs};
 use crate::linesearch::LineSearch;
 use crate::manifold::{Manifold, ManifoldKind};
 use crate::method::Method;
-use crate::newton::{HessianObjective, NewtonKind, rfo_direction, shifted_newton};
+use crate::newton::{rfo_direction, shifted_newton, HessianObjective, NewtonKind};
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
-use crate::pso::{Particle, RNG_SEED, random_velocity, update_swarm};
+use crate::pso::{random_velocity, update_swarm, Particle, RNG_SEED};
 use crate::qn::{bfgs_inverse_update, solve_dense, sr1_inverse_update, sr2_hessian_update};
 use crate::qn_step::QnStep;
 use crate::report::Report;
-use crate::rigid::project_out_rot_trans;
+use crate::rigid::{project_out_rot_trans, project_out_rot_trans_mass};
 use crate::step::{l2, next_istep, scale_step, scale_step_atom, take_step};
 use crate::trust::{
     accept_ratio, dogleg_direction, predicted_reduction, reduction_ratio, update_radius,
@@ -42,6 +42,8 @@ pub struct Solver {
     atom_maxmove: Option<f64>,
     project_rigid: bool,
     manifold: ManifoldKind,
+    /// Per-atom masses for [`ManifoldKind::MwRigid`]. Length N, not 3N.
+    masses: Option<Array1<f64>>,
     #[cfg(feature = "highs")]
     highs: bool,
     last_pos: Option<Array1<f64>>,
@@ -123,6 +125,7 @@ impl Solver {
             atom_maxmove: None,
             project_rigid: false,
             manifold: ManifoldKind::Euclidean,
+            masses: None,
             #[cfg(feature = "highs")]
             highs: false,
             last_pos: None,
@@ -165,6 +168,16 @@ impl Solver {
         self.manifold = kind;
     }
 
+    /// Per-atom masses for [`ManifoldKind::MwRigid`] (Page–McIver / Eckart).
+    /// Empty clears them (unit mass).
+    pub fn set_masses(&mut self, masses: Array1<f64>) {
+        if masses.is_empty() {
+            self.masses = None;
+        } else {
+            self.masses = Some(masses);
+        }
+    }
+
     /// Al-Baali extra-updates on the newest L-BFGS pair.
     pub fn set_extra_updates(&mut self, extra: usize) {
         if let Inner::Lbfgs(solver) = &mut self.inner {
@@ -205,6 +218,47 @@ impl Solver {
                 };
             }
         }
+    }
+
+    fn check_manifold(&self, n: usize) -> Result<()> {
+        if self.manifold.required_dim(n).is_ok() {
+            return Ok(());
+        }
+        Err(Error::ManifoldDim {
+            kind: self.manifold.as_str(),
+            got: n,
+        })
+    }
+
+    /// Tangent projection. `MwRigid` uses session masses (Eckart).
+    fn project_vec(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64> {
+        match self.manifold {
+            ManifoldKind::MwRigid => {
+                let mut w = v.clone();
+                let masses = self.masses.as_ref().and_then(|m| m.as_slice());
+                project_out_rot_trans_mass(&mut w, x.view(), masses);
+                w
+            }
+            ManifoldKind::RigidQuotient => {
+                let mut w = v.clone();
+                project_out_rot_trans(&mut w, x.view());
+                w
+            }
+            other => other.project(x, v),
+        }
+    }
+
+    fn horizontal_grad(&self, x: &Array1<f64>, grad: &Array1<f64>) -> Array1<f64> {
+        let mut g = self.project_vec(x, grad);
+        if self.project_rigid
+            && !matches!(
+                self.manifold,
+                ManifoldKind::RigidQuotient | ManifoldKind::MwRigid
+            )
+        {
+            project_out_rot_trans(&mut g, x.view());
+        }
+        g
     }
 
     fn same_last_x(&self, x: &Array1<f64>) -> bool {
@@ -284,6 +338,7 @@ impl Solver {
                 dim: self.dim,
             });
         }
+        self.check_manifold(x.len())?;
         let newton_kind = match &self.inner {
             Inner::Newton { kind } => Some(*kind),
             Inner::Lbfgs(_) => match self.qn_step {
@@ -303,9 +358,7 @@ impl Solver {
         } else {
             obj.value_and_gradient(x.view())
         };
-        if self.project_rigid {
-            project_out_rot_trans(&mut grad, x.view());
-        }
+        grad = self.horizontal_grad(x, &grad);
         let gnorm = l2(&grad);
         if gnorm < self.control.gtol {
             return Ok(Report {
@@ -381,7 +434,7 @@ impl Solver {
         if self.project_rigid {
             project_out_rot_trans(&mut dir, x.view());
         }
-        dir = self.manifold.project(x, &dir);
+        dir = self.project_vec(x, &dir);
         let old = x.clone();
         let gold = grad.clone();
         let (npos, nval, ngrad, moved) = accept_step(
@@ -401,11 +454,15 @@ impl Solver {
             value = nval;
             grad = ngrad;
         }
+        grad = self.horizontal_grad(x, &grad);
         self.remember(x, value, &grad);
-        if let Inner::Lbfgs(solver) = &mut self.inner {
-            if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
-                solver.push_pair(&*x - &old, &grad - &gold, Some(l2(&grad)));
-            }
+        let pair = if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
+            Some((self.project_vec(x, &(&*x - &old)), &grad - &gold, l2(&grad)))
+        } else {
+            None
+        };
+        if let (Inner::Lbfgs(solver), Some((s, y, gn))) = (&mut self.inner, pair) {
+            solver.push_pair(s, &y, Some(gn));
         }
         self.steps += 1;
         Ok(Report {
@@ -487,6 +544,7 @@ impl Solver {
                 dim: self.dim,
             });
         }
+        self.check_manifold(x.len())?;
         let cached = self.same_last_x(x);
         if !cached {
             *x = obj.bounds().clip(x.view());
@@ -501,6 +559,7 @@ impl Solver {
         } else {
             obj.value_and_gradient(x.view())
         };
+        grad = self.horizontal_grad(x, &grad);
         let gnorm = l2(&grad);
         if gnorm < self.control.gtol {
             return Ok(Report {
@@ -728,6 +787,7 @@ impl Solver {
             value = ev.0;
             grad = ev.1;
         }
+        grad = self.horizontal_grad(x, &grad);
 
         self.remember(x, value, &grad);
         self.steps += 1;

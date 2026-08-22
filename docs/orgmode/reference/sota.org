@@ -201,8 +201,13 @@ rank-1 f64 vector.
   library that names Stiefel and SE(3) in the same waist
   ([[https://doi.org/10.1145/3218822][10.1145/3218822]]).
 
-Euclidean is the default. Sphere, SO(3) as a 9-vector, Stiefel
-~St(n,1)~, and SE(3) as a 12-vector are the tokens.
+Euclidean is the default. An isolated molecule uses
+~RigidQuotient~ (~R^{3N}/SE(3)~; Sella Cartesian
+~fix_translation~ / ~fix_rotation~,
+doi:10.1021/acs.jctc.2c00395) or ~MwRigid~ (Page–McIver
+mass-weighted Eckart, doi:10.1063/1.454172). Sphere, SO(3) as a
+9-vector, Stiefel ~St(n,1)~, and SE(3) as a 12-vector are
+matrix-manifold embeddings and reject a 3N cluster.
 
 ** Defaults in this crate
 

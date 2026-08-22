@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 8
+#define XTS_ABI_VERSION_MINOR 9
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -186,15 +186,24 @@ void xts_solver_set_cautious(xts_solver_t *solver, double eps, double alpha);
 /** HiGHS feasible-set step. Nonzero enables it. Returns 0, or 1 if this
  *  build has no highs feature. */
 int32_t xts_solver_set_highs(xts_solver_t *solver, int32_t enabled);
-/** Embedded manifold. Euclidean is the default. */
+/** Embedded manifold. Euclidean is the default.
+ *  Molecular clusters use RIGID_QUOTIENT (Sella Cartesian T+R,
+ *  R^{3N}/SE(3)) or MW_RIGID (Page-McIver / Sella IRC Eckart).
+ *  SO3 is length 9; SE3 is length 12. */
 typedef enum xts_manifold_t {
     XTS_MANIFOLD_EUCLIDEAN = 0,
     XTS_MANIFOLD_SPHERE = 1,
     XTS_MANIFOLD_SO3 = 2,
     XTS_MANIFOLD_STIEFEL = 3,
-    XTS_MANIFOLD_SE3 = 4
+    XTS_MANIFOLD_SE3 = 4,
+    XTS_MANIFOLD_RIGID_QUOTIENT = 5,
+    XTS_MANIFOLD_MW_RIGID = 6
 } xts_manifold_t;
 void xts_solver_set_manifold(xts_solver_t *solver, xts_manifold_t manifold);
+/** Per-atom masses for MW_RIGID. n_atoms == 0 or masses == NULL
+ *  restores unit mass. */
+void xts_solver_set_masses(xts_solver_t *solver, const double *masses,
+                           size_t n_atoms);
 /**
  * One outer iteration: direction, line search, curvature update.
  * \a eval and \a grad are valid for this call only. \a x is in/out.

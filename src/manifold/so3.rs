@@ -1,4 +1,7 @@
 //! SO(3) as a 9-vector, row-major. manopt_cpp `Rotation<3,1>`.
+//!
+//! Dimension is exactly 9. A 3N cluster is
+//! [`super::RigidQuotient`], not this embedding.
 
 use ndarray::Array1;
 
@@ -95,8 +98,16 @@ fn qr_pos(a: [[f64; 3]; 3]) -> [[f64; 3]; 3] {
 }
 
 impl Manifold for So3 {
+    fn required_dim(&self, n: usize) -> Result<(), usize> {
+        if n == 9 {
+            Ok(())
+        } else {
+            Err(9)
+        }
+    }
+
     fn project(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64> {
-        if x.len() < 9 || v.len() < 9 {
+        if x.len() != 9 || v.len() != 9 {
             return v.clone();
         }
         let r = unpack(x);
@@ -107,7 +118,7 @@ impl Manifold for So3 {
     }
 
     fn retract(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64> {
-        if x.len() < 9 || v.len() < 9 {
+        if x.len() != 9 || v.len() != 9 {
             return x + v;
         }
         let r = unpack(x);
@@ -144,5 +155,16 @@ mod tests {
                 assert!((rtr[i][j] - want).abs() < 1e-12, "{rtr:?}");
             }
         }
+    }
+
+    #[test]
+    fn wrong_dim_does_not_shrink() {
+        let x = Array1::from_elem(114, 0.1);
+        let v = Array1::from_elem(114, 0.01);
+        let y = So3.retract(&x, &v);
+        assert_eq!(y.len(), 114);
+        assert_eq!(So3.project(&x, &v).len(), 114);
+        assert!(So3.required_dim(114).is_err());
+        assert!(So3.required_dim(9).is_ok());
     }
 }

@@ -1,4 +1,7 @@
 //! SE(3): row-major SO(3) (9) then translation (3). Length 12.
+//!
+//! Dimension is exactly 12. A 3N cluster is
+//! [`super::RigidQuotient`], not a 12-vector prefix.
 
 use ndarray::Array1;
 
@@ -9,8 +12,16 @@ use super::{so3::So3, Manifold};
 pub struct Se3;
 
 impl Manifold for Se3 {
+    fn required_dim(&self, n: usize) -> Result<(), usize> {
+        if n == 12 {
+            Ok(())
+        } else {
+            Err(12)
+        }
+    }
+
     fn project(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64> {
-        if x.len() < 12 || v.len() < 12 {
+        if x.len() != 12 || v.len() != 12 {
             return v.clone();
         }
         let xr = x.slice(ndarray::s![0..9]).to_owned();
@@ -24,7 +35,7 @@ impl Manifold for Se3 {
     }
 
     fn retract(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64> {
-        if x.len() < 12 || v.len() < 12 {
+        if x.len() != 12 || v.len() != 12 {
             return x + v;
         }
         let xr = x.slice(ndarray::s![0..9]).to_owned();
@@ -100,5 +111,18 @@ mod tests {
             }
         }
         assert!((y[9] - 1.0).abs() < 1e-15);
+    }
+
+    #[test]
+    fn wrong_dim_is_identity_and_keeps_length() {
+        let x = Array1::from_elem(114, 0.1);
+        let v = Array1::from_elem(114, 0.01);
+        let y = Se3.retract(&x, &v);
+        assert_eq!(y.len(), 114);
+        for i in 0..114 {
+            assert!((y[i] - (x[i] + v[i])).abs() < 1e-15);
+        }
+        assert!(Se3.required_dim(114).is_err());
+        assert!(Se3.required_dim(12).is_ok());
     }
 }
