@@ -84,11 +84,11 @@ Changing the manifold drops method memory (~forget~).
 
 ** Packing notes
 
-- ~RigidQuotient~ is 3N Cartesians. The tangent is the kernel of
-  three translations and three infinitesimal rotations. Sella
-  TRICs (bonds / angles / dihedrals plus fragment T/R) are a
-  different *chart* of the same physical manifold, not a
-  different packing here.
+- ~RigidQuotient~ is 3N Cartesians. Isolated: kernel of three
+  translations and three infinitesimal rotations
+  (~R^{3N}/SE(3)~). Periodic: Sella ~proj_rot = false~, so only
+  translations (~R^{3N}/T(3)~) via ~xts_solver_set_periodic~.
+  TRICs are a different chart, not a different packing here.
 - ~MwRigid~ is the same 3N packing. Masses are per atom (length
   N). The IRC path itself is steepest descent in that metric,
   not a separate token.

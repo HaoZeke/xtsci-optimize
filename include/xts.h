@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 9
+#define XTS_ABI_VERSION_MINOR 10
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -204,6 +204,8 @@ void xts_solver_set_manifold(xts_solver_t *solver, xts_manifold_t manifold);
  *  restores unit mass. */
 void xts_solver_set_masses(xts_solver_t *solver, const double *masses,
                            size_t n_atoms);
+/** Periodic cell. Nonzero drops rotation (Sella proj_rot): R^{3N}/T(3). */
+void xts_solver_set_periodic(xts_solver_t *solver, int32_t enabled);
 /**
  * One outer iteration: direction, line search, curvature update.
  * \a eval and \a grad are valid for this call only. \a x is in/out.

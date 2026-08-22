@@ -8,22 +8,26 @@
 
 use ndarray::{Array1, ArrayView1};
 
-/// eOn `projectOutRotTrans`. Unit-mass Eckart. No-op unless `x` is 3N, N >= 2.
+/// eOn `projectOutRotTrans`. Unit-mass Eckart. Isolated molecule (T+R).
 pub(crate) fn project_out_rot_trans(vec: &mut Array1<f64>, pos: ArrayView1<f64>) {
-    project_out_rot_trans_mass(vec, pos, None);
+    project_horizontal(vec, pos, None, true);
 }
 
-/// Eckart conditions with optional per-atom masses (length N).
+/// Horizontal space of \(R^{3N}/\mathrm{SE}(3)\) or \(R^{3N}/T(3)\).
 ///
-/// `sum_i m_i v_i = 0` and `sum_i m_i r_i × v_i = 0`. Missing or
-/// wrong-length masses fall back to unit mass.
-pub(crate) fn project_out_rot_trans_mass(
+/// `rotate` is Sella `proj_rot`: false under PBC (the cell kills
+/// rotational invariance). Masses are per atom (length N).
+pub(crate) fn project_horizontal(
     vec: &mut Array1<f64>,
     pos: ArrayView1<f64>,
     masses: Option<&[f64]>,
+    rotate: bool,
 ) {
     let n = pos.len();
-    if n < 6 || n % 3 != 0 || vec.len() != n {
+    if n < 3 || n % 3 != 0 || vec.len() != n {
+        return;
+    }
+    if rotate && n < 6 {
         return;
     }
     let nat = n / 3;
@@ -36,23 +40,7 @@ pub(crate) fn project_out_rot_trans_mass(
         }
     };
 
-    let mut com = [0.0; 3];
-    let mut mtot = 0.0;
-    for i in 0..nat {
-        let mi = m_at(i);
-        mtot += mi;
-        com[0] += mi * pos[3 * i];
-        com[1] += mi * pos[3 * i + 1];
-        com[2] += mi * pos[3 * i + 2];
-    }
-    if mtot <= 0.0 {
-        return;
-    }
-    com[0] /= mtot;
-    com[1] /= mtot;
-    com[2] /= mtot;
-
-    let mut basis = Vec::with_capacity(6);
+    let mut basis = Vec::with_capacity(if rotate { 6 } else { 3 });
     for d in 0..3 {
         let mut t = Array1::zeros(n);
         for j in 0..nat {
@@ -60,23 +48,39 @@ pub(crate) fn project_out_rot_trans_mass(
         }
         basis.push(t);
     }
-    let mut rx = Array1::zeros(n);
-    let mut ry = Array1::zeros(n);
-    let mut rz = Array1::zeros(n);
-    for i in 0..nat {
-        let x = pos[3 * i] - com[0];
-        let y = pos[3 * i + 1] - com[1];
-        let z = pos[3 * i + 2] - com[2];
-        rx[3 * i + 1] = -z;
-        rx[3 * i + 2] = y;
-        ry[3 * i] = z;
-        ry[3 * i + 2] = -x;
-        rz[3 * i] = -y;
-        rz[3 * i + 1] = x;
+    if rotate {
+        let mut com = [0.0; 3];
+        let mut mtot = 0.0;
+        for i in 0..nat {
+            let mi = m_at(i);
+            mtot += mi;
+            com[0] += mi * pos[3 * i];
+            com[1] += mi * pos[3 * i + 1];
+            com[2] += mi * pos[3 * i + 2];
+        }
+        if mtot > 0.0 {
+            com[0] /= mtot;
+            com[1] /= mtot;
+            com[2] /= mtot;
+        }
+        let mut rx = Array1::zeros(n);
+        let mut ry = Array1::zeros(n);
+        let mut rz = Array1::zeros(n);
+        for i in 0..nat {
+            let x = pos[3 * i] - com[0];
+            let y = pos[3 * i + 1] - com[1];
+            let z = pos[3 * i + 2] - com[2];
+            rx[3 * i + 1] = -z;
+            rx[3 * i + 2] = y;
+            ry[3 * i] = z;
+            ry[3 * i + 2] = -x;
+            rz[3 * i] = -y;
+            rz[3 * i + 1] = x;
+        }
+        basis.push(rx);
+        basis.push(ry);
+        basis.push(rz);
     }
-    basis.push(rx);
-    basis.push(ry);
-    basis.push(rz);
 
     let mut ortho: Vec<Array1<f64>> = Vec::with_capacity(6);
     for v in basis {
@@ -139,7 +143,7 @@ mod tests {
         let pos = array![0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
         let mut v = array![1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
         let masses = [16.0, 1.0, 1.0];
-        project_out_rot_trans_mass(&mut v, pos.view(), Some(&masses));
+        project_horizontal(&mut v, pos.view(), Some(&masses), true);
         assert!(l2(&v) < 1e-12);
     }
 
@@ -149,7 +153,19 @@ mod tests {
         let pos = array![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0];
         let mut v = array![0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, -1.0, 0.0];
         let masses = [12.0, 1.0, 1.0];
-        project_out_rot_trans_mass(&mut v, pos.view(), Some(&masses));
+        project_horizontal(&mut v, pos.view(), Some(&masses), true);
         assert!(l2(&v) < 1e-10, "{v:?}");
+    }
+
+    #[test]
+    fn periodic_keeps_rotation_drops_translation() {
+        let pos = array![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0, 0.0];
+        let rot = array![0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, -1.0, 0.0];
+        let mut v = rot.clone();
+        project_horizontal(&mut v, pos.view(), None, false);
+        assert!(l2(&v) > 0.5, "rotation was removed under PBC {v:?}");
+        let mut t = array![1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+        project_horizontal(&mut t, pos.view(), None, false);
+        assert!(l2(&t) < 1e-12, "translation survived under PBC {t:?}");
     }
 }

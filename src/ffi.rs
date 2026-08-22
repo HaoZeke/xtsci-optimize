@@ -49,7 +49,7 @@ pub struct xts_abi_stamp_t {
 }
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
-pub const XTS_ABI_VERSION_MINOR: u16 = 9;
+pub const XTS_ABI_VERSION_MINOR: u16 = 10;
 pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -987,6 +987,15 @@ pub unsafe extern "C" fn xts_solver_set_masses(
     }
     let slice = unsafe { slice::from_raw_parts(masses, n_atoms) };
     unsafe { (*solver).solver.set_masses(Array1::from(slice.to_vec())) };
+}
+
+/// Periodic cell. Nonzero: Sella `proj_rot = false`, quotient is \(R^{3N}/T(3)\).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_periodic(solver: *mut xts_solver_t, enabled: i32) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_periodic(enabled != 0) };
 }
 
 /// One outer iteration. `x` is in/out. Callbacks live for this call only.

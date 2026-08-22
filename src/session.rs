@@ -23,7 +23,7 @@ use crate::pso::{random_velocity, update_swarm, Particle, RNG_SEED};
 use crate::qn::{bfgs_inverse_update, solve_dense, sr1_inverse_update, sr2_hessian_update};
 use crate::qn_step::QnStep;
 use crate::report::Report;
-use crate::rigid::{project_out_rot_trans, project_out_rot_trans_mass};
+use crate::rigid::{project_horizontal, project_out_rot_trans};
 use crate::step::{l2, next_istep, scale_step, scale_step_atom, take_step};
 use crate::trust::{
     accept_ratio, dogleg_direction, predicted_reduction, reduction_ratio, update_radius,
@@ -41,6 +41,8 @@ pub struct Solver {
     e_hist: VecDeque<f64>,
     atom_maxmove: Option<f64>,
     project_rigid: bool,
+    /// Sella `proj_rot`: false under PBC. Rotation is not a symmetry of the cell.
+    periodic: bool,
     manifold: ManifoldKind,
     /// Per-atom masses for [`ManifoldKind::MwRigid`]. Length N, not 3N.
     masses: Option<Array1<f64>>,
@@ -124,6 +126,7 @@ impl Solver {
             e_hist: VecDeque::new(),
             atom_maxmove: None,
             project_rigid: false,
+            periodic: false,
             manifold: ManifoldKind::Euclidean,
             masses: None,
             #[cfg(feature = "highs")]
@@ -158,6 +161,11 @@ impl Solver {
     /// eOn `lbfgs_project_rigid`. Isolated clusters only.
     pub fn set_project_rigid(&mut self, enabled: bool) {
         self.project_rigid = enabled;
+    }
+
+    /// Periodic cell. Sella leaves `proj_rot` off; the quotient is \(R^{3N}/T(3)\).
+    pub fn set_periodic(&mut self, periodic: bool) {
+        self.periodic = periodic;
     }
 
     /// Embedded manifold for project / retract / transport.
@@ -230,18 +238,18 @@ impl Solver {
         })
     }
 
-    /// Tangent projection. `MwRigid` uses session masses (Eckart).
+    /// Tangent projection. Periodic cells drop rotation (Sella `proj_rot`).
     fn project_vec(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64> {
         match self.manifold {
             ManifoldKind::MwRigid => {
                 let mut w = v.clone();
                 let masses = self.masses.as_ref().and_then(|m| m.as_slice());
-                project_out_rot_trans_mass(&mut w, x.view(), masses);
+                project_horizontal(&mut w, x.view(), masses, !self.periodic);
                 w
             }
             ManifoldKind::RigidQuotient => {
                 let mut w = v.clone();
-                project_out_rot_trans(&mut w, x.view());
+                project_horizontal(&mut w, x.view(), None, !self.periodic);
                 w
             }
             other => other.project(x, v),
