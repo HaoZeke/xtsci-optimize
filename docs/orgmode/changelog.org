@@ -4,5 +4,23 @@
 
 * Changelog
 
-See the git history of this rewrite. The C++ xtensor tree it replaces
-recorded releases in the upstream ~CHANGELOG.md~.
+** 0.1.0
+
+Rust rewrite of the C++ xtensor tree (~0.0.1~ on the previous
+~main~). Solvers live in Rust. C and C++ reach them through
+~xts_solver_t~ and ~xts_minimize~ over dlpk tensors.
+
+- Session API: ~create~ / ~step~ / ~step_hess~ / ~step_fg~ / fused
+  ~evalgrad~ / ~forget~ / ~free~
+- Methods: L-BFGS, BFGS, SR1, SR2, shifted Newton, RFO, eight NLCG
+  conjugacies, steepest, Adam, PSO, FIRE, FIRE 2.0, Barzilai-Borwein,
+  Powell dogleg
+- Host Hessian policy: ~qn_step~ two-loop / Newton / RFO; pair
+  ~H0 = P^{-1}~
+- Accept: none / energy / nonmonotone
+- Per-atom maxmove and optional rigid-body projection
+- Optional ~highs~ feature: two-loop direction, HiGHS only for a
+  feasible set (box, trust, equalities)
+
+The previous C++ ~main~ is unrelated history. This tag is the first
+Rust release.

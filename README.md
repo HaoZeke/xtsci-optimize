@@ -1,6 +1,9 @@
 # xtsci-optimize
 
-Rust rewrite of [xtsci-optimize](https://github.com/HaoZeke/xtsci-optimize).
+Rust rewrite. `main` is this tree (first tag `v0.1.0`). The C++
+xtensor history is `0.0.1` on the previous `main`.
+
+Algorithms live only in Rust, over
 Algorithms live only in Rust, over
 [`eindir`](https://github.com/HaoZeke/eindir) `DifferentiableObjective`s.
 
