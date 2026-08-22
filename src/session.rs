@@ -707,6 +707,7 @@ impl Solver {
                     self.accept,
                     &mut self.e_hist,
                     self.atom_maxmove,
+                    self.manifold,
                 );
                 *x = npos;
                 value = nval;
