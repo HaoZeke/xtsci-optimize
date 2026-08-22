@@ -20,8 +20,8 @@ use ndarray::{Array1, ArrayView1};
 use crate::control::Control;
 use crate::error::{Error, Result};
 use crate::linesearch::LineSearch;
-use crate::report::Report;
 use crate::qn::solve_dense;
+use crate::report::Report;
 use crate::step::{l2, next_istep, take_step};
 use eindir_core::{DifferentiableObjective, Objective};
 
@@ -241,7 +241,11 @@ impl Lbfgs {
         // the direction is the raw negative gradient and needs a length.
         let mut a = if self.memory.is_empty() {
             let dnorm = d.iter().fold(0.0_f64, |acc, v| acc + v * v).sqrt();
-            if dnorm > 1.0 { 1.0 / dnorm } else { 1.0 }
+            if dnorm > 1.0 {
+                1.0 / dnorm
+            } else {
+                1.0
+            }
         } else {
             1.0
         };
@@ -452,7 +456,9 @@ impl Lbfgs {
                     grad_norm: gnorm,
                 });
             }
-            self.step_objective(obj, &mut pos, &mut value, &mut grad, &mut istep, linesearch, control);
+            self.step_objective(
+                obj, &mut pos, &mut value, &mut grad, &mut istep, linesearch, control,
+            );
         }
         Ok(Report {
             value,

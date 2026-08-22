@@ -36,7 +36,15 @@ pub fn strong_curvature(dphi: f64, dphi0: f64, c2: f64) -> bool {
 /// Wolfe, *Convergence Conditions for Ascent Methods*,
 /// <https://doi.org/10.1137/1011036>.
 #[inline]
-pub fn weak_wolfe(phi: f64, phi0: f64, alpha: f64, dphi: f64, dphi0: f64, c1: f64, c2: f64) -> bool {
+pub fn weak_wolfe(
+    phi: f64,
+    phi0: f64,
+    alpha: f64,
+    dphi: f64,
+    dphi0: f64,
+    c1: f64,
+    c2: f64,
+) -> bool {
     armijo(phi, phi0, alpha, dphi0, c1) && curvature(dphi, dphi0, c2)
 }
 

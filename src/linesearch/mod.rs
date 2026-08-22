@@ -86,7 +86,9 @@ impl LineSearch {
         F: FnMut(ArrayView1<'_, f64>) -> (f64, Array1<f64>),
     {
         match *self {
-            Self::Brent { maxiter, tol } => brent_search(&mut oracle, pos, dir, istep, maxiter, tol),
+            Self::Brent { maxiter, tol } => {
+                brent_search(&mut oracle, pos, dir, istep, maxiter, tol)
+            }
             Self::Backtracking { c, beta, maxiter } => {
                 backtrack_search(&mut oracle, pos, dir, istep, c, beta, maxiter, false)
             }
@@ -200,7 +202,11 @@ fn bracket(phi: &mut impl FnMut(f64) -> f64, mut a: f64, mut b: f64, maxiter: us
         let _ = fa;
         fa = fb;
     }
-    if a < c { (a, c) } else { (c, a) }
+    if a < c {
+        (a, c)
+    } else {
+        (c, a)
+    }
 }
 
 fn brent(

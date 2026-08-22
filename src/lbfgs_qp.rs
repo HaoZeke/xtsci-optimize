@@ -15,7 +15,7 @@
 //! <https://doi.org/10.1007/s12532-017-0130-5>.
 
 use highs::{HighsModelStatus, RowProblem, Sense};
-use highs_sys::{Highs_passHessian, HighsInt, STATUS_OK};
+use highs_sys::{HighsInt, Highs_passHessian, STATUS_OK};
 use ndarray::{Array1, ArrayView1};
 
 use crate::error::{Error, Result};

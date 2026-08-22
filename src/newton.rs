@@ -158,12 +158,10 @@ where
             NewtonKind::Shifted => shifted_newton(&hess, &grad),
             NewtonKind::Rfo => rfo_direction(&hess, &grad),
         };
-        let (npos, nval, ngrad, moved) =
-            energy_backtrack(obj, &pos, value, &dir, control);
+        let (npos, nval, ngrad, moved) = energy_backtrack(obj, &pos, value, &dir, control);
         if !moved {
             let sd = grad.mapv(|g| -g);
-            let (spos, sval, sgrad, sok) =
-                energy_backtrack(obj, &pos, value, &sd, control);
+            let (spos, sval, sgrad, sok) = energy_backtrack(obj, &pos, value, &sd, control);
             if sok {
                 pos = spos;
                 value = sval;
