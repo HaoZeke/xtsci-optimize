@@ -511,6 +511,7 @@ impl Solver {
             });
         }
 
+        let start = x.clone();
         match &mut self.inner {
             Inner::Lbfgs(solver) => {
                 solver.step_objective(
@@ -716,6 +717,15 @@ impl Solver {
                 }
             }
             Inner::Pso { .. } | Inner::Newton { .. } | Inner::Dogleg { .. } => unreachable!(),
+        }
+
+        let delta = &*x - &start;
+        let y = self.manifold.retract(&start, &delta);
+        if y.iter().zip(x.iter()).any(|(a, b)| (*a - *b).abs() > 1e-15) {
+            *x = y;
+            let ev = obj.value_and_gradient(x.view());
+            value = ev.0;
+            grad = ev.1;
         }
 
         self.remember(x, value, &grad);
