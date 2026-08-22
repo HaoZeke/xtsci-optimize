@@ -80,10 +80,31 @@ the direction is a Newton step, not a two-loop pair history.
 ~minimize_newton~ are that solver. The C waist is
 ~xts_minimize_hess~. It is not an L-BFGS option.
 
+** What beat OptBench min, and what did not
+
+Chill OptBench min, repo INIs (LJ38 ~||F||_2 = 0.01~, Morse
+~1e-3~), 100/100 clusters. Force-call averages:
+
+| arm | LJ38 | Morse |
+|---+---:|---:|
+| xtsci rematch L-BFGS (~qn_step=newton~ on pair) | 104 | 34 |
+| native eOn rematch L-BFGS | 104 | 35 |
+| OPTIM 2014 | 176 | 46 |
+| xtsci memoryless Newton on ~pair_full~ | 351 | 101 |
+
+Rematch L-BFGS beats OPTIM on both sets. xtsci rematch ties
+native on LJ38 and beats it by one call on Morse. Memoryless
+Newton does not beat rematch.
+
+FIRE, FIRE 2.0, Barzilai–Borwein, Powell dogleg, HiGHS, model
+Hessians (~lindh_full~, ~swart~, ~fischer~, ~schlegel~), and
+every manifold token are unmeasured on this protocol. They are
+not a win.
+
 ** FIRE, Barzilai–Borwein, and dogleg
 
-A 2026 literature survey plus a six-agent Borda vote added four
-tokens that share ~xts_solver_t~ and a fused =(f, g)=:
+These four tokens share ~xts_solver_t~ and a fused =(f, g)=.
+They are present. They are not rematched.
 
 - FIRE (Bitzek 2006,
   [[https://doi.org/10.1103/PhysRevLett.97.170201][10.1103/PhysRevLett.97.170201]]) is the ASE / LAMMPS / eOn
@@ -98,18 +119,17 @@ tokens that share ~xts_solver_t~ and a fused =(f, g)=:
   pair Hessian already passed to ~xts_solver_step_hess~.
 
 Steihaug–Toint, ARC, DFP, SPSA, CMA-ES, Nelder–Mead, and BOBYQA
-were surveyed and rejected for this token set: DFP is dominated by
-BFGS already in the crate, the derivative-free methods waste force
-calls on an analytic PES, and Steihaug lost the Borda fourth slot
-to FIRE 2.0.
+were surveyed and not added: DFP is dominated by BFGS already
+in the crate, the derivative-free methods waste force calls on
+an analytic PES, and Steihaug lost the fourth token slot to
+FIRE 2.0.
 
 ** Nonlinear CG
 
 Hager and Zhang 2005 (~CG_DESCENT~)
-([[https://doi.org/10.1137/030601880][10.1137/030601880]]) is the strongest conjugacy-plus-line-search pair
-in this crate's NLCG family. It is the right tool when a Hessian
-approximation is not wanted. It is not a replacement for L-BFGS on
-the well-scaled, fused-gradient problems hopping and landfold solve.
+([[https://doi.org/10.1137/030601880][10.1137/030601880]]) is the NLCG pair in this crate. It is not
+rematched on OptBench min. It is not a replacement for rematch
+L-BFGS.
 
 ** Embedded manifolds
 
