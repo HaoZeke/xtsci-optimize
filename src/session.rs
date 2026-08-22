@@ -207,7 +207,7 @@ impl Solver {
             }
         }
         if let Inner::Lbfgs(solver) = &mut self.inner {
-            if (*x - &old).iter().any(|v| *v != 0.0) {
+            if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
                 solver.push(&*x - &old, &grad - &gold);
             }
         }
@@ -432,7 +432,7 @@ impl Solver {
         O: DifferentiableObjective<f64> + ?Sized,
     {
         let bounds = obj.bounds();
-        let (n_particles, inertia, c1, c2) = match &self.inner {
+        let (n_particles, _inertia, _c1, _c2) = match &self.inner {
             Inner::Pso {
                 n_particles,
                 inertia,
