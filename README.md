@@ -1,6 +1,6 @@
 # xtsci-optimize
 
-Rust rewrite. `main` is this tree (first tag `v0.1.0`). The C++
+Rust rewrite. `main` is this tree (current tag `v0.2.0`). The C++
 xtensor history is `0.0.1` on the previous `main`.
 
 Algorithms live only in Rust, over

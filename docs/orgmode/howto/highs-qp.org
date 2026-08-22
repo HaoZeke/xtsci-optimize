@@ -12,9 +12,15 @@ The QP is =min 1/2 ||p - d||^2= with =d = -H g= and =Q = I=. A dense
 compact Hessian is not formed; that matrix is indefinite after a tiny
 accepted step and =Highs_run= does not return.
 
-Unconstrained, =highs_step= is the two-loop direction. A box or trust region scales the whole increment (direction
-preserved). Packed centering is a mean subtract. Arbitrary
-equalities still go to HiGHS.
+Unconstrained, =highs_step= is the two-loop direction. A box or trust
+region scales the whole increment (direction preserved). Packed
+centering is a mean subtract. Arbitrary equalities still go to HiGHS.
+
+When a host Hessian is present (=xts_solver_step_hess=) and
+=xts_solver_set_highs= is on, HiGHS solves the convex Newton QP
+=min 1/2 p^T P p + g^T p= with per-coordinate boxes from atom
+maxmove. That is the path eOn / rgpot / any eindir objective share.
+Without the =highs= cargo feature the setter returns 1.
 
 Enable the feature (HiGHS is compiled by =highs-sys=; do that on the
 remote builder):

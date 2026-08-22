@@ -49,7 +49,7 @@ pub struct xts_abi_stamp_t {
 }
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
-pub const XTS_ABI_VERSION_MINOR: u16 = 6;
+pub const XTS_ABI_VERSION_MINOR: u16 = 7;
 pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -913,6 +913,26 @@ pub unsafe extern "C" fn xts_solver_set_cautious(solver: *mut xts_solver_t, eps:
         return;
     }
     unsafe { (*solver).solver.set_cautious(eps, alpha) };
+}
+
+/// HiGHS feasible-set step. Returns 1 when this build has no `highs` feature.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_highs(solver: *mut xts_solver_t, enabled: i32) -> i32 {
+    if solver.is_null() {
+        set_last_error("xts_solver_set_highs: null solver");
+        return 1;
+    }
+    #[cfg(feature = "highs")]
+    {
+        unsafe { (*solver).solver.set_highs(enabled != 0) };
+        0
+    }
+    #[cfg(not(feature = "highs"))]
+    {
+        let _ = enabled;
+        set_last_error("xts_solver_set_highs: build has no highs feature");
+        1
+    }
 }
 
 /// One outer iteration. `x` is in/out. Callbacks live for this call only.

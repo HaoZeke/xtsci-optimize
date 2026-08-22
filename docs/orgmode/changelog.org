@@ -4,6 +4,13 @@
 
 * Changelog
 
+** 0.2.0
+
+~xts_solver_set_highs~: opt-in HiGHS feasible-set step. With a host
+Hessian this is the convex Newton QP =min 1/2 p^T P p + g^T p= and
+per-coordinate boxes. Without the =highs= feature the setter returns
+1. eindir / rgpot / eOn share the same session.
+
 ** 0.1.0
 
 Rust rewrite of the C++ xtensor tree (~0.0.1~ on the previous

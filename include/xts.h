@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 6
+#define XTS_ABI_VERSION_MINOR 7
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -183,6 +183,9 @@ void xts_solver_set_atom_maxmove(xts_solver_t *solver, double maxmove);
 void xts_solver_set_project_rigid(xts_solver_t *solver, int32_t enabled);
 void xts_solver_set_extra_updates(xts_solver_t *solver, size_t extra);
 void xts_solver_set_cautious(xts_solver_t *solver, double eps, double alpha);
+/** HiGHS feasible-set step. Nonzero enables it. Returns 0, or 1 if this
+ *  build has no highs feature. */
+int32_t xts_solver_set_highs(xts_solver_t *solver, int32_t enabled);
 /**
  * One outer iteration: direction, line search, curvature update.
  * \a eval and \a grad are valid for this call only. \a x is in/out.

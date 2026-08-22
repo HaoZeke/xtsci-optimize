@@ -15,8 +15,8 @@
 //! <https://doi.org/10.1007/s12532-017-0130-5>.
 
 use highs::{HighsModelStatus, RowProblem, Sense};
-use highs_sys::{HighsInt, Highs_passHessian, STATUS_OK};
-use ndarray::{Array1, ArrayView1};
+use highs_sys::{Highs_passHessian, HighsInt, STATUS_OK};
+use ndarray::{Array1, Array2, ArrayView1};
 
 use crate::error::{Error, Result};
 use crate::lbfgs::Lbfgs;
@@ -235,6 +235,146 @@ fn scale_to_bounds(d: &mut Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) {
             d[k] = d[k].clamp(lo, hi);
         }
     }
+}
+
+/// Newton QP on a PSD host Hessian, or `Q = I` projection of `d`.
+///
+/// `min 1/2 p^T Q p + c^T p` with per-coordinate boxes from
+/// `atom_maxmove`. Unconstrained (no box, no centering) skips HiGHS.
+pub fn highs_feasible_step(
+    direction: Option<&Array1<f64>>,
+    hess: Option<&Array2<f64>>,
+    grad: &Array1<f64>,
+    atom_maxmove: Option<f64>,
+    trust: Option<f64>,
+    center_axes: Option<(usize, usize)>,
+) -> Result<Array1<f64>> {
+    let n = grad.len();
+    let boxed = atom_maxmove.is_some_and(|c| c > 0.0) || trust.is_some_and(|c| c > 0.0);
+    if !boxed && center_axes.is_none() {
+        if let Some(h) = hess {
+            return Ok(crate::newton::shifted_newton(h, grad));
+        }
+        if let Some(d) = direction {
+            return Ok(d.clone());
+        }
+        return Ok(grad.mapv(|v| -v));
+    }
+
+    let (c, q) = if let Some(h) = hess {
+        if h.nrows() != n || h.ncols() != n {
+            return Err(Error::Dim {
+                got: h.nrows(),
+                dim: n,
+            });
+        }
+        (grad.clone(), Some(h))
+    } else if let Some(d) = direction {
+        (d.mapv(|v| -v), None)
+    } else {
+        (grad.clone(), None)
+    };
+
+    let mut pb = RowProblem::default();
+    let mut cols = Vec::with_capacity(n);
+    for k in 0..n {
+        let (lo, hi) = coord_bounds(k, atom_maxmove, trust);
+        cols.push(pb.add_column(c[k], lo..=hi));
+    }
+    if let Some((n_atoms, dim)) = center_axes {
+        if n_atoms * dim == n && n_atoms > 0 {
+            for h in 0..dim {
+                let row: Vec<_> = (0..n_atoms).map(|i| (cols[i * dim + h], 1.0)).collect();
+                pb.add_row(0.0..=0.0, &row);
+            }
+        }
+    }
+
+    let mut model = pb
+        .try_optimise(Sense::Minimise)
+        .map_err(|e| Error::Highs(format!("pass LP {e:?}")))?;
+    model.make_quiet();
+    unsafe {
+        std::env::set_var("OMP_NUM_THREADS", "1");
+    }
+    let _ = model.try_set_option("parallel", "off");
+    let _ = model.try_set_option("threads", 1_i32);
+    let _ = model.try_set_option("time_limit", 1.0_f64);
+
+    let (q_start, q_index, q_value) = match q {
+        Some(h) => dense_csc(h),
+        None => identity_csc(n),
+    };
+    let st = unsafe {
+        Highs_passHessian(
+            model.as_mut_ptr(),
+            n as HighsInt,
+            q_value.len() as HighsInt,
+            1,
+            q_start.as_ptr(),
+            q_index.as_ptr(),
+            q_value.as_ptr(),
+        )
+    };
+    if st != STATUS_OK {
+        return Err(Error::Highs(format!("pass Hessian status {st}")));
+    }
+    let solved = model
+        .try_solve()
+        .map_err(|e| Error::Highs(format!("solve {e:?}")))?;
+    if solved.status() != HighsModelStatus::Optimal {
+        return Err(Error::Highs(format!("status {:?}", solved.status())));
+    }
+    let sol = solved.get_solution();
+    let p = sol.columns();
+    if p.len() != n {
+        return Err(Error::Highs(format!("column count {} != {n}", p.len())));
+    }
+    Ok(Array1::from(p.to_vec()))
+}
+
+fn coord_bounds(k: usize, atom_maxmove: Option<f64>, trust: Option<f64>) -> (f64, f64) {
+    let _ = k;
+    let mut lo = f64::NEG_INFINITY;
+    let mut hi = f64::INFINITY;
+    if let Some(t) = trust {
+        if t > 0.0 {
+            lo = -t;
+            hi = t;
+        }
+    }
+    if let Some(a) = atom_maxmove {
+        if a > 0.0 {
+            lo = lo.max(-a);
+            hi = hi.min(a);
+        }
+    }
+    if lo > hi {
+        lo = hi;
+    }
+    (lo, hi)
+}
+
+fn dense_csc(h: &Array2<f64>) -> (Vec<HighsInt>, Vec<HighsInt>, Vec<f64>) {
+    let n = h.nrows();
+    let mut start = Vec::with_capacity(n + 1);
+    let mut index = Vec::new();
+    let mut value = Vec::new();
+    start.push(0);
+    for j in 0..n {
+        for i in 0..n {
+            let v = h[(i, j)];
+            if v.abs() > 1e-16 {
+                index.push(i as HighsInt);
+                value.push(v);
+            }
+        }
+        start.push(value.len() as HighsInt);
+    }
+    if value.is_empty() {
+        return identity_csc(n);
+    }
+    (start, index, value)
 }
 
 fn identity_csc(n: usize) -> (Vec<HighsInt>, Vec<HighsInt>, Vec<f64>) {

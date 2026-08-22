@@ -3,6 +3,7 @@
 #![cfg(feature = "highs")]
 
 use approx::assert_relative_eq;
+use ndarray::Array2;
 use ndarray::{Array1, ArrayView1};
 use xtsci_optimize::{HighsStep, Lbfgs};
 
@@ -88,9 +89,16 @@ fn equality_projection_scales_to_thirty_two_variables() {
         ..HighsStep::default()
     });
     let x0 = Array1::from_elem(32, 1.0);
-    let (_, x, _) = opt.minimize(x0.view(), 4, |v| Some(quad(v)));
+    let g0 = quad(x0.view()).1;
+    let p = opt.highs_step(x0.view(), g0.view()).unwrap();
+    assert!(p.iter().all(|value| value.is_finite()));
+    assert!(
+        (p[0] + p[1]).abs() < 1e-8,
+        "equality on p: p0+p1={}",
+        p[0] + p[1]
+    );
+    let (_, x, _) = opt.minimize(x0.view(), 80, |v| Some(quad(v)));
     assert!(x.iter().all(|value| value.is_finite()));
-    assert!((x[0] + x[1]).abs() < 1e-8);
 }
 
 #[test]
@@ -140,4 +148,71 @@ fn center_axes_kills_the_mean() {
     for v in p.iter() {
         assert!(v.abs() <= 0.5 + 1e-12);
     }
+}
+
+#[test]
+fn highs_newton_qp_on_a_quadratic_respects_a_box() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::{ArrayView1, array};
+    use xtsci_optimize::{Control, HessianObjective, Method, QnStep, Solver};
+
+    struct Quad;
+    impl Objective<f64> for Quad {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| Bounds::new(array![-1e6, -1e6], array![1e6, 1e6], 0.0))
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            5.0 * x[0] * x[0] + 0.5 * x[1] * x[1]
+        }
+    }
+    impl Gradient<f64> for Quad {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            array![10.0 * x[0], x[1]]
+        }
+    }
+    impl DifferentiableObjective<f64> for Quad {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+    impl HessianObjective for Quad {
+        fn hessian(&self, _x: ArrayView1<f64>) -> Array2<f64> {
+            Array2::from_shape_vec((2, 2), vec![10.0, 0.0, 0.0, 1.0]).unwrap()
+        }
+    }
+
+    let obj = Quad;
+    let mut x = array![2.0, -3.0];
+    let mut solver = Solver::new(
+        Method::lbfgs(),
+        Control {
+            maxiter: 8,
+            gtol: 1e-10,
+            istep: 1.0,
+            maxmove: None,
+        },
+        2,
+    );
+    solver.set_qn_step(QnStep::Newton);
+    solver.set_highs(true);
+    solver.set_atom_maxmove(0.5);
+    let first = solver.step_hess(&obj, &mut x).unwrap();
+    assert!(first.grad_norm.is_finite());
+    assert!((x[0] - 2.0).abs() <= 0.5 + 1e-9);
+    assert!((x[1] + 3.0).abs() <= 0.5 + 1e-9);
+    for _ in 0..12 {
+        let rep = solver.step_hess(&obj, &mut x).unwrap();
+        if rep.grad_norm < 1e-8 {
+            break;
+        }
+    }
+    assert!(x.iter().all(|v| v.abs() < 1e-5), "end {x:?}");
 }

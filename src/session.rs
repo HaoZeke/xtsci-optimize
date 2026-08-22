@@ -40,6 +40,8 @@ pub struct Solver {
     e_hist: VecDeque<f64>,
     atom_maxmove: Option<f64>,
     project_rigid: bool,
+    #[cfg(feature = "highs")]
+    highs: bool,
     last_pos: Option<Array1<f64>>,
     last_value: f64,
     last_grad: Array1<f64>,
@@ -118,6 +120,8 @@ impl Solver {
             e_hist: VecDeque::new(),
             atom_maxmove: None,
             project_rigid: false,
+            #[cfg(feature = "highs")]
+            highs: false,
             last_pos: None,
             last_value: 0.0,
             last_grad: Array1::zeros(dim),
@@ -162,6 +166,33 @@ impl Solver {
         if let Inner::Lbfgs(solver) = &mut self.inner {
             solver.cautious_eps = eps;
             solver.cautious_alpha = alpha;
+        }
+    }
+
+    /// HiGHS feasible-set step. No-op unless this build has `highs`.
+    pub fn set_highs(&mut self, enabled: bool) {
+        #[cfg(not(feature = "highs"))]
+        let _ = enabled;
+        #[cfg(feature = "highs")]
+        {
+            self.highs = enabled;
+            if let Inner::Lbfgs(solver) = &mut self.inner {
+                solver.highs = if enabled {
+                    Some(crate::HighsStep {
+                        trust: self.atom_maxmove.or(self.control.maxmove),
+                        lo: None,
+                        hi: None,
+                        equalities: Vec::new(),
+                        center_axes: if self.project_rigid && self.dim % 3 == 0 {
+                            Some((self.dim / 3, 3))
+                        } else {
+                            None
+                        },
+                    })
+                } else {
+                    None
+                };
+            }
         }
     }
 
@@ -276,6 +307,54 @@ impl Solver {
         let hess = obj.hessian(x.view());
         if matches!(self.inner, Inner::Dogleg { .. }) {
             return self.step_dogleg(obj, x, value, grad, &hess);
+        }
+        #[cfg(feature = "highs")]
+        if self.highs {
+            let center = if self.project_rigid && self.dim % 3 == 0 {
+                Some((self.dim / 3, 3))
+            } else {
+                None
+            };
+            if let Ok(dir) = crate::lbfgs_qp::highs_feasible_step(
+                None,
+                Some(&hess),
+                &grad,
+                self.atom_maxmove,
+                self.control.maxmove,
+                center,
+            ) {
+                let old = x.clone();
+                let gold = grad.clone();
+                let (npos, nval, ngrad, moved) = accept_step(
+                    obj,
+                    x,
+                    value,
+                    &gold,
+                    &dir,
+                    &self.control,
+                    self.accept,
+                    &mut self.e_hist,
+                    None,
+                );
+                if moved {
+                    *x = npos;
+                    value = nval;
+                    grad = ngrad;
+                }
+                self.remember(x, value, &grad);
+                if let Inner::Lbfgs(solver) = &mut self.inner {
+                    if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
+                        solver.push_pair(&*x - &old, &grad - &gold, Some(l2(&grad)));
+                    }
+                }
+                self.steps += 1;
+                return Ok(Report {
+                    value,
+                    coords: x.clone(),
+                    steps: self.steps,
+                    grad_norm: l2(&grad),
+                });
+            }
         }
         let mut dir = if let Some(kind) = newton_kind {
             match kind {
