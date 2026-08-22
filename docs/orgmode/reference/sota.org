@@ -83,28 +83,60 @@ the direction is a Newton step, not a two-loop pair history.
 ** What beat OptBench min, and what did not
 
 Chill OptBench min, repo INIs (LJ38 ~||F||_2 = 0.01~, Morse
-~1e-3~), 100/100 clusters. Force-call averages:
+~1e-3~), 100/100 clusters. Force-call averages on converged
+runs. OPTIM 2014 is 176 / 46.
+
+Beat rematch (104 / 34):
+
+| arm | LJ38 | Morse | vs rematch |
+|---+---:|---:|---|
+| xtsci rematch L-BFGS | 104 (0/100) | 34 (0/100) | bar |
+| native rematch L-BFGS | 104 (0/100) | 35 (0/100) | tie / +1 |
+| xtsci dogleg on ~pair_full~ | 81 (0/100) | 45 (0/100) | beats LJ38 / does not beat Morse |
+
+Do not beat rematch (100/100 unless noted):
 
 | arm | LJ38 | Morse |
 |---+---:|---:|
-| xtsci rematch L-BFGS (~qn_step=newton~ on pair) | 104 | 34 |
-| native eOn rematch L-BFGS | 104 | 35 |
 | OPTIM 2014 | 176 | 46 |
-| xtsci memoryless Newton on ~pair_full~ | 351 | 101 |
+| local L-BFGS | 174 | 52 |
+| xtsci Newton ~pair_full~ | 360 | 203 (1 fail) |
+| xtsci rematch + HiGHS | 153 (3 fail) | timeout |
+| xtsci BB | 491 | 65 |
+| local FIRE | 767 | 156 |
+| xtsci FIRE | 767 | 156 |
+| xtsci FIRE 2.0 | 715 | 166 |
+| xtsci RFO | 22298 (13 fail) | 210 (4 fail) |
+| local CG | 449 | 106 |
+| xtsci Hager–Zhang | 13859 (20 fail) | 5336 (10 fail) |
+| xtsci Liu–Storey | 13877 (12 fail) | 5321 (10 fail) |
+| xtsci FR-PR | 14487 (12 fail) | 5182 (10 fail) |
+| xtsci Polak–Ribiere | 14541 (8 fail) | 5095 (10 fail) |
+| xtsci Hestenes–Stiefel | 14220 (14 fail) | 6474 (10 fail) |
+| xtsci L-BFGS (no pair) | 11144 (1 fail) | 4538 (10 fail) |
+| xtsci rematch + Schlegel | 4560 (7 fail) | timeout |
+| xtsci rematch + Lindh full | 10726 (11 fail) | timeout |
+| xtsci rematch + Swart | 13466 (18 fail) | timeout |
+| xtsci rematch + Fischer | 30961 (12 fail) | timeout |
+| xtsci BFGS | 31539 (9 fail) | 15380 (12 fail) |
+| xtsci steepest | 161337 (14 fail) | 11685 (11 fail) |
+| xtsci SR1 | 46440 (13 fail) | 32040 (38 fail) |
+| xtsci SR2 | fail 100/100 | 15079 (67 fail) |
+| xtsci Adam | 437284 (23 fail) | 20727 (1 fail) |
+| xtsci conjugate descent | 357370 (83 fail) | 33779 (31 fail) |
+| xtsci Dai–Yuan | 332068 (93 fail) | 31329 (47 fail) |
+| xtsci Fletcher–Reeves | 429282 (97 fail) | 44414 (69 fail) |
+| xtsci PSO | fail 100/100 | fail 100/100 |
+| sphere / Stiefel / SO(3) / SE(3) | fail 100/100 | fail / timeout |
 
-Rematch L-BFGS beats OPTIM on both sets. xtsci rematch ties
-native on LJ38 and beats it by one call on Morse. Memoryless
-Newton does not beat rematch.
-
-FIRE, FIRE 2.0, Barzilai–Borwein, Powell dogleg, HiGHS, model
-Hessians (~lindh_full~, ~swart~, ~fischer~, ~schlegel~), and
-every manifold token are unmeasured on this protocol. They are
-not a win.
+Dogleg is the only token that beats rematch, and only on LJ38.
+HiGHS on rematch is 153 on LJ38: better than OPTIM, worse than
+rematch, 3 failures. Model Hessians do not beat pair. Manifold
+tokens do not converge on these cluster / bulk geometries.
 
 ** FIRE, Barzilai–Borwein, and dogleg
 
 These four tokens share ~xts_solver_t~ and a fused =(f, g)=.
-They are present. They are not rematched.
 
 - FIRE (Bitzek 2006,
   [[https://doi.org/10.1103/PhysRevLett.97.170201][10.1103/PhysRevLett.97.170201]]) is the ASE / LAMMPS / eOn
@@ -127,9 +159,8 @@ FIRE 2.0.
 ** Nonlinear CG
 
 Hager and Zhang 2005 (~CG_DESCENT~)
-([[https://doi.org/10.1137/030601880][10.1137/030601880]]) is the NLCG pair in this crate. It is not
-rematched on OptBench min. It is not a replacement for rematch
-L-BFGS.
+([[https://doi.org/10.1137/030601880][10.1137/030601880]]) is the cheapest NLCG on this protocol
+(13859 / 5336) and does not beat rematch L-BFGS.
 
 ** Embedded manifolds
 
