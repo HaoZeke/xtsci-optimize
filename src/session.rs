@@ -35,6 +35,9 @@ pub struct Solver {
     e_hist: VecDeque<f64>,
     atom_maxmove: Option<f64>,
     project_rigid: bool,
+    last_pos: Option<Array1<f64>>,
+    last_value: f64,
+    last_grad: Array1<f64>,
     inner: Inner,
 }
 
@@ -102,6 +105,9 @@ impl Solver {
             e_hist: VecDeque::new(),
             atom_maxmove: None,
             project_rigid: false,
+            last_pos: None,
+            last_value: 0.0,
+            last_grad: Array1::zeros(dim),
             inner,
         }
     }
@@ -146,10 +152,24 @@ impl Solver {
         }
     }
 
+    fn same_last_x(&self, x: &Array1<f64>) -> bool {
+        match &self.last_pos {
+            Some(p) if p.len() == x.len() => p.iter().zip(x.iter()).all(|(a, b)| a == b),
+            _ => false,
+        }
+    }
+
+    fn remember(&mut self, x: &Array1<f64>, value: f64, grad: &Array1<f64>) {
+        self.last_pos = Some(x.clone());
+        self.last_value = value;
+        self.last_grad = grad.clone();
+    }
+
     /// Drop method memory. The next step is a cold start from the current `x`.
     pub fn forget(&mut self) {
         self.istep = self.control.istep;
         self.e_hist.clear();
+        self.last_pos = None;
         match &mut self.inner {
             Inner::Lbfgs(solver) => solver.forget(),
             Inner::Nlcg { initialized, .. } => *initialized = false,
@@ -208,7 +228,11 @@ impl Solver {
             _ => return self.step_first_order(obj, x),
         };
         *x = obj.bounds().clip(x.view());
-        let (mut value, mut grad) = obj.value_and_gradient(x.view());
+        let (mut value, mut grad) = if self.same_last_x(x) {
+            (self.last_value, self.last_grad.clone())
+        } else {
+            obj.value_and_gradient(x.view())
+        };
         if self.project_rigid {
             project_out_rot_trans(&mut grad, x.view());
         }
@@ -253,6 +277,7 @@ impl Solver {
             value = nval;
             grad = ngrad;
         }
+        self.remember(x, value, &grad);
         if let Inner::Lbfgs(solver) = &mut self.inner {
             if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
                 solver.push_pair(&*x - &old, &grad - &gold, Some(l2(&grad)));
