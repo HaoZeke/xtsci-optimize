@@ -25,12 +25,15 @@ pub mod nlcg;
 
 mod accept;
 mod adam;
+mod bb;
 mod control;
 mod error;
 /// C ABI, gated behind the `capi` feature.
 #[cfg(feature = "capi")]
 #[allow(non_camel_case_types, missing_docs)]
 pub mod ffi;
+/// FIRE / FIRE 2.0 inertial first-order steps.
+pub mod fire;
 /// Persistent L-BFGS (Nocedal-Wright 7.4) with strong Wolfe.
 pub mod lbfgs;
 /// L-BFGS quadratic model solved by HiGHS.
@@ -47,18 +50,20 @@ mod report;
 mod rigid;
 mod session;
 mod step;
+mod trust;
 
 pub use accept::Accept;
 pub use adam::minimize_adam;
 pub use control::Control;
 pub use error::{Error, Result};
+pub use fire::FireKind;
 pub use lbfgs::{GradNorm, Lbfgs};
 #[cfg(feature = "highs")]
 pub use lbfgs_qp::HighsStep;
 pub use linesearch::LineSearch;
 pub use method::Method;
 pub use minimize::{minimize, minimize_method, minimize_method_hess};
-pub use newton::{minimize_newton, HessianObjective, HessianOracle, NewtonKind};
+pub use newton::{HessianObjective, HessianOracle, NewtonKind, minimize_newton};
 pub use nlcg::{Conjugacy, ConjugacyContext, Restart};
 pub use oracle::Oracle;
 pub use pso::minimize_pso;

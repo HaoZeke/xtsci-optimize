@@ -88,6 +88,26 @@ pub enum Method {
         /// Social coefficient.
         c2: f64,
     },
+    /// FIRE inertial first-order step (Bitzek 2006 or Guénolé 2020).
+    ///
+    /// Bitzek, Koskinen, Gähler, Moseler, Gumbsch,
+    /// <https://doi.org/10.1103/PhysRevLett.97.170201>.
+    /// Guénolé, Nöhring, Vaid, Houllé, Xie, Prakash, Bitzek,
+    /// <https://doi.org/10.1016/j.commatsci.2020.109584>.
+    Fire {
+        /// FIRE 1.0 or FIRE 2.0.
+        kind: crate::fire::FireKind,
+    },
+    /// Barzilai-Borwein spectral steepest descent.
+    ///
+    /// Barzilai and Borwein, <https://doi.org/10.1093/imanum/8.1.141>.
+    /// Raydan, <https://doi.org/10.1137/S1052623494266365>.
+    Bb,
+    /// Powell dogleg on a caller-supplied dense Hessian.
+    ///
+    /// Nocedal and Wright, algorithm 4.1,
+    /// <https://doi.org/10.1007/978-0-387-40065-5>.
+    Dogleg,
 }
 
 impl Method {

@@ -18,8 +18,8 @@ use eindir_core::ffi::{
 use ndarray::{Array1, Array2};
 
 use crate::{
-    minimize_method, minimize_newton, Accept, Control, HessianOracle, LineSearch, Method,
-    NewtonKind, Oracle, QnStep, Solver,
+    Accept, Control, HessianOracle, LineSearch, Method, NewtonKind, Oracle, QnStep, Solver,
+    minimize_method, minimize_method_hess,
 };
 
 /// Status codes. 0 is success, matching metatensor / eindir.
@@ -49,7 +49,7 @@ pub struct xts_abi_stamp_t {
 }
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
-pub const XTS_ABI_VERSION_MINOR: u16 = 5;
+pub const XTS_ABI_VERSION_MINOR: u16 = 6;
 pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -90,6 +90,14 @@ pub enum xts_method_t {
     XTS_NEWTON = 15,
     /// Banerjee / Baker RFO on a caller-supplied Hessian.
     XTS_RFO = 16,
+    /// FIRE (Bitzek 2006).
+    XTS_FIRE = 17,
+    /// Barzilai-Borwein spectral steepest descent.
+    XTS_BB = 18,
+    /// Powell dogleg on a caller-supplied Hessian.
+    XTS_DOGLEG = 19,
+    /// FIRE 2.0 (Guénolé 2020).
+    XTS_FIRE2 = 20,
 }
 
 /// Iteration controls. `memory` is used only by L-BFGS (0 means 10).
@@ -219,6 +227,14 @@ fn method_from_c(m: xts_method_t, memory: usize) -> Method {
         },
         xts_method_t::XTS_RFO => Method::Newton {
             kind: NewtonKind::Rfo,
+        },
+        xts_method_t::XTS_FIRE => Method::Fire {
+            kind: crate::FireKind::V1,
+        },
+        xts_method_t::XTS_BB => Method::Bb,
+        xts_method_t::XTS_DOGLEG => Method::Dogleg,
+        xts_method_t::XTS_FIRE2 => Method::Fire {
+            kind: crate::FireKind::V2,
         },
     }
 }
@@ -389,8 +405,11 @@ pub unsafe extern "C" fn xts_minimize(
                 return xts_status_t::XTS_INVALID_PARAMETER;
             }
         };
-        if matches!(method, xts_method_t::XTS_NEWTON | xts_method_t::XTS_RFO) {
-            set_last_error("xts_minimize: Newton/RFO needs xts_minimize_hess");
+        if matches!(
+            method,
+            xts_method_t::XTS_NEWTON | xts_method_t::XTS_RFO | xts_method_t::XTS_DOGLEG
+        ) {
+            set_last_error("xts_minimize: Newton/RFO/dogleg needs xts_minimize_hess");
             return xts_status_t::XTS_INVALID_PARAMETER;
         }
         if ctrl.is_null() || out.is_null() {
@@ -587,11 +606,14 @@ pub unsafe extern "C" fn xts_minimize_hess(
                 None
             },
         };
-        let kind = match method {
-            xts_method_t::XTS_RFO => NewtonKind::Rfo,
-            _ => NewtonKind::Shifted,
-        };
-        match minimize_newton(&obj, Array1::from(init), &control, kind) {
+        let rust_method = method_from_c(method, c.memory);
+        match minimize_method_hess(
+            &obj,
+            Array1::from(init),
+            &control,
+            rust_method,
+            LineSearch::default(),
+        ) {
             Ok(rep) => {
                 let dest = match cpu_f64_slice_mut(x, "x") {
                     Ok(s) => s,

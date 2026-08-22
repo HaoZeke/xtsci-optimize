@@ -147,3 +147,141 @@ fn nlcg_second_step_is_not_steepest() {
         "PR and steepest stayed together: {a:?} {b:?}"
     );
 }
+
+#[test]
+fn fire_and_bb_kill_a_sphere() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use xtsci_optimize::Accept;
+
+    struct Sphere;
+    impl Objective<f64> for Sphere {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| Bounds::new(array![-1e6, -1e6], array![1e6, 1e6], 0.0))
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            x[0] * x[0] + x[1] * x[1]
+        }
+    }
+    impl Gradient<f64> for Sphere {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> ndarray::Array1<f64> {
+            array![2.0 * x[0], 2.0 * x[1]]
+        }
+    }
+    impl DifferentiableObjective<f64> for Sphere {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, ndarray::Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = Sphere;
+    for method in [
+        Method::Fire {
+            kind: xtsci_optimize::FireKind::V1,
+        },
+        Method::Fire {
+            kind: xtsci_optimize::FireKind::V2,
+        },
+        Method::Bb,
+    ] {
+        let mut x = array![1.5, -2.0];
+        let mut solver = Solver::new(
+            method.clone(),
+            Control {
+                maxiter: 200,
+                gtol: 1e-8,
+                istep: 0.2,
+                maxmove: None,
+            },
+            2,
+        );
+        solver.set_accept(Accept::Nonmonotone);
+        let mut last = None;
+        for _ in 0..200 {
+            let rep = solver.step(&obj, &mut x).unwrap();
+            last = Some(rep);
+            if last.as_ref().unwrap().grad_norm < 1e-7 {
+                break;
+            }
+        }
+        let rep = last.unwrap();
+        assert!(
+            rep.grad_norm < 1e-5 && rep.value < 1e-10,
+            "{method:?} gnorm {} value {}",
+            rep.grad_norm,
+            rep.value
+        );
+    }
+}
+
+#[test]
+fn dogleg_kills_a_quadratic() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::{Array2, ArrayView1};
+    use xtsci_optimize::HessianObjective;
+
+    struct Quad;
+    impl Objective<f64> for Quad {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| Bounds::new(array![-1e6, -1e6], array![1e6, 1e6], 0.0))
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            5.0 * x[0] * x[0] + 0.5 * x[1] * x[1]
+        }
+    }
+    impl Gradient<f64> for Quad {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> ndarray::Array1<f64> {
+            array![10.0 * x[0], x[1]]
+        }
+    }
+    impl DifferentiableObjective<f64> for Quad {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, ndarray::Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+    impl HessianObjective for Quad {
+        fn hessian(&self, _x: ArrayView1<f64>) -> Array2<f64> {
+            Array2::from_shape_vec((2, 2), vec![10.0, 0.0, 0.0, 1.0]).unwrap()
+        }
+    }
+
+    let obj = Quad;
+    let mut x = array![2.0, -3.0];
+    let mut solver = Solver::new(
+        Method::Dogleg,
+        Control {
+            maxiter: 10,
+            gtol: 1e-10,
+            istep: 4.0,
+            maxmove: None,
+        },
+        2,
+    );
+    let mut last = None;
+    for _ in 0..8 {
+        let rep = solver.step_hess(&obj, &mut x).unwrap();
+        last = Some(rep);
+        if last.as_ref().unwrap().grad_norm < 1e-10 {
+            break;
+        }
+    }
+    let rep = last.unwrap();
+    assert!(rep.value < 1e-12, "dogleg value {}", rep.value);
+    assert!(x.iter().all(|v| v.abs() < 1e-6));
+}

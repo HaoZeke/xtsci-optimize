@@ -16,8 +16,8 @@ pub enum Error {
     /// HiGHS rejected the L-BFGS quadratic model.
     #[error("HiGHS: {0}")]
     Highs(String),
-    /// Newton / RFO needs a Hessian oracle. Use [`crate::minimize_newton`].
-    #[error("Newton/RFO needs a Hessian; call minimize_newton")]
+    /// Newton / RFO / dogleg needs a Hessian oracle.
+    #[error("Newton/RFO/dogleg needs a Hessian; call step_hess")]
     NeedHessian,
 }
 

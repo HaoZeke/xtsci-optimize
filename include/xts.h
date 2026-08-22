@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 5
+#define XTS_ABI_VERSION_MINOR 6
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -67,7 +67,11 @@ typedef enum xts_method_t {
     XTS_LIU_STOREY = 13,
     XTS_FR_PR = 14,
     XTS_NEWTON = 15,
-    XTS_RFO = 16
+    XTS_RFO = 16,
+    XTS_FIRE = 17,
+    XTS_BB = 18,
+    XTS_DOGLEG = 19,
+    XTS_FIRE2 = 20
 } xts_method_t;
 
 /** Outer-loop controls. \c memory is the L-BFGS pair cap. */

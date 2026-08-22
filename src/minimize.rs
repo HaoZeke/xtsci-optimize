@@ -8,11 +8,12 @@ use crate::control::Control;
 use crate::error::{Error, Result};
 use crate::linesearch::LineSearch;
 use crate::method::Method;
-use crate::newton::{minimize_newton, HessianObjective};
+use crate::newton::{HessianObjective, minimize_newton};
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
 use crate::pso::minimize_pso;
 use crate::qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1, minimize_sr2};
 use crate::report::Report;
+use crate::session::Solver;
 use crate::step::{l2, next_istep, take_step};
 
 /// Minimize `obj` from `init` with the chosen conjugacy, restart, and line search.
@@ -65,8 +66,35 @@ where
             c1,
             c2,
         } => minimize_pso(obj, init, control, n_particles, inertia, c1, c2),
-        Method::Newton { kind: _ } => Err(Error::NeedHessian),
+        Method::Newton { kind: _ } | Method::Dogleg => Err(Error::NeedHessian),
+        Method::Fire { .. } | Method::Bb => run_session(obj, init, control, method),
     }
+}
+
+fn run_session<O>(
+    obj: &O,
+    init: impl Into<Array1<f64>>,
+    control: &Control,
+    method: Method,
+) -> Result<Report>
+where
+    O: DifferentiableObjective<f64> + ?Sized,
+{
+    let mut pos = init.into();
+    let mut solver = Solver::new(method, control.clone(), pos.len());
+    let mut last = Report {
+        value: 0.0,
+        coords: pos.clone(),
+        steps: 0,
+        grad_norm: f64::INFINITY,
+    };
+    for _ in 0..control.maxiter {
+        last = solver.step(obj, &mut pos)?;
+        if last.grad_norm < control.gtol {
+            break;
+        }
+    }
+    Ok(last)
 }
 
 /// Minimize with any [`Method`], including Newton / RFO.
@@ -82,8 +110,35 @@ where
 {
     match method {
         Method::Newton { kind } => minimize_newton(obj, init, control, kind),
+        Method::Dogleg => run_session_hess(obj, init, control, method),
         other => minimize_method(obj, init, control, other, linesearch),
     }
+}
+
+fn run_session_hess<O>(
+    obj: &O,
+    init: impl Into<Array1<f64>>,
+    control: &Control,
+    method: Method,
+) -> Result<Report>
+where
+    O: HessianObjective + ?Sized,
+{
+    let mut pos = init.into();
+    let mut solver = Solver::new(method, control.clone(), pos.len());
+    let mut last = Report {
+        value: 0.0,
+        coords: pos.clone(),
+        steps: 0,
+        grad_norm: f64::INFINITY,
+    };
+    for _ in 0..control.maxiter {
+        last = solver.step_hess(obj, &mut pos)?;
+        if last.grad_norm < control.gtol {
+            break;
+        }
+    }
+    Ok(last)
 }
 
 fn minimize_nlcg<O>(

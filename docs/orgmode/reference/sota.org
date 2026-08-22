@@ -80,6 +80,29 @@ the direction is a Newton step, not a two-loop pair history.
 ~minimize_newton~ are that solver. The C waist is
 ~xts_minimize_hess~. It is not an L-BFGS option.
 
+** FIRE, Barzilai–Borwein, and dogleg
+
+A 2026 literature survey plus a six-agent Borda vote added four
+tokens that share ~xts_solver_t~ and a fused =(f, g)=:
+
+- FIRE (Bitzek 2006,
+  [[https://doi.org/10.1103/PhysRevLett.97.170201][10.1103/PhysRevLett.97.170201]]) is the ASE / LAMMPS / eOn
+  inertial stepper. One fused force per geometry.
+- FIRE 2.0 (Guénolé 2020,
+  [[https://doi.org/10.1016/j.commatsci.2020.109584][10.1016/j.commatsci.2020.109584]]) mixes before a semi-implicit
+  Euler step.
+- Barzilai–Borwein (1988,
+  [[https://doi.org/10.1093/imanum/8.1.141][10.1093/imanum/8.1.141]]) with Raydan's nonmonotone globalization
+  ([[https://doi.org/10.1137/S1052623494266365][10.1137/S1052623494266365]]) is a two-point spectral step.
+- Powell dogleg (Nocedal–Wright algorithm 4.1) consumes the host
+  pair Hessian already passed to ~xts_solver_step_hess~.
+
+Steihaug–Toint, ARC, DFP, SPSA, CMA-ES, Nelder–Mead, and BOBYQA
+were surveyed and rejected for this token set: DFP is dominated by
+BFGS already in the crate, the derivative-free methods waste force
+calls on an analytic PES, and Steihaug lost the Borda fourth slot
+to FIRE 2.0.
+
 ** Nonlinear CG
 
 Hager and Zhang 2005 (~CG_DESCENT~)

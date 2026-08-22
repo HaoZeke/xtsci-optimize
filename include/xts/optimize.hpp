@@ -38,6 +38,10 @@ enum class Method {
     FrPr = XTS_FR_PR,
     Newton = XTS_NEWTON,
     Rfo = XTS_RFO,
+    Fire = XTS_FIRE,
+    Bb = XTS_BB,
+    Dogleg = XTS_DOGLEG,
+    Fire2 = XTS_FIRE2,
 };
 
 struct Control {

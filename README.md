@@ -26,7 +26,8 @@ HiGHS (`Q = I`) onto a box, trust region, or equalities.
 Conjugacy: Fletcher-Reeves, Polak-Ribiere, Hestenes-Stiefel, Dai-Yuan,
 conjugate descent, Hager-Zhang, Liu-Storey, FR-PR, HybridizedConj.
 Line search: Brent, Armijo, Goldstein, strong Wolfe with zoom.
-Methods: NLCG, BFGS, L-BFGS, SR1, SR2, Adam, steepest descent, PSO.
+Methods: NLCG, BFGS, L-BFGS, SR1, SR2, Newton, RFO, Adam, steepest
+descent, PSO, FIRE, FIRE 2.0, Barzilai-Borwein, Powell dogleg.
 
 Narrative docs live in [`docs/orgmode/`](docs/orgmode/index.org)
 (Diataxis). C ABI HTML is Doxygen plus

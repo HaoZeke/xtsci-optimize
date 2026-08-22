@@ -4,24 +4,29 @@ use std::collections::VecDeque;
 
 use eindir_core::{DifferentiableObjective, Objective};
 use ndarray::{Array1, Array2};
-use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::rngs::StdRng;
 
-use crate::accept::{accept_step, Accept};
+use crate::accept::{Accept, accept_step};
 use crate::adam::adam_direction;
+use crate::bb::bb_direction;
 use crate::control::Control;
 use crate::error::{Error, Result};
+use crate::fire::{FireState, fire_after_v1, fire_displacement};
 use crate::lbfgs::{GradNorm, Lbfgs};
 use crate::linesearch::LineSearch;
 use crate::method::Method;
-use crate::newton::{rfo_direction, shifted_newton, HessianObjective, NewtonKind};
+use crate::newton::{HessianObjective, NewtonKind, rfo_direction, shifted_newton};
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
-use crate::pso::{random_velocity, update_swarm, Particle, RNG_SEED};
+use crate::pso::{Particle, RNG_SEED, random_velocity, update_swarm};
 use crate::qn::{bfgs_inverse_update, solve_dense, sr1_inverse_update, sr2_hessian_update};
 use crate::qn_step::QnStep;
 use crate::report::Report;
 use crate::rigid::project_out_rot_trans;
-use crate::step::{l2, next_istep, take_step};
+use crate::step::{l2, next_istep, scale_step, scale_step_atom, take_step};
+use crate::trust::{
+    accept_ratio, dogleg_direction, predicted_reduction, reduction_ratio, update_radius,
+};
 
 /// Long-lived solver. Algorithm memory lives here; `x` stays with the caller.
 pub struct Solver {
@@ -80,6 +85,14 @@ enum Inner {
     Newton {
         kind: NewtonKind,
     },
+    Fire(FireState),
+    Bb {
+        prev_s: Option<Array1<f64>>,
+        prev_y: Option<Array1<f64>>,
+    },
+    Dogleg {
+        radius: f64,
+    },
 }
 
 struct PsoState {
@@ -93,7 +106,7 @@ impl Solver {
     /// Fresh session for `method` in dimension `dim`.
     pub fn new(method: Method, control: Control, dim: usize) -> Self {
         let istep = control.istep;
-        let inner = Inner::from_method(&method, dim);
+        let inner = Inner::from_method(&method, dim, istep);
         Self {
             dim,
             control,
@@ -196,6 +209,14 @@ impl Solver {
             Inner::Steepest => {}
             Inner::Pso { swarm, .. } => *swarm = None,
             Inner::Newton { .. } => {}
+            Inner::Fire(state) => state.reset(),
+            Inner::Bb { prev_s, prev_y } => {
+                *prev_s = None;
+                *prev_y = None;
+            }
+            Inner::Dogleg { radius } => {
+                *radius = self.control.istep.max(1e-8);
+            }
         }
     }
 
@@ -204,7 +225,7 @@ impl Solver {
     where
         O: DifferentiableObjective<f64> + ?Sized,
     {
-        if matches!(self.inner, Inner::Newton { .. }) {
+        if matches!(self.inner, Inner::Newton { .. } | Inner::Dogleg { .. }) {
             return Err(Error::NeedHessian);
         }
         self.step_first_order(obj, x)
@@ -228,6 +249,7 @@ impl Solver {
                 QnStep::Rfo => Some(NewtonKind::Rfo),
                 QnStep::TwoLoop => None,
             },
+            Inner::Dogleg { .. } => None,
             _ => return self.step_first_order(obj, x),
         };
         let cached = self.same_last_x(x);
@@ -252,6 +274,9 @@ impl Solver {
             });
         }
         let hess = obj.hessian(x.view());
+        if matches!(self.inner, Inner::Dogleg { .. }) {
+            return self.step_dogleg(obj, x, value, grad, &hess);
+        }
         let mut dir = if let Some(kind) = newton_kind {
             match kind {
                 NewtonKind::Shifted => shifted_newton(&hess, &grad),
@@ -298,6 +323,67 @@ impl Solver {
         })
     }
 
+    fn step_dogleg<O>(
+        &mut self,
+        obj: &O,
+        x: &mut Array1<f64>,
+        value: f64,
+        grad: Array1<f64>,
+        hess: &ndarray::Array2<f64>,
+    ) -> Result<Report>
+    where
+        O: DifferentiableObjective<f64> + ?Sized,
+    {
+        let radius = match &self.inner {
+            Inner::Dogleg { radius } => *radius,
+            _ => self.control.istep.max(1e-8),
+        };
+        let rmax = self
+            .atom_maxmove
+            .or(self.control.maxmove)
+            .unwrap_or(radius * 8.0)
+            .max(radius);
+        let mut dir = dogleg_direction(hess, &grad, radius);
+        if self.project_rigid {
+            project_out_rot_trans(&mut dir, x.view());
+        }
+        let mut trial = &*x + &dir;
+        if let Some(cap) = self.atom_maxmove {
+            scale_step_atom(x, &mut trial, cap);
+        } else if let Some(cap) = self.control.maxmove {
+            scale_step(x, &mut trial, cap);
+        }
+        trial = obj.bounds().clip(trial.view());
+        let p = &trial - &*x;
+        let pnorm = l2(&p);
+        let (ft, gt) = obj.value_and_gradient(trial.view());
+        let pred = predicted_reduction(hess, &grad, &p);
+        let rho = reduction_ratio(value - ft, pred);
+        if let Inner::Dogleg { radius } = &mut self.inner {
+            *radius = update_radius(*radius, rho, pnorm, rmax);
+        }
+        if accept_ratio(rho) {
+            *x = trial;
+            self.remember(x, ft, &gt);
+            self.steps += 1;
+            Ok(Report {
+                value: ft,
+                coords: x.clone(),
+                steps: self.steps,
+                grad_norm: l2(&gt),
+            })
+        } else {
+            self.remember(x, value, &grad);
+            self.steps += 1;
+            Ok(Report {
+                value,
+                coords: x.clone(),
+                steps: self.steps,
+                grad_norm: l2(&grad),
+            })
+        }
+    }
+
     fn step_first_order<O>(&mut self, obj: &O, x: &mut Array1<f64>) -> Result<Report>
     where
         O: DifferentiableObjective<f64> + ?Sized,
@@ -308,13 +394,20 @@ impl Solver {
                 dim: self.dim,
             });
         }
-        *x = obj.bounds().clip(x.view());
+        let cached = self.same_last_x(x);
+        if !cached {
+            *x = obj.bounds().clip(x.view());
+        }
 
         if let Inner::Pso { .. } = &self.inner {
             return self.step_pso(obj, x);
         }
 
-        let (mut value, mut grad) = obj.value_and_gradient(x.view());
+        let (mut value, mut grad) = if cached {
+            (self.last_value, self.last_grad.clone())
+        } else {
+            obj.value_and_gradient(x.view())
+        };
         let gnorm = l2(&grad);
         if gnorm < self.control.gtol {
             return Ok(Report {
@@ -489,9 +582,50 @@ impl Solver {
                 *b2p *= *beta2;
                 self.istep = next_istep(lsstep, &self.control);
             }
-            Inner::Pso { .. } | Inner::Newton { .. } => unreachable!(),
+            Inner::Fire(state) => {
+                let force = grad.mapv(|g| -g);
+                let dx = fire_displacement(state, &force);
+                let mut trial = &*x + &dx;
+                if let Some(cap) = self.atom_maxmove {
+                    scale_step_atom(x, &mut trial, cap);
+                } else if let Some(cap) = self.control.maxmove {
+                    scale_step(x, &mut trial, cap);
+                }
+                trial = obj.bounds().clip(trial.view());
+                *x = trial;
+                let ev = obj.value_and_gradient(x.view());
+                value = ev.0;
+                grad = ev.1;
+                let force_new = grad.mapv(|g| -g);
+                fire_after_v1(state, &force_new);
+            }
+            Inner::Bb { prev_s, prev_y } => {
+                let dir = bb_direction(prev_s.as_ref(), prev_y.as_ref(), &grad, self.istep);
+                let old = x.clone();
+                let gold = grad.clone();
+                let (npos, nval, ngrad, moved) = accept_step(
+                    obj,
+                    x,
+                    value,
+                    &gold,
+                    &dir,
+                    &self.control,
+                    self.accept,
+                    &mut self.e_hist,
+                    self.atom_maxmove,
+                );
+                *x = npos;
+                value = nval;
+                grad = ngrad;
+                if moved {
+                    *prev_s = Some(&*x - &old);
+                    *prev_y = Some(&grad - &gold);
+                }
+            }
+            Inner::Pso { .. } | Inner::Newton { .. } | Inner::Dogleg { .. } => unreachable!(),
         }
 
+        self.remember(x, value, &grad);
         self.steps += 1;
         Ok(Report {
             value,
@@ -589,7 +723,7 @@ impl Solver {
 }
 
 impl Inner {
-    fn from_method(method: &Method, dim: usize) -> Self {
+    fn from_method(method: &Method, dim: usize, istep: f64) -> Self {
         match method {
             Method::Lbfgs { memory } => {
                 let mut solver = Lbfgs::with_capacity(*memory);
@@ -636,6 +770,14 @@ impl Inner {
                 swarm: None,
             },
             Method::Newton { kind } => Inner::Newton { kind: *kind },
+            Method::Fire { kind } => Inner::Fire(FireState::new(*kind, dim, istep)),
+            Method::Bb => Inner::Bb {
+                prev_s: None,
+                prev_y: None,
+            },
+            Method::Dogleg => Inner::Dogleg {
+                radius: istep.max(1e-8),
+            },
         }
     }
 }

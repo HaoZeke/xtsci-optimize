@@ -26,6 +26,16 @@ ISBN). Do not invent DOIs.
 | PSO Kennedy-Eberhart | 10.1109/ICNN.1995.488968 | Particle swarm optimization |
 | Banerjee RFO | 10.1021/j100247a015 | Search for stationary points on surfaces |
 | Baker TS / RFO | 10.1002/jcc.540070402 | An algorithm for the location of transition states |
+| FIRE Bitzek 2006 | 10.1103/PhysRevLett.97.170201 | Structural Relaxation Made Simple |
+| FIRE 2.0 Guénolé 2020 | 10.1016/j.commatsci.2020.109584 | Assessment and optimization of the fast inertial relaxation engine (FIRE) for energy minimization in atomistic simulations and its implementation in LAMMPS |
+| Barzilai–Borwein 1988 | 10.1093/imanum/8.1.141 | Two-Point Step Size Gradient Methods |
+| Raydan SPG 1997 | 10.1137/S1052623494266365 | The Barzilai and Borwein Gradient Method for the Large Scale Unconstrained Minimization Problem |
+| Dennis–Schnabel | 10.1137/1.9781611971200 | Numerical Methods for Unconstrained Optimization and Nonlinear Equations |
+| Steihaug 1983 | 10.1137/0720042 | The Conjugate Gradient Method and Trust Regions in Large Scale Optimization |
+| Moré–Sorensen 1983 | 10.1137/0904038 | Computing a Trust Region Step |
+| ARC Cartis–Gould–Toint | 10.1007/s10107-009-0286-5 | Adaptive cubic regularisation methods for unconstrained optimization. Part I: motivation, convergence and numerical results |
+| Moré–Thuente 1994 | 10.1145/192115.192132 | Line search algorithms with guaranteed sufficient decrease |
+| SPSA Spall 1992 | 10.1109/9.119632 | Multivariate stochastic approximation using a simultaneous perturbation gradient approximation |
 
 Polak-Ribiere 1969 and Hestenes-Stiefel 1952: cite the paper/book
 title in rustdoc if no DOI is on this list. Do not mint a DOI.
