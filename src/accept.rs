@@ -6,6 +6,7 @@ use eindir_core::DifferentiableObjective;
 use ndarray::Array1;
 
 use crate::control::Control;
+use crate::manifold::{Manifold, ManifoldKind};
 use crate::step::{scale_step, scale_step_atom};
 
 const ENERGY_RISE: f64 = 1.0e-8;
@@ -30,11 +31,13 @@ fn trial_point<O>(
     alpha: f64,
     control: &Control,
     atom_maxmove: Option<f64>,
+    manifold: ManifoldKind,
 ) -> Array1<f64>
 where
     O: DifferentiableObjective<f64> + ?Sized,
 {
-    let mut trial = pos + &(dir * alpha);
+    let step = dir * alpha;
+    let mut trial = manifold.retract(pos, &step);
     if let Some(cap) = atom_maxmove {
         scale_step_atom(pos, &mut trial, cap);
     } else if let Some(cap) = control.maxmove {
@@ -61,13 +64,14 @@ pub(crate) fn accept_step<O>(
     accept: Accept,
     e_hist: &mut VecDeque<f64>,
     atom_maxmove: Option<f64>,
+    manifold: ManifoldKind,
 ) -> (Array1<f64>, f64, Array1<f64>, bool)
 where
     O: DifferentiableObjective<f64> + ?Sized,
 {
     match accept {
         Accept::None => {
-            let trial = trial_point(obj, pos, dir, 1.0, control, atom_maxmove);
+            let trial = trial_point(obj, pos, dir, 1.0, control, atom_maxmove, manifold);
             let (ft, gt) = obj.value_and_gradient(trial.view());
             push_energy(e_hist, ft);
             (trial, ft, gt, true)
@@ -81,7 +85,7 @@ where
             }
             let mut alpha = 1.0;
             for _ in 0..10 {
-                let trial = trial_point(obj, pos, dir, alpha, control, atom_maxmove);
+                let trial = trial_point(obj, pos, dir, alpha, control, atom_maxmove, manifold);
                 let (ft, gt) = obj.value_and_gradient(trial.view());
                 if ft - ref_e <= ENERGY_RISE {
                     push_energy(e_hist, ft);
@@ -90,7 +94,7 @@ where
                 alpha *= 0.5;
             }
             let sd = grad.mapv(|g| -g);
-            let trial = trial_point(obj, pos, &sd, 0.1, control, atom_maxmove);
+            let trial = trial_point(obj, pos, &sd, 0.1, control, atom_maxmove, manifold);
             let (ft, gt) = obj.value_and_gradient(trial.view());
             push_energy(e_hist, ft);
             (trial, ft, gt, true)
@@ -102,7 +106,7 @@ where
 mod tests {
     use super::*;
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
-    use ndarray::{array, ArrayView1};
+    use ndarray::{ArrayView1, array};
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     struct CountQuad {
@@ -165,6 +169,7 @@ mod tests {
             Accept::None,
             &mut hist,
             None,
+            ManifoldKind::Euclidean,
         );
         assert!(moved);
         assert!((x[0] - 2.0).abs() < 1e-15);
@@ -191,6 +196,7 @@ mod tests {
             Accept::Energy,
             &mut hist,
             None,
+            ManifoldKind::Euclidean,
         );
         // 10 rejected halvings + one short steepest fallback.
         assert_eq!(obj.evals.load(Ordering::Relaxed), 11);

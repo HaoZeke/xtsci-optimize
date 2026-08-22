@@ -18,8 +18,8 @@ use eindir_core::ffi::{
 use ndarray::{Array1, Array2};
 
 use crate::{
-    Accept, Control, HessianOracle, LineSearch, Method, NewtonKind, Oracle, QnStep, Solver,
-    minimize_method, minimize_method_hess,
+    Accept, Control, HessianOracle, LineSearch, ManifoldKind, Method, NewtonKind, Oracle, QnStep,
+    Solver, minimize_method, minimize_method_hess,
 };
 
 /// Status codes. 0 is success, matching metatensor / eindir.
@@ -49,7 +49,7 @@ pub struct xts_abi_stamp_t {
 }
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
-pub const XTS_ABI_VERSION_MINOR: u16 = 7;
+pub const XTS_ABI_VERSION_MINOR: u16 = 8;
 pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -933,6 +933,36 @@ pub unsafe extern "C" fn xts_solver_set_highs(solver: *mut xts_solver_t, enabled
         set_last_error("xts_solver_set_highs: build has no highs feature");
         1
     }
+}
+
+/// Embedded manifold. Tokens other than Euclidean are filled on
+/// `feat/manifold-*` branches.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum xts_manifold_t {
+    XTS_MANIFOLD_EUCLIDEAN = 0,
+    XTS_MANIFOLD_SPHERE = 1,
+    XTS_MANIFOLD_SO3 = 2,
+    XTS_MANIFOLD_STIEFEL = 3,
+    XTS_MANIFOLD_SE3 = 4,
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_manifold(
+    solver: *mut xts_solver_t,
+    manifold: xts_manifold_t,
+) {
+    if solver.is_null() {
+        return;
+    }
+    let kind = match manifold {
+        xts_manifold_t::XTS_MANIFOLD_SPHERE => ManifoldKind::Sphere,
+        xts_manifold_t::XTS_MANIFOLD_SO3 => ManifoldKind::So3,
+        xts_manifold_t::XTS_MANIFOLD_STIEFEL => ManifoldKind::Stiefel,
+        xts_manifold_t::XTS_MANIFOLD_SE3 => ManifoldKind::Se3,
+        xts_manifold_t::XTS_MANIFOLD_EUCLIDEAN => ManifoldKind::Euclidean,
+    };
+    unsafe { (*solver).solver.set_manifold(kind) };
 }
 
 /// One outer iteration. `x` is in/out. Callbacks live for this call only.

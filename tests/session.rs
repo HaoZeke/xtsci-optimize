@@ -131,6 +131,16 @@ fn lbfgs_newton_on_a_supplied_hessian_kills_a_quadratic() {
 }
 
 #[test]
+fn default_manifold_is_euclidean() {
+    let obj = Rosenbrock::<2>::new();
+    let mut x = array![-1.2, 1.0];
+    let mut solver = Solver::new(Method::lbfgs(), control(), 2).with_gtol(1e-8);
+    solver.set_manifold(xtsci_optimize::ManifoldKind::Euclidean);
+    let rep = solver.step(&obj, &mut x).unwrap();
+    assert!(rep.grad_norm.is_finite());
+}
+
+#[test]
 fn nlcg_second_step_is_not_steepest() {
     let obj = Rosenbrock::<2>::new();
     let mut a = array![-1.2, 1.0];

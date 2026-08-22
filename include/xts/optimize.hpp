@@ -203,6 +203,7 @@ public:
         xts_solver_set_cautious(ptr_, eps, alpha);
     }
     int set_highs(bool on) { return xts_solver_set_highs(ptr_, on ? 1 : 0); }
+    void set_manifold(xts_manifold_t m) { xts_solver_set_manifold(ptr_, m); }
 
     Report step(xts_eval_fn eval, xts_grad_fn grad, void* user,
                 DLManagedTensorVersioned* x) {

@@ -15,6 +15,7 @@ use crate::error::{Error, Result};
 use crate::fire::{FireState, fire_after_v1, fire_displacement};
 use crate::lbfgs::{GradNorm, Lbfgs};
 use crate::linesearch::LineSearch;
+use crate::manifold::{Manifold, ManifoldKind};
 use crate::method::Method;
 use crate::newton::{HessianObjective, NewtonKind, rfo_direction, shifted_newton};
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
@@ -40,6 +41,7 @@ pub struct Solver {
     e_hist: VecDeque<f64>,
     atom_maxmove: Option<f64>,
     project_rigid: bool,
+    manifold: ManifoldKind,
     #[cfg(feature = "highs")]
     highs: bool,
     last_pos: Option<Array1<f64>>,
@@ -120,6 +122,7 @@ impl Solver {
             e_hist: VecDeque::new(),
             atom_maxmove: None,
             project_rigid: false,
+            manifold: ManifoldKind::Euclidean,
             #[cfg(feature = "highs")]
             highs: false,
             last_pos: None,
@@ -152,6 +155,14 @@ impl Solver {
     /// eOn `lbfgs_project_rigid`. Isolated clusters only.
     pub fn set_project_rigid(&mut self, enabled: bool) {
         self.project_rigid = enabled;
+    }
+
+    /// Embedded manifold for project / retract / transport.
+    pub fn set_manifold(&mut self, kind: ManifoldKind) {
+        if kind != self.manifold {
+            self.forget();
+        }
+        self.manifold = kind;
     }
 
     /// Al-Baali extra-updates on the newest L-BFGS pair.
@@ -335,6 +346,7 @@ impl Solver {
                     self.accept,
                     &mut self.e_hist,
                     None,
+                    self.manifold,
                 );
                 if moved {
                     *x = npos;
@@ -369,6 +381,7 @@ impl Solver {
         if self.project_rigid {
             project_out_rot_trans(&mut dir, x.view());
         }
+        dir = self.manifold.project(x, &dir);
         let old = x.clone();
         let gold = grad.clone();
         let (npos, nval, ngrad, moved) = accept_step(
@@ -381,6 +394,7 @@ impl Solver {
             self.accept,
             &mut self.e_hist,
             self.atom_maxmove,
+            self.manifold,
         );
         if moved {
             *x = npos;

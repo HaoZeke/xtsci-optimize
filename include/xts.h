@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 7
+#define XTS_ABI_VERSION_MINOR 8
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -186,6 +186,15 @@ void xts_solver_set_cautious(xts_solver_t *solver, double eps, double alpha);
 /** HiGHS feasible-set step. Nonzero enables it. Returns 0, or 1 if this
  *  build has no highs feature. */
 int32_t xts_solver_set_highs(xts_solver_t *solver, int32_t enabled);
+/** Embedded manifold. Euclidean is the default. */
+typedef enum xts_manifold_t {
+    XTS_MANIFOLD_EUCLIDEAN = 0,
+    XTS_MANIFOLD_SPHERE = 1,
+    XTS_MANIFOLD_SO3 = 2,
+    XTS_MANIFOLD_STIEFEL = 3,
+    XTS_MANIFOLD_SE3 = 4
+} xts_manifold_t;
+void xts_solver_set_manifold(xts_solver_t *solver, xts_manifold_t manifold);
 /**
  * One outer iteration: direction, line search, curvature update.
  * \a eval and \a grad are valid for this call only. \a x is in/out.

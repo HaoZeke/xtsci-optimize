@@ -39,6 +39,8 @@ pub mod lbfgs;
 /// L-BFGS quadratic model solved by HiGHS.
 #[cfg(feature = "highs")]
 pub mod lbfgs_qp;
+/// Embedded Riemannian manifolds (manopt_cpp proj / retr / transp).
+pub mod manifold;
 mod minimize;
 /// Shifted Newton and Banerjee RFO on a dense Hessian.
 pub mod newton;
@@ -61,6 +63,7 @@ pub use lbfgs::{GradNorm, Lbfgs};
 #[cfg(feature = "highs")]
 pub use lbfgs_qp::HighsStep;
 pub use linesearch::LineSearch;
+pub use manifold::{Manifold, ManifoldKind};
 pub use method::Method;
 pub use minimize::{minimize, minimize_method, minimize_method_hess};
 pub use newton::{HessianObjective, HessianOracle, NewtonKind, minimize_newton};
