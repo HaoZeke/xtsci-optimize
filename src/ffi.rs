@@ -11,16 +11,15 @@ use dlpk::sys::{
     DLDataType, DLDataTypeCode, DLDevice, DLDeviceType, DLManagedTensorVersioned, DLPackVersion,
     DLTensor,
 };
-use ndarray::{Array1, Array2};
 use eindir_core::ffi::{
-    eindir_abi_stamp_t, eindir_core_abi_compatible, eindir_objective_eval,
-    eindir_objective_grad, eindir_objective_has_grad, eindir_objective_t,
-    eindir_status_t,
+    eindir_abi_stamp_t, eindir_core_abi_compatible, eindir_objective_eval, eindir_objective_grad,
+    eindir_objective_has_grad, eindir_objective_t, eindir_status_t,
 };
+use ndarray::{Array1, Array2};
 
 use crate::{
-    Control, HessianOracle, LineSearch, Method, NewtonKind, Oracle, QnStep, Solver,
-    minimize_method, minimize_newton,
+    minimize_method, minimize_newton, Accept, Control, HessianOracle, LineSearch, Method,
+    NewtonKind, Oracle, QnStep, Solver,
 };
 
 /// Status codes. 0 is success, matching metatensor / eindir.
@@ -50,7 +49,7 @@ pub struct xts_abi_stamp_t {
 }
 
 pub const XTS_ABI_VERSION_MAJOR: u16 = 1;
-pub const XTS_ABI_VERSION_MINOR: u16 = 3;
+pub const XTS_ABI_VERSION_MINOR: u16 = 4;
 pub const XTS_ABI_LAYOUT_REVISION: u16 = 2;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -142,14 +141,21 @@ pub type xts_hess_fn = unsafe extern "C" fn(
     hess_out: *mut DLManagedTensorVersioned,
 ) -> xts_status_t;
 
+/// Fused `(f, ∇f)` callback. One geometry, one host potential call.
+pub type xts_evalgrad_fn = unsafe extern "C" fn(
+    user: *mut c_void,
+    x: *const DLManagedTensorVersioned,
+    value_out: *mut f64,
+    grad_out: *mut DLManagedTensorVersioned,
+) -> xts_status_t;
+
 thread_local! {
     static LAST_ERROR: RefCell<CString> = RefCell::new(CString::default());
 }
 
 fn set_last_error(msg: &str) {
     LAST_ERROR.with(|cell| {
-        let c = CString::new(msg)
-            .unwrap_or_else(|_| CString::new("(interior NUL)").unwrap());
+        let c = CString::new(msg).unwrap_or_else(|_| CString::new("(interior NUL)").unwrap());
         *cell.borrow_mut() = c;
     });
 }
@@ -192,9 +198,7 @@ pub unsafe extern "C" fn xts_abi_compatible(stamp: *const xts_abi_stamp_t) -> i3
 fn method_from_c(m: xts_method_t, memory: usize) -> Method {
     match m {
         xts_method_t::XTS_POLAK_RIBIERE => Method::polak_ribiere(),
-        xts_method_t::XTS_FLETCHER_REEVES => {
-            Method::nlcg(crate::Conjugacy::FletcherReeves)
-        }
+        xts_method_t::XTS_FLETCHER_REEVES => Method::nlcg(crate::Conjugacy::FletcherReeves),
         xts_method_t::XTS_BFGS => Method::Bfgs,
         xts_method_t::XTS_LBFGS => Method::Lbfgs {
             memory: if memory == 0 { 10 } else { memory },
@@ -204,13 +208,9 @@ fn method_from_c(m: xts_method_t, memory: usize) -> Method {
         xts_method_t::XTS_STEEPEST => Method::Steepest,
         xts_method_t::XTS_SR2 => Method::Sr2,
         xts_method_t::XTS_PSO => Method::pso(),
-        xts_method_t::XTS_HESTENES_STIEFEL => {
-            Method::nlcg(crate::Conjugacy::HestenesStiefel)
-        }
+        xts_method_t::XTS_HESTENES_STIEFEL => Method::nlcg(crate::Conjugacy::HestenesStiefel),
         xts_method_t::XTS_DAI_YUAN => Method::nlcg(crate::Conjugacy::DaiYuan),
-        xts_method_t::XTS_CONJUGATE_DESCENT => {
-            Method::nlcg(crate::Conjugacy::ConjugateDescent)
-        }
+        xts_method_t::XTS_CONJUGATE_DESCENT => Method::nlcg(crate::Conjugacy::ConjugateDescent),
         xts_method_t::XTS_HAGER_ZHANG => Method::nlcg(crate::Conjugacy::HagerZhang),
         xts_method_t::XTS_LIU_STOREY => Method::nlcg(crate::Conjugacy::LiuStorey),
         xts_method_t::XTS_FR_PR => Method::nlcg(crate::Conjugacy::FrPr),
@@ -416,17 +416,14 @@ pub unsafe extern "C" fn xts_minimize(
             let mut value = 0.0;
             let ev_st = unsafe { eval_fn(user, xt, &mut value) };
             let mut g = vec![0.0; xs.len()];
-            let gt = unsafe {
-                create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0)
-            };
+            let gt =
+                unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
             let gr_st = unsafe { grad_fn(user, xt, gt) };
             unsafe {
                 xts_tensor_free(xt);
                 xts_tensor_free(gt);
             }
-            if ev_st != xts_status_t::XTS_SUCCESS
-                || gr_st != xts_status_t::XTS_SUCCESS
-            {
+            if ev_st != xts_status_t::XTS_SUCCESS || gr_st != xts_status_t::XTS_SUCCESS {
                 return (f64::INFINITY, Array1::from(g));
             }
             (value, Array1::from(g))
@@ -436,7 +433,11 @@ pub unsafe extern "C" fn xts_minimize(
             maxiter: c.maxiter,
             gtol: c.gtol,
             istep: if c.istep > 0.0 { c.istep } else { 1.0 },
-            maxmove: if c.maxmove > 0.0 { Some(c.maxmove) } else { None },
+            maxmove: if c.maxmove > 0.0 {
+                Some(c.maxmove)
+            } else {
+                None
+            },
         };
         match minimize_method(
             &obj,
@@ -535,12 +536,7 @@ pub unsafe extern "C" fn xts_minimize_hess(
                 let user = user_addr as *mut c_void;
                 let mut xs = xv.to_vec();
                 let xt = unsafe {
-                    create_borrowed_f64_1d(
-                        xs.as_mut_ptr(),
-                        xs.len(),
-                        DLDeviceType::kDLCPU,
-                        0,
-                    )
+                    create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
                 };
                 let mut value = 0.0;
                 let ev_st = unsafe { eval_fn(user, xt, &mut value) };
@@ -553,9 +549,7 @@ pub unsafe extern "C" fn xts_minimize_hess(
                     xts_tensor_free(xt);
                     xts_tensor_free(gt);
                 }
-                if ev_st != xts_status_t::XTS_SUCCESS
-                    || gr_st != xts_status_t::XTS_SUCCESS
-                {
+                if ev_st != xts_status_t::XTS_SUCCESS || gr_st != xts_status_t::XTS_SUCCESS {
                     return (f64::INFINITY, Array1::from(g));
                 }
                 (value, Array1::from(g))
@@ -565,12 +559,7 @@ pub unsafe extern "C" fn xts_minimize_hess(
                 let user = user_addr as *mut c_void;
                 let mut xs = xv.to_vec();
                 let xt = unsafe {
-                    create_borrowed_f64_1d(
-                        xs.as_mut_ptr(),
-                        xs.len(),
-                        DLDeviceType::kDLCPU,
-                        0,
-                    )
+                    create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
                 };
                 let mut h = vec![0.0; n * n];
                 let ht = unsafe {
@@ -592,7 +581,11 @@ pub unsafe extern "C" fn xts_minimize_hess(
             maxiter: c.maxiter,
             gtol: c.gtol,
             istep: if c.istep > 0.0 { c.istep } else { 1.0 },
-            maxmove: if c.maxmove > 0.0 { Some(c.maxmove) } else { None },
+            maxmove: if c.maxmove > 0.0 {
+                Some(c.maxmove)
+            } else {
+                None
+            },
         };
         let kind = match method {
             xts_method_t::XTS_RFO => NewtonKind::Rfo,
@@ -710,7 +703,11 @@ pub unsafe extern "C" fn xts_minimize_eindir(
             maxiter: c.maxiter,
             gtol: c.gtol,
             istep: if c.istep > 0.0 { c.istep } else { 1.0 },
-            maxmove: if c.maxmove > 0.0 { Some(c.maxmove) } else { None },
+            maxmove: if c.maxmove > 0.0 {
+                Some(c.maxmove)
+            } else {
+                None
+            },
         };
         match minimize_method(
             &obj,
@@ -772,7 +769,11 @@ pub unsafe extern "C" fn xts_solver_create(
         maxiter: c.maxiter,
         gtol: c.gtol,
         istep: if c.istep > 0.0 { c.istep } else { 1.0 },
-        maxmove: if c.maxmove > 0.0 { Some(c.maxmove) } else { None },
+        maxmove: if c.maxmove > 0.0 {
+            Some(c.maxmove)
+        } else {
+            None
+        },
     };
     let solver = Solver::new(method_from_c(method, c.memory), control, dim).with_gtol(c.gtol);
     Box::into_raw(Box::new(xts_solver_t { solver }))
@@ -818,10 +819,7 @@ pub enum xts_qn_step_t {
 
 /// eOn `lbfgs_step`. Legal on an `XTS_LBFGS` session with [`xts_solver_step_hess`].
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn xts_solver_set_qn_step(
-    solver: *mut xts_solver_t,
-    step: xts_qn_step_t,
-) {
+pub unsafe extern "C" fn xts_solver_set_qn_step(solver: *mut xts_solver_t, step: xts_qn_step_t) {
     if solver.is_null() {
         return;
     }
@@ -831,6 +829,32 @@ pub unsafe extern "C" fn xts_solver_set_qn_step(
         xts_qn_step_t::XTS_QN_LBFGS => QnStep::TwoLoop,
     };
     unsafe { (*solver).solver.set_qn_step(qn) };
+}
+
+/// How a session takes a proposed step (eOn `lbfgs_accept`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum xts_accept_t {
+    /// Take the maxmove-clipped step.
+    XTS_ACCEPT_NONE = 0,
+    /// Refuse an energy rise (up to 10 halvings).
+    XTS_ACCEPT_ENERGY = 1,
+    /// Grippo window of the last five accepted values.
+    XTS_ACCEPT_NONMONOTONE = 2,
+}
+
+/// eOn `lbfgs_accept`. Legal on any session.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_set_accept(solver: *mut xts_solver_t, accept: xts_accept_t) {
+    if solver.is_null() {
+        return;
+    }
+    let a = match accept {
+        xts_accept_t::XTS_ACCEPT_ENERGY => Accept::Energy,
+        xts_accept_t::XTS_ACCEPT_NONMONOTONE => Accept::Nonmonotone,
+        xts_accept_t::XTS_ACCEPT_NONE => Accept::None,
+    };
+    unsafe { (*solver).solver.set_accept(a) };
 }
 
 /// One outer iteration. `x` is in/out. Callbacks live for this call only.
@@ -953,6 +977,110 @@ pub unsafe extern "C" fn xts_solver_step_hess(
     }
 }
 
+/// One outer iteration with a fused `(f, g)` callback.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_step_fg(
+    solver: *mut xts_solver_t,
+    evalgrad: Option<xts_evalgrad_fn>,
+    user: *mut c_void,
+    x: *mut DLManagedTensorVersioned,
+    out: *mut xts_report_t,
+) -> xts_status_t {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if solver.is_null() {
+            set_last_error("xts_solver_step_fg: null solver");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        let evalgrad = match evalgrad {
+            Some(f) => f,
+            None => {
+                set_last_error("xts_solver_step_fg: evalgrad is NULL");
+                return xts_status_t::XTS_INVALID_PARAMETER;
+            }
+        };
+        if out.is_null() {
+            set_last_error("xts_solver_step_fg: out is NULL");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        let init = match cpu_f64_slice_mut(x, "x") {
+            Ok(s) => s.to_vec(),
+            Err(st) => return st,
+        };
+        let n = init.len();
+        let obj = c_oracle_fg(evalgrad, user, n);
+        let mut pos = Array1::from(init);
+        match unsafe { (*solver).solver.step(&obj, &mut pos) } {
+            Ok(rep) => write_report(x, out, &rep),
+            Err(e) => {
+                set_last_error(&e.to_string());
+                xts_status_t::XTS_INVALID_PARAMETER
+            }
+        }
+    })) {
+        Ok(s) => s,
+        Err(_) => {
+            set_last_error("xts_solver_step_fg: panic");
+            xts_status_t::XTS_INTERNAL_ERROR
+        }
+    }
+}
+
+/// One Newton / RFO iteration with a fused `(f, g)` callback.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn xts_solver_step_hess_fg(
+    solver: *mut xts_solver_t,
+    evalgrad: Option<xts_evalgrad_fn>,
+    hess: Option<xts_hess_fn>,
+    user: *mut c_void,
+    x: *mut DLManagedTensorVersioned,
+    out: *mut xts_report_t,
+) -> xts_status_t {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if solver.is_null() {
+            set_last_error("xts_solver_step_hess_fg: null solver");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        let evalgrad = match evalgrad {
+            Some(f) => f,
+            None => {
+                set_last_error("xts_solver_step_hess_fg: evalgrad is NULL");
+                return xts_status_t::XTS_INVALID_PARAMETER;
+            }
+        };
+        let hess = match hess {
+            Some(f) => f,
+            None => {
+                set_last_error("xts_solver_step_hess_fg: hess is NULL");
+                return xts_status_t::XTS_INVALID_PARAMETER;
+            }
+        };
+        if out.is_null() {
+            set_last_error("xts_solver_step_hess_fg: out is NULL");
+            return xts_status_t::XTS_INVALID_PARAMETER;
+        }
+        let init = match cpu_f64_slice_mut(x, "x") {
+            Ok(s) => s.to_vec(),
+            Err(st) => return st,
+        };
+        let n = init.len();
+        let obj = c_oracle_hess_fg(evalgrad, hess, user, n);
+        let mut pos = Array1::from(init);
+        match unsafe { (*solver).solver.step_hess(&obj, &mut pos) } {
+            Ok(rep) => write_report(x, out, &rep),
+            Err(e) => {
+                set_last_error(&e.to_string());
+                xts_status_t::XTS_INVALID_PARAMETER
+            }
+        }
+    })) {
+        Ok(s) => s,
+        Err(_) => {
+            set_last_error("xts_solver_step_hess_fg: panic");
+            xts_status_t::XTS_INTERNAL_ERROR
+        }
+    }
+}
+
 fn c_oracle(
     eval: xts_eval_fn,
     grad: xts_grad_fn,
@@ -967,15 +1095,13 @@ fn c_oracle(
         let grad_fn: xts_grad_fn = unsafe { std::mem::transmute(grad_ptr) };
         let user = user_addr as *mut c_void;
         let mut xs = xv.to_vec();
-        let xt = unsafe {
-            create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
-        };
+        let xt =
+            unsafe { create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0) };
         let mut value = 0.0;
         let ev_st = unsafe { eval_fn(user, xt, &mut value) };
         let mut g = vec![0.0; xs.len()];
-        let gt = unsafe {
-            create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0)
-        };
+        let gt =
+            unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
         let gr_st = unsafe { grad_fn(user, xt, gt) };
         unsafe {
             xts_tensor_free(xt);
@@ -1015,9 +1141,8 @@ fn c_oracle_hess(
             let mut value = 0.0;
             let ev_st = unsafe { eval_fn(user, xt, &mut value) };
             let mut g = vec![0.0; xs.len()];
-            let gt = unsafe {
-                create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0)
-            };
+            let gt =
+                unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
             let gr_st = unsafe { grad_fn(user, xt, gt) };
             unsafe {
                 xts_tensor_free(xt);
@@ -1036,9 +1161,95 @@ fn c_oracle_hess(
                 create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
             };
             let mut h = vec![0.0; n * n];
-            let ht = unsafe {
-                create_borrowed_f64_1d(h.as_mut_ptr(), h.len(), DLDeviceType::kDLCPU, 0)
+            let ht =
+                unsafe { create_borrowed_f64_1d(h.as_mut_ptr(), h.len(), DLDeviceType::kDLCPU, 0) };
+            let st = unsafe { hess_fn(user, xt, ht) };
+            unsafe {
+                xts_tensor_free(xt);
+                xts_tensor_free(ht);
+            }
+            if st != xts_status_t::XTS_SUCCESS {
+                return Array2::<f64>::eye(n);
+            }
+            Array2::from_shape_vec((n, n), h).unwrap_or_else(|_| Array2::<f64>::eye(n))
+        },
+    )
+}
+
+fn c_oracle_fg(
+    evalgrad: xts_evalgrad_fn,
+    user: *mut c_void,
+    n: usize,
+) -> Oracle<impl Fn(ndarray::ArrayView1<f64>) -> (f64, Array1<f64>) + Send + Sync> {
+    let fg_ptr = evalgrad as usize;
+    let user_addr = user as usize;
+    Oracle::unbounded(n, move |xv| {
+        let fg_fn: xts_evalgrad_fn = unsafe { std::mem::transmute(fg_ptr) };
+        let user = user_addr as *mut c_void;
+        let mut xs = xv.to_vec();
+        let xt =
+            unsafe { create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0) };
+        let mut value = 0.0;
+        let mut g = vec![0.0; xs.len()];
+        let gt =
+            unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
+        let st = unsafe { fg_fn(user, xt, &mut value, gt) };
+        unsafe {
+            xts_tensor_free(xt);
+            xts_tensor_free(gt);
+        }
+        if st != xts_status_t::XTS_SUCCESS {
+            return (f64::INFINITY, Array1::from(g));
+        }
+        (value, Array1::from(g))
+    })
+}
+
+fn c_oracle_hess_fg(
+    evalgrad: xts_evalgrad_fn,
+    hess: xts_hess_fn,
+    user: *mut c_void,
+    n: usize,
+) -> HessianOracle<
+    impl Fn(ndarray::ArrayView1<f64>) -> (f64, Array1<f64>) + Send + Sync,
+    impl Fn(ndarray::ArrayView1<f64>) -> Array2<f64> + Send + Sync,
+> {
+    let fg_ptr = evalgrad as usize;
+    let hess_ptr = hess as usize;
+    let user_addr = user as usize;
+    HessianOracle::unbounded(
+        n,
+        move |xv| {
+            let fg_fn: xts_evalgrad_fn = unsafe { std::mem::transmute(fg_ptr) };
+            let user = user_addr as *mut c_void;
+            let mut xs = xv.to_vec();
+            let xt = unsafe {
+                create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
             };
+            let mut value = 0.0;
+            let mut g = vec![0.0; xs.len()];
+            let gt =
+                unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
+            let st = unsafe { fg_fn(user, xt, &mut value, gt) };
+            unsafe {
+                xts_tensor_free(xt);
+                xts_tensor_free(gt);
+            }
+            if st != xts_status_t::XTS_SUCCESS {
+                return (f64::INFINITY, Array1::from(g));
+            }
+            (value, Array1::from(g))
+        },
+        move |xv| {
+            let hess_fn: xts_hess_fn = unsafe { std::mem::transmute(hess_ptr) };
+            let user = user_addr as *mut c_void;
+            let mut xs = xv.to_vec();
+            let xt = unsafe {
+                create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
+            };
+            let mut h = vec![0.0; n * n];
+            let ht =
+                unsafe { create_borrowed_f64_1d(h.as_mut_ptr(), h.len(), DLDeviceType::kDLCPU, 0) };
             let st = unsafe { hess_fn(user, xt, ht) };
             unsafe {
                 xts_tensor_free(xt);

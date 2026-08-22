@@ -46,7 +46,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 3
+#define XTS_ABI_VERSION_MINOR 4
 #define XTS_ABI_LAYOUT_REVISION 2
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -92,6 +92,11 @@ typedef xts_status_t (*xts_grad_fn)(void *user, const DLManagedTensorVersioned *
                                     DLManagedTensorVersioned *grad_out);
 typedef xts_status_t (*xts_hess_fn)(void *user, const DLManagedTensorVersioned *x,
                                     DLManagedTensorVersioned *hess_out);
+/** Fused (f, grad). One geometry, one host potential call. */
+typedef xts_status_t (*xts_evalgrad_fn)(void *user,
+                                        const DLManagedTensorVersioned *x,
+                                        double *value_out,
+                                        DLManagedTensorVersioned *grad_out);
 
 /** Crate version string. */
 const char *xts_version(void);
@@ -163,6 +168,13 @@ typedef enum xts_qn_step_t {
 } xts_qn_step_t;
 /** Two-loop + H0, or Newton/RFO on P. Legal with \ref xts_solver_step_hess. */
 void xts_solver_set_qn_step(xts_solver_t *solver, xts_qn_step_t step);
+/** How a session takes a proposed step (eOn lbfgs_accept). */
+typedef enum xts_accept_t {
+    XTS_ACCEPT_NONE = 0,
+    XTS_ACCEPT_ENERGY = 1,
+    XTS_ACCEPT_NONMONOTONE = 2
+} xts_accept_t;
+void xts_solver_set_accept(xts_solver_t *solver, xts_accept_t accept);
 /**
  * One outer iteration: direction, line search, curvature update.
  * \a eval and \a grad are valid for this call only. \a x is in/out.
@@ -175,6 +187,15 @@ xts_status_t xts_solver_step_hess(xts_solver_t *solver, xts_eval_fn eval,
                                   xts_grad_fn grad, xts_hess_fn hess,
                                   void *user, DLManagedTensorVersioned *x,
                                   xts_report_t *out);
+/** Like \ref xts_solver_step with one fused (f, g) callback. */
+xts_status_t xts_solver_step_fg(xts_solver_t *solver, xts_evalgrad_fn evalgrad,
+                                void *user, DLManagedTensorVersioned *x,
+                                xts_report_t *out);
+/** Like \ref xts_solver_step_hess with one fused (f, g) callback. */
+xts_status_t xts_solver_step_hess_fg(xts_solver_t *solver,
+                                     xts_evalgrad_fn evalgrad, xts_hess_fn hess,
+                                     void *user, DLManagedTensorVersioned *x,
+                                     xts_report_t *out);
 
 #ifdef __cplusplus
 }

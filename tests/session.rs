@@ -83,7 +83,6 @@ fn retained_pairs_beat_a_cold_start() {
 }
 
 #[test]
-#[test]
 fn lbfgs_newton_on_a_supplied_hessian_kills_a_quadratic() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::{Array2, ArrayView1};
@@ -97,9 +96,7 @@ fn lbfgs_newton_on_a_supplied_hessian_kills_a_quadratic() {
         fn bounds(&self) -> &Bounds<f64> {
             use std::sync::OnceLock;
             static B: OnceLock<Bounds<f64>> = OnceLock::new();
-            B.get_or_init(|| {
-                Bounds::new(array![-1e6, -1e6], array![1e6, 1e6], 0.0)
-            })
+            B.get_or_init(|| Bounds::new(array![-1e6, -1e6], array![1e6, 1e6], 0.0))
         }
         fn eval(&self, x: ArrayView1<f64>) -> f64 {
             5.0 * x[0] * x[0] + 0.5 * x[1] * x[1]
@@ -133,6 +130,7 @@ fn lbfgs_newton_on_a_supplied_hessian_kills_a_quadratic() {
     assert!(x.iter().all(|v| v.abs() < 1e-6));
 }
 
+#[test]
 fn nlcg_second_step_is_not_steepest() {
     let obj = Rosenbrock::<2>::new();
     let mut a = array![-1.2, 1.0];

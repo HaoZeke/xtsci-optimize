@@ -20,14 +20,17 @@ xts_report_t report;
 while (!done) {
     xts_solver_set_maxmove(s, max_move);
     xts_solver_set_qn_step(s, XTS_QN_NEWTON); /* or XTS_QN_LBFGS + P as H0 */
-    xts_solver_step_hess(s, eval, grad, hess, user, x, &report);
+    xts_solver_set_accept(s, XTS_ACCEPT_NONE);
+    xts_solver_step_hess_fg(s, evalgrad, hess, user, x, &report);
 }
 xts_solver_free(s);
 #+end_src
 
 ~xts_solver_forget~ drops pairs / conjugacy / moments. Newton and RFO
-use ~xts_solver_step_hess~. Callbacks are arguments of each step, not
-stored on the handle.
+use ~xts_solver_step_hess_fg~ (fused energy and gradient, one host
+potential call). Split ~eval~ / ~grad~ callbacks remain. ~accept~
+is ~none~ (take the clipped step), ~energy~, or ~nonmonotone~.
+Callbacks are arguments of each step, not stored on the handle.
 
 ** One-shot
 

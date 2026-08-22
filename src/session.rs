@@ -1,19 +1,20 @@
 //! Persistent solver session. One [`Solver::step`] is one outer iteration.
 
+use std::collections::VecDeque;
+
 use eindir_core::{DifferentiableObjective, Objective};
 use ndarray::{Array1, Array2};
-use rand::SeedableRng;
 use rand::rngs::StdRng;
+use rand::SeedableRng;
 
+use crate::accept::{accept_step, Accept};
 use crate::adam::adam_direction;
 use crate::control::Control;
 use crate::error::{Error, Result};
 use crate::lbfgs::{GradNorm, Lbfgs};
 use crate::linesearch::LineSearch;
 use crate::method::Method;
-use crate::newton::{
-    energy_backtrack, rfo_direction, shifted_newton, HessianObjective, NewtonKind,
-};
+use crate::newton::{rfo_direction, shifted_newton, HessianObjective, NewtonKind};
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
 use crate::pso::{random_velocity, update_swarm, Particle, RNG_SEED};
 use crate::qn::{bfgs_inverse_update, solve_dense, sr1_inverse_update, sr2_hessian_update};
@@ -29,6 +30,8 @@ pub struct Solver {
     istep: f64,
     steps: usize,
     qn_step: QnStep,
+    accept: Accept,
+    e_hist: VecDeque<f64>,
     inner: Inner,
 }
 
@@ -92,6 +95,8 @@ impl Solver {
             istep,
             steps: 0,
             qn_step: QnStep::TwoLoop,
+            accept: Accept::None,
+            e_hist: VecDeque::new(),
             inner,
         }
     }
@@ -99,6 +104,11 @@ impl Solver {
     /// eOn `lbfgs_step`. Newton / RFO need a Hessian on [`Self::step_hess`].
     pub fn set_qn_step(&mut self, step: QnStep) {
         self.qn_step = step;
+    }
+
+    /// eOn `lbfgs_accept`. Default is take the clipped step.
+    pub fn set_accept(&mut self, accept: Accept) {
+        self.accept = accept;
     }
 
     /// Euclidean cap applied on the next [`Self::step`].
@@ -109,6 +119,7 @@ impl Solver {
     /// Drop method memory. The next step is a cold start from the current `x`.
     pub fn forget(&mut self) {
         self.istep = self.control.istep;
+        self.e_hist.clear();
         match &mut self.inner {
             Inner::Lbfgs(solver) => solver.forget(),
             Inner::Nlcg { initialized, .. } => *initialized = false,
@@ -190,21 +201,20 @@ impl Solver {
         };
         let old = x.clone();
         let gold = grad.clone();
-        let (npos, nval, ngrad, moved) =
-            energy_backtrack(obj, x, value, &dir, &self.control);
+        let (npos, nval, ngrad, moved) = accept_step(
+            obj,
+            x,
+            value,
+            &gold,
+            &dir,
+            &self.control,
+            self.accept,
+            &mut self.e_hist,
+        );
         if moved {
             *x = npos;
             value = nval;
             grad = ngrad;
-        } else {
-            let sd = gold.mapv(|g| -g);
-            let (spos, sval, sgrad, sok) =
-                energy_backtrack(obj, &old, value, &sd, &self.control);
-            if sok {
-                *x = spos;
-                value = sval;
-                grad = sgrad;
-            }
         }
         if let Inner::Lbfgs(solver) = &mut self.inner {
             if x.iter().zip(old.iter()).any(|(a, b)| a != b) {
@@ -312,11 +322,7 @@ impl Solver {
                 if restart.should_restart(&ctx) {
                     beta = 0.0;
                 }
-                *dir = Array1::from_iter(
-                    grad.iter()
-                        .zip(d_old.iter())
-                        .map(|(g, d)| -g + beta * d),
-                );
+                *dir = Array1::from_iter(grad.iter().zip(d_old.iter()).map(|(g, d)| -g + beta * d));
                 g_old.assign(&grad);
                 d_old.assign(dir);
                 self.istep = next_istep(lsstep, &self.control);
@@ -472,11 +478,7 @@ impl Solver {
                 }
                 swarm.push(particle);
             }
-            if let Inner::Pso {
-                swarm: slot,
-                ..
-            } = &mut self.inner
-            {
+            if let Inner::Pso { swarm: slot, .. } = &mut self.inner {
                 *slot = Some(PsoState {
                     swarm,
                     gbest_position,
@@ -526,10 +528,7 @@ impl Inner {
                 solver.norm = GradNorm::Euclidean;
                 Inner::Lbfgs(solver)
             }
-            Method::Nlcg {
-                conjugacy,
-                restart,
-            } => Inner::Nlcg {
+            Method::Nlcg { conjugacy, restart } => Inner::Nlcg {
                 conjugacy: conjugacy.clone(),
                 restart: *restart,
                 dir: Array1::zeros(dim),
@@ -546,11 +545,7 @@ impl Inner {
             Method::Sr2 => Inner::Sr2 {
                 b: Array2::<f64>::eye(dim),
             },
-            Method::Adam {
-                beta1,
-                beta2,
-                eps,
-            } => Inner::Adam {
+            Method::Adam { beta1, beta2, eps } => Inner::Adam {
                 m: Array1::zeros(dim),
                 v: Array1::zeros(dim),
                 b1p: *beta1,

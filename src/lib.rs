@@ -23,6 +23,7 @@ pub mod method;
 /// Nonlinear conjugate-gradient conjugacy and restart.
 pub mod nlcg;
 
+mod accept;
 mod adam;
 mod control;
 mod error;
@@ -36,7 +37,6 @@ pub mod lbfgs;
 #[cfg(feature = "highs")]
 pub mod lbfgs_qp;
 mod minimize;
-mod session;
 /// Shifted Newton and Banerjee RFO on a dense Hessian.
 pub mod newton;
 mod oracle;
@@ -44,8 +44,10 @@ mod pso;
 mod qn;
 mod qn_step;
 mod report;
+mod session;
 mod step;
 
+pub use accept::Accept;
 pub use adam::minimize_adam;
 pub use control::Control;
 pub use error::{Error, Result};

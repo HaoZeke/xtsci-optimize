@@ -11,9 +11,9 @@ use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir
 use rgpot_core::status::rgpot_status_t;
 use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 use xtsci_optimize::ffi::{
-    xts_abi_compatible, xts_abi_stamp, xts_control_t, xts_method_t, xts_minimize,
-    xts_minimize_eindir, xts_report_t, xts_solver_create, xts_solver_free, xts_solver_step,
-    xts_status_t, xts_tensor_borrow_cpu_f64, xts_tensor_free,
+    xts_abi_compatible, xts_abi_stamp, xts_accept_t, xts_control_t, xts_method_t, xts_minimize,
+    xts_minimize_eindir, xts_report_t, xts_solver_create, xts_solver_free, xts_solver_set_accept,
+    xts_solver_step, xts_solver_step_fg, xts_status_t, xts_tensor_borrow_cpu_f64, xts_tensor_free,
 };
 
 unsafe extern "C" fn quadratic_eval(
@@ -75,6 +75,21 @@ unsafe extern "C" fn rosen_eval(
         *value_out = 100.0 * (x1 - x0 * x0).powi(2) + (1.0 - x0).powi(2);
     }
     xts_status_t::XTS_SUCCESS
+}
+
+unsafe extern "C" fn rosen_evalgrad(
+    user: *mut c_void,
+    x: *const DLManagedTensorVersioned,
+    value_out: *mut f64,
+    g: *mut DLManagedTensorVersioned,
+) -> xts_status_t {
+    let n = unsafe { &mut *(user as *mut usize) };
+    *n += 1;
+    let ev = rosen_eval(std::ptr::null_mut(), x, value_out);
+    if ev != xts_status_t::XTS_SUCCESS {
+        return ev;
+    }
+    rosen_grad(std::ptr::null_mut(), x, g)
 }
 
 unsafe extern "C" fn rosen_grad(
@@ -393,10 +408,47 @@ fn version_is_nul_terminated() {
 }
 
 #[test]
+fn fused_evalgrad_is_one_callback_per_oracle() {
+    let mut x = [-1.2, 1.0];
+    let xt = unsafe { xts_tensor_borrow_cpu_f64(x.as_mut_ptr(), 2) };
+    let ctrl = xts_control_t {
+        maxiter: 1,
+        gtol: 1e-12,
+        istep: 0.1,
+        memory: 10,
+        maxmove: 0.2,
+    };
+    let session = unsafe { xts_solver_create(xts_method_t::XTS_LBFGS, &ctrl, 2) };
+    assert!(!session.is_null());
+    unsafe { xts_solver_set_accept(session, xts_accept_t::XTS_ACCEPT_NONE) };
+    let mut calls = 0usize;
+    let mut out = xts_report_t {
+        value: 0.0,
+        steps: 0,
+        grad_norm: 0.0,
+    };
+    let st = unsafe {
+        xts_solver_step_fg(
+            session,
+            Some(rosen_evalgrad),
+            (&mut calls as *mut usize).cast(),
+            xt,
+            &mut out,
+        )
+    };
+    unsafe {
+        xts_solver_free(session);
+        xts_tensor_free(xt);
+    }
+    assert_eq!(st, xts_status_t::XTS_SUCCESS);
+    assert!(calls >= 1, "fused oracle never ran");
+}
+
+#[test]
 fn abi_stamp_identifies_this_optimizer_layout() {
     let stamp = xts_abi_stamp();
     assert_eq!(stamp.abi_major, 1);
-    assert_eq!(stamp.abi_minor, 3);
+    assert_eq!(stamp.abi_minor, 4);
     assert_eq!(stamp.layout_revision, 2);
     assert_eq!(unsafe { xts_abi_compatible(&stamp) }, 1);
 }

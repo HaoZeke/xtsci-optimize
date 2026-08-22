@@ -187,6 +187,7 @@ public:
     void forget() { xts_solver_forget(ptr_); }
     void set_maxmove(double m) { xts_solver_set_maxmove(ptr_, m); }
     void set_qn_step(xts_qn_step_t step) { xts_solver_set_qn_step(ptr_, step); }
+    void set_accept(xts_accept_t accept) { xts_solver_set_accept(ptr_, accept); }
 
     Report step(xts_eval_fn eval, xts_grad_fn grad, void* user,
                 DLManagedTensorVersioned* x) {
