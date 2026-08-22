@@ -130,7 +130,7 @@ Do not beat rematch (100/100 unless noted):
 | sphere / Stiefel | fail 100/100 (maxiter) | maxiter ~11000 FC, 0 conv |
 | SO(3) | reject ~n!=9~ | not a 3N packing |
 | SE(3) | reject ~n!=12~ | not a 3N packing |
-| rigid_quotient / mw_rigid | Sella / IRC | LJ38 20/20 identical to rematch (avg 120); Morse PBC 20/20 term=1 |
+| rigid_quotient / mw_rigid | Sella / IRC | LJ38 20/20 identical to rematch (avg 120); Morse PBC T(3) 0/20 fail, 19/20 identical FC |
 
 Dogleg is the only token that beats rematch, and only on LJ38.
 HiGHS on rematch is 153 on LJ38: better than OPTIM, worse than
