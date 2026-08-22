@@ -462,7 +462,7 @@ impl Solver {
             None
         };
         if let (Inner::Lbfgs(solver), Some((s, y, gn))) = (&mut self.inner, pair) {
-            solver.push_pair(s, &y, Some(gn));
+            solver.push_pair(s, y, Some(gn));
         }
         self.steps += 1;
         Ok(Report {
