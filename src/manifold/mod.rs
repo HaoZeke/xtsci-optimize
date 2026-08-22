@@ -9,8 +9,10 @@
 use ndarray::Array1;
 
 mod euclidean;
+mod sphere;
 
 pub use euclidean::Euclidean;
+pub use sphere::Sphere;
 
 /// Which embedded geometry a session retracts onto.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -49,6 +51,7 @@ impl Manifold for ManifoldKind {
     fn project(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64> {
         match self {
             Self::Euclidean => Euclidean.project(x, v),
+            Self::Sphere => Sphere.project(x, v),
             _ => Euclidean.project(x, v),
         }
     }
@@ -56,6 +59,7 @@ impl Manifold for ManifoldKind {
     fn retract(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64> {
         match self {
             Self::Euclidean => Euclidean.retract(x, v),
+            Self::Sphere => Sphere.retract(x, v),
             _ => Euclidean.retract(x, v),
         }
     }
@@ -63,6 +67,7 @@ impl Manifold for ManifoldKind {
     fn transport(&self, x_from: &Array1<f64>, x_to: &Array1<f64>, v: &Array1<f64>) -> Array1<f64> {
         match self {
             Self::Euclidean => Euclidean.transport(x_from, x_to, v),
+            Self::Sphere => Sphere.transport(x_from, x_to, v),
             _ => Euclidean.transport(x_from, x_to, v),
         }
     }
