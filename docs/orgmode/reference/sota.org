@@ -101,7 +101,7 @@ Do not beat rematch (100/100 unless noted):
 | OPTIM 2014 | 176 | 46 |
 | local L-BFGS | 174 | 52 |
 | xtsci Newton ~pair_full~ | 360 | 203 (1 fail) |
-| xtsci rematch + HiGHS | 153 (3 fail) | timeout |
+| xtsci rematch + HiGHS | 153 (3 fail) | 0 conv (300 s timeout) |
 | xtsci BB | 491 | 65 |
 | local FIRE | 767 | 156 |
 | xtsci FIRE | 767 | 156 |
@@ -114,10 +114,10 @@ Do not beat rematch (100/100 unless noted):
 | xtsci Polak–Ribiere | 14541 (8 fail) | 5095 (10 fail) |
 | xtsci Hestenes–Stiefel | 14220 (14 fail) | 6474 (10 fail) |
 | xtsci L-BFGS (no pair) | 11144 (1 fail) | 4538 (10 fail) |
-| xtsci rematch + Schlegel | 4560 (7 fail) | timeout |
-| xtsci rematch + Lindh full | 10726 (11 fail) | timeout |
-| xtsci rematch + Swart | 13466 (18 fail) | timeout |
-| xtsci rematch + Fischer | 30961 (12 fail) | timeout |
+| xtsci rematch + Schlegel | 4560 (7 fail) | 0 conv (300 s timeout) |
+| xtsci rematch + Lindh full | 10726 (11 fail) | 0 conv (300 s timeout) |
+| xtsci rematch + Swart | 13466 (18 fail) | 0 conv (300 s timeout) |
+| xtsci rematch + Fischer | 30961 (12 fail) | 0 conv (300 s timeout) |
 | xtsci BFGS | 31539 (9 fail) | 15380 (12 fail) |
 | xtsci steepest | 161337 (14 fail) | 11685 (11 fail) |
 | xtsci SR1 | 46440 (13 fail) | 32040 (38 fail) |
@@ -127,7 +127,9 @@ Do not beat rematch (100/100 unless noted):
 | xtsci Dai–Yuan | 332068 (93 fail) | 31329 (47 fail) |
 | xtsci Fletcher–Reeves | 429282 (97 fail) | 44414 (69 fail) |
 | xtsci PSO | fail 100/100 | fail 100/100 |
-| sphere / Stiefel / SO(3) / SE(3) | fail 100/100 | fail / timeout |
+| sphere / Stiefel | fail 100/100 (maxiter) | maxiter ~11000 FC, 0 conv |
+| SO(3) | fail 100/100 (dim panic) | dim panic 9 vs 768 |
+| SE(3) | fail 100/100 (maxiter) | maxiter ~8000--9000 FC, 0 conv |
 
 Dogleg is the only token that beats rematch, and only on LJ38.
 HiGHS on rematch is 153 on LJ38: better than OPTIM, worse than
