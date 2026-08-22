@@ -57,3 +57,12 @@ auto report = xts::optimize::minimize(eval, grad, user, x, ctrl,
 
 xtensor callers include ~xts/xtensor.hpp~, which adapts ~xt::xarray~ to
 the same ~xts_minimize~ entry. There is no solver in the header.
+
+** Manifold
+
+#+begin_src c
+xts_solver_set_manifold(s, XTS_MANIFOLD_SPHERE);
+#+end_src
+
+Tokens: ~XTS_MANIFOLD_EUCLIDEAN~ (default), ~SPHERE~, ~SO3~,
+~STIEFEL~, ~SE3~. See [[file:manifolds.org][retract onto an embedded manifold]].

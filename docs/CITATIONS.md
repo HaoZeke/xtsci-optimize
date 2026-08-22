@@ -36,6 +36,10 @@ ISBN). Do not invent DOIs.
 | ARC Cartis–Gould–Toint | 10.1007/s10107-009-0286-5 | Adaptive cubic regularisation methods for unconstrained optimization. Part I: motivation, convergence and numerical results |
 | Moré–Thuente 1994 | 10.1145/192115.192132 | Line search algorithms with guaranteed sufficient decrease |
 | SPSA Spall 1992 | 10.1109/9.119632 | Multivariate stochastic approximation using a simultaneous perturbation gradient approximation |
+| Absil-Mahony-Sepulchre | 10.1515/9781400830244 | Optimization Algorithms on Matrix Manifolds |
+| Boumal 2023 | 10.1017/9781009166164 | An Introduction to Optimization on Smooth Manifolds |
+| Manopt 2014 | 10.5555/2627435.2638581 | Manopt, a matlab toolbox for optimization on manifolds |
+| ROPTLIB | 10.1145/3218822 | ROPTLIB |
 
 Polak-Ribiere 1969 and Hestenes-Stiefel 1952: cite the paper/book
 title in rustdoc if no DOI is on this list. Do not mint a DOI.

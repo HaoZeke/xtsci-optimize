@@ -1,0 +1,74 @@
+#+TITLE: Retract onto an embedded manifold
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Retract onto an embedded manifold
+
+The default geometry is ambient Euclidean space. A session can
+retract each trial point onto an embedded Riemannian manifold
+through ~Solver::set_manifold~ / ~xts_solver_set_manifold~.
+
+The contract is manopt_cpp's ~AbstractManifold~ on a rank-1 f64
+vector: ~project~, ~retract~, ~transport~. Citations:
+
+- Absil, Mahony, Sepulchre, /Optimization Algorithms on Matrix
+  Manifolds/
+  ([[https://doi.org/10.1515/9781400830244][10.1515/9781400830244]]).
+- Boumal, /An Introduction to Optimization on Smooth Manifolds/
+  ([[https://doi.org/10.1017/9781009166164][10.1017/9781009166164]]).
+- Boumal, Mishra, Absil, Sepulchre, Manopt
+  ([[https://doi.org/10.5555/2627435.2638581][10.5555/2627435.2638581]]).
+- Huang, Absil, Gallivan, Hand, ROPTLIB
+  ([[https://doi.org/10.1145/3218822][10.1145/3218822]]).
+
+** Tokens
+
+| Token | Packing | Retraction |
+|---+---|---|
+| ~Euclidean~ | length ~n~ | ~x + v~ |
+| ~Sphere~ | unit vector, length ~n~ | ~(x+v)/||x+v||~ |
+| ~So3~ | row-major ~R~, length 9 | QR with positive diagonal |
+| ~Stiefel~ | ~St(n,1)~: same as the sphere | same as the sphere |
+| ~Se3~ | row-major ~R~ then ~t~, length 12 | SO(3) on the rotation, Euclidean on ~t~ |
+
+Euclidean is the default. Existing eOn / rgpot / eindir paths do
+not change until a host calls the setter.
+
+** Rust
+
+#+begin_src rust
+use ndarray::array;
+use xtsci_optimize::{Control, ManifoldKind, Method, Solver};
+
+let n = (3.0_f64).sqrt();
+let mut x = array![1.0 / n, 1.0 / n, 1.0 / n];
+let mut solver = Solver::new(Method::Steepest, Control::default(), 3);
+solver.set_manifold(ManifoldKind::Sphere);
+let _ = solver.step(&obj, &mut x).unwrap();
+#+end_src
+
+First-order steps retract the taken increment. Quasi-Newton
+directions are projected into the tangent, then retracted by the
+accept rule.
+
+** C
+
+#+begin_src c
+xts_solver_set_manifold(s, XTS_MANIFOLD_SPHERE);
+xts_solver_set_manifold(s, XTS_MANIFOLD_SO3);
+xts_solver_set_manifold(s, XTS_MANIFOLD_STIEFEL);
+xts_solver_set_manifold(s, XTS_MANIFOLD_SE3);
+xts_solver_set_manifold(s, XTS_MANIFOLD_EUCLIDEAN);
+#+end_src
+
+Changing the manifold drops method memory (~forget~).
+
+** Packing notes
+
+- ~So3~ is a 9-vector, row-major. The tangent projection returns
+  the embedded vector ~R Omega~, not the skew factor alone.
+- ~Se3~ is twelve numbers: the same 9-vector, then a translation.
+  Rigid projection on ~R^{3N}~ (~set_project_rigid~) is a
+  different operation and stays off by default.
+- ~Stiefel~ is ~St(n,1)~. A frame with ~p > 1~ is not a length
+  token: ~n p~ does not name ~p~.

@@ -4,6 +4,12 @@
 
 * Changelog
 
+** Unreleased
+
+Embedded manifolds on ~xts_solver_set_manifold~: Euclidean
+(default), sphere, SO(3), Stiefel ~St(n,1)~, SE(3). Hourglass
+mark and the Diataxis book under ~docs/orgmode/~.
+
 ** 0.2.0
 
 ~xts_solver_set_highs~: opt-in HiGHS feasible-set step. With a host

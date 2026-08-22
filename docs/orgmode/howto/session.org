@@ -1,0 +1,74 @@
+#+TITLE: Hold a stateful solver
+#+OPTIONS: toc:nil todo:nil num:nil author:nil title:nil
+#+STARTUP: content
+
+* Hold a stateful solver
+
+Geometry hosts such as eOn call ~Optimizer::step()~ once per outer
+iteration. ~xts_minimize~ is a full solve. The session type
+~xts_solver_t~ (Rust ~Solver~) is the matching handle: create once,
+step many times, free at the end.
+
+** Rust
+
+#+begin_src rust
+use eindir_core::objectives::Rosenbrock;
+use ndarray::array;
+use xtsci_optimize::{Accept, Control, Method, QnStep, Solver};
+
+let obj = Rosenbrock::<2>::new();
+let mut x = array![-1.2, 1.0];
+let mut solver = Solver::new(Method::lbfgs(), Control::default(), 2)
+    .with_gtol(1e-8);
+solver.set_qn_step(QnStep::Newton);
+solver.set_accept(Accept::None);
+let report = solver.step(&obj, &mut x).unwrap();
+#+end_src
+
+~step~ is one outer iteration. ~step_hess~ / ~step_hess_fg~ take a
+host Hessian. ~forget~ drops pair history, conjugacy, and moments.
+~set_atom_maxmove~ is the eOn per-atom clip.
+~set_project_rigid~ projects translations and rotations on isolated
+clusters.
+
+** C
+
+#+begin_src c
+#include "xts.h"
+
+xts_control_t ctrl = { .maxiter = 200, .gtol = 1e-8, .istep = 1.0, .memory = 8 };
+xts_solver_t *s = xts_solver_create(XTS_LBFGS, &ctrl, n);
+xts_report_t report;
+while (!done) {
+    xts_solver_set_maxmove(s, max_move);
+    xts_solver_set_qn_step(s, XTS_QN_NEWTON);
+    xts_solver_set_accept(s, XTS_ACCEPT_NONE);
+    xts_solver_step_hess_fg(s, evalgrad, hess, user, x, &report);
+}
+xts_solver_free(s);
+#+end_src
+
+Callbacks are arguments of each step, not stored on the handle.
+~xts_solver_step_fg~ / ~xts_solver_step_hess_fg~ take one fused
+~(f, g)~ callback so a host that already bills energy and forces
+together is not asked twice.
+
+** Setters
+
+| Setter | Role |
+|---+---|
+| ~set_qn_step~ | Two-loop, Newton, or RFO when a host Hessian is present |
+| ~set_accept~ | ~none~ / ~energy~ / ~nonmonotone~ |
+| ~set_atom_maxmove~ | Per-atom clip (preferred over a Euclidean cap) |
+| ~set_project_rigid~ | Drop rigid modes on isolated clusters |
+| ~set_extra_updates~ | Al-Baali extra L-BFGS pairs |
+| ~set_cautious~ | Li--Fukushima pair filter |
+| ~set_highs~ | Feasible-set QP; returns 1 without ~--features highs~ |
+| ~set_manifold~ | Embedded geometry; Euclidean is the default |
+
+** When to use ~xts_minimize~ instead
+
+Scripts that want a cold-start solve to ~gtol~ still call
+~xts_minimize~ / ~minimize_method~. Hopping chains that own the
+pair history hold ~Lbfgs~ directly (see
+[[file:embed-anneal.org][embed in anneal]]).

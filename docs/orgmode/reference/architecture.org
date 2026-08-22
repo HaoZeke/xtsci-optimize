@@ -19,9 +19,12 @@ Rust, C sees a small ABI, C++ is a header wrapper.
 |  include/xts.h                                |
 |  xts_solver_t create/step/free                |
 |  xts_minimize over dlpk tensors               |
+|  set_qn_step / set_accept / set_manifold      |
 +-----------------------------------------------+
 |  Rust core                                    |
 |  Solver / Lbfgs / NLCG / BFGS / Newton        |
+|  Manifold (Euclidean, Sphere, SO3, Stiefel,   |
+|            SE3)                               |
 |  LineSearch (Brent, Armijo, Goldstein, Wolfe) |
 |  eindir DifferentiableObjective               |
 +-----------------------------------------------+
@@ -39,7 +42,12 @@ Rust, C sees a small ABI, C++ is a header wrapper.
 - =Oracle= :: Closure adapter that implements
   =DifferentiableObjective= for a fused =(f, g)= function.
 - =xts_solver_create= / =xts_solver_step= / =xts_solver_free= ::
-  Stateful C waist. Callbacks are per step. =abi_minor= 2.
+  Stateful C waist. Callbacks are per step. =abi_major= 1,
+  =abi_minor= 8, =layout_revision= 2. Compatibility checks major
+  and layout only.
+- =ManifoldKind= :: Embedded geometry. Euclidean is the identity.
+  Sphere, SO(3), Stiefel ~St(n,1)~, and SE(3) implement
+  ~project~ / ~retract~ / ~transport~.
 - =xts_minimize= :: First-order / quasi-Newton C entry. CPU f64
   tensors only; other devices return =XTS_UNSUPPORTED_DEVICE=.
 - =xts_minimize_hess= :: Newton / RFO C entry. Caller supplies a

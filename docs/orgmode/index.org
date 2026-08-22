@@ -10,28 +10,53 @@ xtsci-optimize
 :Author: `Rohit Goswami <https://rgoswami.me>`_
 #+end_export
 
+#+begin_export rst
+.. raw:: html
+
+   <p class="xtsci-hero">
+     <img class="xtsci-hero-logo xtsci-hero-logo--light"
+          src="_static/xtsci-optimize-logo-light.webp"
+          alt="xtsci-optimize logo"
+          width="420"
+          height="84"
+          loading="eager" />
+     <img class="xtsci-hero-logo xtsci-hero-logo--dark"
+          src="_static/xtsci-optimize-logo-dark.webp"
+          alt="xtsci-optimize logo"
+          width="420"
+          height="84"
+          loading="eager" />
+   </p>
+#+end_export
+
 * Overview
 
-~xtsci-optimize~ is the Rust rewrite of
-[[https://github.com/HaoZeke/xtsci-optimize][HaoZeke/xtsci-optimize]].
-Local first-order methods live only in Rust, over
+~xtsci-optimize~ is the local-minimization crate of the xtsci family.
+Algorithms live only in Rust, over
 [[https://github.com/HaoZeke/eindir][eindir]] ~DifferentiableObjective~s.
 
 C and C++ keep the old ~xts::optimize~ names through an hourglass C ABI
-(~xts_minimize~) that carries *dlpk* ~DLManagedTensorVersioned~ tensors.
+(~xts_solver_t~ / ~xts_minimize~) that carries *dlpk*
+~DLManagedTensorVersioned~ tensors.
 ~include/xts/optimize.hpp~ is the C++ wrapper; ~include/xts/xtensor.hpp~
 adapts ~xt::xarray~. There is no second solver implementation in C++.
 
-The production unconstrained local method is limited-memory BFGS with the
-strong Wolfe conditions (Nocedal and Wright 7.4 and algorithms 3.5--3.6).
-Hopping chains keep that solver's pair history on ~Lbfgs~; anneal's
-~WarmLbfgs~ is a thin handle around it.
+The C ABI also accepts an ~eindir_objective_t*~ through
+~xts_minimize_eindir~. The caller supplies the ~eindir_abi_stamp_t~,
+retains ownership of the objective, and gets the same CPU f64 DLPack
+path. That is how rgpot's first-member ~eindir_objective_t~ embedding
+reaches xtsci without a callback shim in each consumer.
+
+The production unconstrained local method is limited-memory BFGS with
+the strong Wolfe conditions (Nocedal and Wright 7.4 and algorithms
+3.5--3.6). Hopping chains keep that solver's pair history on ~Lbfgs~;
+anneal's ~WarmLbfgs~ is a thin handle around it.
 
 #+begin_src bash
 git clone https://github.com/HaoZeke/xtsci-optimize.git
 cd xtsci-optimize
 # Build and test on the remote builder, not a laptop.
-cargo test
+cargo test --features capi
 #+end_src
 
 #+begin_export rst
@@ -45,6 +70,8 @@ cargo test
    :maxdepth: 2
    :caption: How-To Guides
 
+   howto/session
+   howto/manifolds
    howto/embed-anneal
    howto/highs-qp
    howto/c-abi

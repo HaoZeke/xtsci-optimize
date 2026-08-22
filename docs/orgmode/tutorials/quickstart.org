@@ -53,6 +53,21 @@ let (_f, x, _evals) = opt.minimize(x0.view(), 200, |x| {
 });
 #+end_src
 
+** Session
+
+Hosts that already own an outer loop hold a ~Solver~ and call
+~step~ once per iteration:
+
+#+begin_src rust
+use xtsci_optimize::{Control, Method, Solver};
+
+let mut solver = Solver::new(Method::lbfgs(), Control::default(), 2);
+let rep = solver.step(&obj, &mut x).unwrap();
+#+end_src
+
+~set_manifold~ retracts that step onto a sphere, SO(3), Stiefel,
+or SE(3). Euclidean is the default.
+
 ** What just happened
 
 1. ~Method::lbfgs()~ dispatched the cold-start two-loop recursion.

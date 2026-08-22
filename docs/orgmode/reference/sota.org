@@ -111,6 +111,27 @@ in this crate's NLCG family. It is the right tool when a Hessian
 approximation is not wanted. It is not a replacement for L-BFGS on
 the well-scaled, fused-gradient problems hopping and landfold solve.
 
+** Embedded manifolds
+
+The session retracts onto an embedded manifold when the host
+asks. The geometry is manopt_cpp ~proj~ / ~retr~ / ~transp~ on a
+rank-1 f64 vector.
+
+- Absil, Mahony, Sepulchre 2008 is the matrix-manifold
+  reference
+  ([[https://doi.org/10.1515/9781400830244][10.1515/9781400830244]]).
+- Boumal 2023 is the smooth-manifold course
+  ([[https://doi.org/10.1017/9781009166164][10.1017/9781009166164]]).
+- Manopt (Boumal, Mishra, Absil, Sepulchre 2014) is the
+  factory contract this crate ports
+  ([[https://doi.org/10.5555/2627435.2638581][10.5555/2627435.2638581]]).
+- ROPTLIB (Huang, Absil, Gallivan, Hand 2018) is the C++
+  library that names Stiefel and SE(3) in the same waist
+  ([[https://doi.org/10.1145/3218822][10.1145/3218822]]).
+
+Euclidean is the default. Sphere, SO(3) as a 9-vector, Stiefel
+~St(n,1)~, and SE(3) as a 12-vector are the tokens.
+
 ** Defaults in this crate
 
 - Method: ~Lbfgs~ / ~Method::Lbfgs { memory: 8 }~
