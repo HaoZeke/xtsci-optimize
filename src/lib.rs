@@ -65,7 +65,10 @@ pub use adam::minimize_adam;
 pub use control::Control;
 pub use error::{Error, Result};
 pub use fire::FireKind;
-pub use hvp::{FdHvp, HessianVector, HvpOracle, minimize_newton_cg, steihaug_cg};
+pub use hvp::{
+    FdHvp, HessianVector, HvpOracle, IdentityPrecond, NystromPrecond, Preconditioner,
+    minimize_newton_cg, steihaug_cg, steihaug_pcg,
+};
 pub use lbfgs::{GradNorm, Lbfgs};
 #[cfg(feature = "highs")]
 pub use lbfgs_qp::HighsStep;

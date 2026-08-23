@@ -145,3 +145,78 @@ fn the_fd_wrapper_minimizes_without_an_analytic_hessian() {
     assert!((rep.coords[0] - 3.0).abs() < 1e-5);
     assert!((rep.coords[1] + 1.0).abs() < 1e-5);
 }
+
+#[test]
+fn nystrom_flattens_a_decaying_spectrum() {
+    use xtsci_optimize::{NystromPrecond, steihaug_pcg};
+    // lambda_i = 1e4 / i^2: a few stiff modes over a soft bulk.
+    let n = 300;
+    let lam: Vec<f64> = (1..=n).map(|i| 1.0e4 / ((i * i) as f64)).collect();
+    let actions = AtomicUsize::new(0);
+    let obj = HvpOracle::unbounded(
+        n,
+        {
+            let lam = lam.clone();
+            move |x| {
+                let f = x
+                    .iter()
+                    .zip(&lam)
+                    .map(|(v, l)| l * v * v / 2.0)
+                    .sum();
+                let g = Array1::from_iter(x.iter().zip(&lam).map(|(v, l)| l * v));
+                (f, g)
+            }
+        },
+        {
+            let lam = lam.clone();
+            let actions = &actions;
+            move |_, v: ndarray::ArrayView1<f64>| {
+                actions.fetch_add(1, Ordering::Relaxed);
+                Array1::from_iter(v.iter().zip(&lam).map(|(w, l)| l * w))
+            }
+        },
+    );
+    let x0 = Array1::zeros(n);
+    let g = Array1::from_iter(lam.iter().map(|l| l.sqrt()));
+    let radius = 1.0e9;
+    let rtol = 1.0e-8;
+
+    actions.store(0, Ordering::Relaxed);
+    let (p_plain, _) = steihaug_cg(&obj, x0.view(), &g, radius, rtol, 4 * n);
+    let plain_actions = actions.load(Ordering::Relaxed);
+
+    actions.store(0, Ordering::Relaxed);
+    let rank = 16;
+    let pre = NystromPrecond::build(&obj, x0.view(), rank, 42);
+    let (p_pcg, _) = steihaug_pcg(&obj, x0.view(), &g, radius, rtol, 4 * n, &pre);
+    let total_pcg_actions = actions.load(Ordering::Relaxed);
+
+    // Same subproblem, same answer: CG is exact under any SPD
+    // preconditioner.
+    let diff = (&p_plain - &p_pcg).iter().map(|v| v * v).sum::<f64>().sqrt();
+    let scale = p_plain.iter().map(|v| v * v).sum::<f64>().sqrt();
+    assert!(diff < 1e-5 * scale.max(1.0), "steps differ by {diff}");
+    // The sketch (rank actions) plus the preconditioned solve beats
+    // the plain solve on this spectrum.
+    assert!(
+        total_pcg_actions < plain_actions,
+        "pcg {total_pcg_actions} (incl. {rank} sketch) vs plain {plain_actions}"
+    );
+}
+
+#[test]
+fn the_preconditioned_boundary_lives_in_the_sketch_metric() {
+    use xtsci_optimize::{IdentityPrecond, steihaug_pcg};
+    // Identity preconditioner must reproduce steihaug_cg exactly.
+    let obj = HvpOracle::unbounded(
+        2,
+        |x| ((x[0] * x[0] - x[1] * x[1]) / 2.0, array![x[0], -x[1]]),
+        |_, v| array![v[0], -v[1]],
+    );
+    let x = array![0.3, 0.01];
+    let g = array![0.3, -0.01];
+    let (p1, d1) = steihaug_cg(&obj, x.view(), &g, 0.5, 1e-10, 20);
+    let (p2, d2) = steihaug_pcg(&obj, x.view(), &g, 0.5, 1e-10, 20, &IdentityPrecond);
+    assert_eq!(p1, p2);
+    assert_eq!(d1, d2);
+}

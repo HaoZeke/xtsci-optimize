@@ -13,7 +13,7 @@
 //! Scale Optimization*, <https://doi.org/10.1137/0720042>.
 
 use eindir_core::DifferentiableObjective;
-use ndarray::{Array1, ArrayView1};
+use ndarray::{Array1, Array2, ArrayView1};
 
 use crate::control::Control;
 use crate::error::{Error, Result};
@@ -182,6 +182,24 @@ impl<'a, O: DifferentiableObjective<f64> + ?Sized> HessianVector for FdHvp<'a, O
     }
 }
 
+/// Approximate inverse applied to a residual: `z = P^{-1} r`. CG's
+/// answers stay exact under any symmetric positive definite `P`; only
+/// the iteration count changes, so a randomized preconditioner leaves
+/// nothing stochastic in the result.
+pub trait Preconditioner {
+    /// `P^{-1} r`.
+    fn solve(&self, r: ArrayView1<f64>) -> Array1<f64>;
+}
+
+/// No preconditioning: `z = r`.
+pub struct IdentityPrecond;
+
+impl Preconditioner for IdentityPrecond {
+    fn solve(&self, r: ArrayView1<f64>) -> Array1<f64> {
+        r.to_owned()
+    }
+}
+
 /// Steihaug-Toint CG on the trust-region subproblem: approximately
 /// minimize `g.p + p.Hp/2` subject to `||p|| <= radius`. Returns the
 /// step and the model reduction `m(0) - m(p)`; every Hessian access is
@@ -197,18 +215,62 @@ pub fn steihaug_cg<O>(
 where
     O: HessianVector + ?Sized,
 {
+    steihaug_pcg(obj, x, grad, radius, rtol, maxiter, &IdentityPrecond)
+}
+
+/// [`steihaug_cg`] under a preconditioner. The trust boundary lives in
+/// the preconditioner's metric, tracked by the standard recurrences
+/// (Conn, Gould, Toint, *Trust-Region Methods*, section 5.1), so no
+/// extra applications of `P` are spent on norms.
+pub fn steihaug_pcg<O, P>(
+    obj: &O,
+    x: ArrayView1<f64>,
+    grad: &Array1<f64>,
+    radius: f64,
+    rtol: f64,
+    maxiter: usize,
+    precond: &P,
+) -> (Array1<f64>, f64)
+where
+    O: HessianVector + ?Sized,
+    P: Preconditioner + ?Sized,
+{
     let n = grad.len();
-    let mut z = Array1::<f64>::zeros(n);
-    let mut hz = Array1::<f64>::zeros(n);
+    let mut p = Array1::<f64>::zeros(n);
+    let mut hp = Array1::<f64>::zeros(n);
     let mut r = grad.clone();
-    let mut d = grad.mapv(|v| -v);
-    let mut rr = dot(r.view(), r.view());
-    let gnorm = rr.sqrt();
+    let mut z = precond.solve(r.view());
+    let mut d = z.mapv(|v| -v);
+    let mut rz = dot(r.view(), z.view());
+    let gnorm = nrm2(grad.view());
     let stop = (rtol * gnorm).max(f64::MIN_POSITIVE);
+
+    // M-metric bookkeeping: with M z = r, every needed inner product
+    // reduces to Euclidean dots already on hand.
+    let mut p_mp = 0.0_f64;
+    let mut p_md = 0.0_f64;
+    let mut d_md = rz;
+    let r2 = radius * radius;
 
     let model_drop = |p: &Array1<f64>, hp: &Array1<f64>| {
         -(dot(grad.view(), p.view()) + 0.5 * dot(p.view(), hp.view()))
     };
+    let boundary_tau = |p_mp: f64, p_md: f64, d_md: f64| -> f64 {
+        if d_md <= 0.0 {
+            return 0.0;
+        }
+        let disc = (p_md * p_md + d_md * (r2 - p_mp)).max(0.0);
+        (-p_md + disc.sqrt()) / d_md
+    };
+
+    if !(rz.is_finite() && rz > 0.0) {
+        // A broken or indefinite preconditioner forfeits its metric;
+        // fall back to the steepest boundary step.
+        let p = grad.mapv(|v| -radius * v / gnorm.max(f64::MIN_POSITIVE));
+        let hp = obj.hessian_vector(x, p.view());
+        let drop = model_drop(&p, &hp);
+        return (p, drop);
+    }
 
     for _ in 0..maxiter {
         let hd = obj.hessian_vector(x, d.view());
@@ -223,49 +285,210 @@ where
         }
         if dhd <= 0.0 {
             // Negative curvature: follow d to the boundary.
-            let tau = boundary_tau(&z, &d, radius);
-            axpy(tau, d.view(), &mut z);
-            axpy(tau, hd.view(), &mut hz);
-            let drop = model_drop(&z, &hz);
-            return (z, drop);
+            let tau = boundary_tau(p_mp, p_md, d_md);
+            axpy(tau, d.view(), &mut p);
+            axpy(tau, hd.view(), &mut hp);
+            let drop = model_drop(&p, &hp);
+            return (p, drop);
         }
-        let alpha = rr / dhd;
-        let mut z_next = z.clone();
-        axpy(alpha, d.view(), &mut z_next);
-        if nrm2(z_next.view()) >= radius {
-            let tau = boundary_tau(&z, &d, radius);
-            axpy(tau, d.view(), &mut z);
-            axpy(tau, hd.view(), &mut hz);
-            let drop = model_drop(&z, &hz);
-            return (z, drop);
+        let alpha = rz / dhd;
+        let p_mp_next = p_mp + 2.0 * alpha * p_md + alpha * alpha * d_md;
+        if p_mp_next >= r2 {
+            let tau = boundary_tau(p_mp, p_md, d_md);
+            axpy(tau, d.view(), &mut p);
+            axpy(tau, hd.view(), &mut hp);
+            let drop = model_drop(&p, &hp);
+            return (p, drop);
         }
-        z = z_next;
-        axpy(alpha, hd.view(), &mut hz);
+        axpy(alpha, d.view(), &mut p);
+        axpy(alpha, hd.view(), &mut hp);
+        p_mp = p_mp_next;
         axpy(alpha, hd.view(), &mut r);
-        let rr_next = dot(r.view(), r.view());
-        if rr_next.sqrt() < stop {
+        if nrm2(r.view()) < stop {
             break;
         }
-        let beta = rr_next / rr;
-        rr = rr_next;
-        for (di, ri) in d.iter_mut().zip(r.iter()) {
-            *di = -ri + beta * *di;
+        z = precond.solve(r.view());
+        let rz_next = dot(r.view(), z.view());
+        if !(rz_next.is_finite() && rz_next > 0.0) {
+            break;
+        }
+        let beta = rz_next / rz;
+        p_md = beta * (p_md + alpha * d_md);
+        d_md = rz_next + beta * beta * d_md;
+        rz = rz_next;
+        for (di, zi) in d.iter_mut().zip(z.iter()) {
+            *di = -zi + beta * *di;
         }
     }
-    let drop = model_drop(&z, &hz);
-    (z, drop)
+    let drop = model_drop(&p, &hp);
+    (p, drop)
 }
 
-/// Positive `tau` with `||z + tau d|| = radius`.
-fn boundary_tau(z: &Array1<f64>, d: &Array1<f64>, radius: f64) -> f64 {
-    let dd = dot(d.view(), d.view());
-    if dd <= 0.0 {
-        return 0.0;
+/// Randomized Nystrom preconditioner (Frangella, Tropp, Udell,
+/// *Randomized Nystrom Preconditioning*, SIAM J. Matrix Anal. Appl.
+/// 44 (2023), <https://doi.org/10.1137/21M1466244>).
+///
+/// `rank` Hessian actions on a Rademacher block sketch the dominant
+/// eigenspace; the preconditioner equalizes those modes down to the
+/// smallest captured eigenvalue and leaves the orthogonal complement
+/// alone. Cluster and kernel Hessians carry a few stiff modes over a
+/// soft bulk, which is exactly the spectrum this flattens. The
+/// randomness lives only here: CG under any SPD preconditioner
+/// returns the same step, in fewer actions when the sketch captures
+/// the stiffness.
+pub struct NystromPrecond {
+    u: Array2<f64>,
+    lam: Array1<f64>,
+    mu: f64,
+}
+
+impl NystromPrecond {
+    /// Sketch `H(x)` with `rank` actions. `seed` fixes the Rademacher
+    /// draw so a rebuild at the same point is reproducible.
+    pub fn build<O>(obj: &O, x: ArrayView1<f64>, rank: usize, seed: u64) -> Self
+    where
+        O: HessianVector + ?Sized,
+    {
+        use rand::{Rng, SeedableRng, rngs::StdRng};
+        let n = x.len();
+        let k = rank.clamp(1, n);
+        let mut rng = StdRng::seed_from_u64(seed);
+        let mut omega = Array2::<f64>::zeros((n, k));
+        for v in omega.iter_mut() {
+            *v = if rng.random::<bool>() { 1.0 } else { -1.0 };
+        }
+        let mut y = Array2::<f64>::zeros((n, k));
+        for j in 0..k {
+            let col = omega.column(j).to_owned();
+            let hcol = obj.hessian_vector(x, col.view());
+            y.column_mut(j).assign(&hcol);
+        }
+        let ynorm = y.iter().map(|v| v * v).sum::<f64>().sqrt();
+        let nu = 1e-12 * ynorm.max(1.0);
+        let ynu = &y + &(nu * &omega);
+        let mut m = omega.t().dot(&ynu);
+        for i in 0..k {
+            for j in (i + 1)..k {
+                let s = 0.5 * (m[(i, j)] + m[(j, i)]);
+                m[(i, j)] = s;
+                m[(j, i)] = s;
+            }
+        }
+        let (svals, v) = sym_eig_jacobi(m);
+        // B = Ynu V diag(s^{-1/2}) over the safely positive s, so
+        // A_nys = B B^T.
+        let floor = nu.max(1e-14 * svals.iter().cloned().fold(0.0, f64::max));
+        let kept: Vec<usize> = (0..k).filter(|&i| svals[i] > floor).collect();
+        if kept.is_empty() {
+            return Self {
+                u: Array2::zeros((n, 0)),
+                lam: Array1::zeros(0),
+                mu: 1.0,
+            };
+        }
+        let mut b = Array2::<f64>::zeros((n, kept.len()));
+        for (bj, &i) in kept.iter().enumerate() {
+            let scale = 1.0 / svals[i].sqrt();
+            let col = ynu.dot(&v.column(i).to_owned()) * scale;
+            b.column_mut(bj).assign(&col);
+        }
+        // Thin eigenfactorization of B B^T through the small Gram
+        // matrix: B^T B = W S^2 W^T gives U = B W S^{-1}.
+        let g = b.t().dot(&b);
+        let (s2, w) = sym_eig_jacobi(g);
+        let s2floor = 1e-14 * s2.iter().cloned().fold(0.0, f64::max).max(1.0);
+        let idx: Vec<usize> = (0..s2.len()).filter(|&i| s2[i] > s2floor).collect();
+        let mut u = Array2::<f64>::zeros((n, idx.len()));
+        let mut lam = Array1::<f64>::zeros(idx.len());
+        for (uj, &i) in idx.iter().enumerate() {
+            let sig = s2[i].sqrt();
+            let col = b.dot(&w.column(i).to_owned()) / sig;
+            u.column_mut(uj).assign(&col);
+            lam[uj] = (s2[i] - nu).max(0.0);
+        }
+        let mu = lam
+            .iter()
+            .cloned()
+            .filter(|&l| l > 0.0)
+            .fold(f64::INFINITY, f64::min);
+        let mu = if mu.is_finite() { mu } else { 1.0 };
+        Self { u, lam, mu }
     }
-    let zd = dot(z.view(), d.view());
-    let zz = dot(z.view(), z.view());
-    let disc = (zd * zd + dd * (radius * radius - zz)).max(0.0);
-    (-zd + disc.sqrt()) / dd
+
+    /// Captured eigenvalue estimates, unordered.
+    pub fn spectrum(&self) -> ArrayView1<f64> {
+        self.lam.view()
+    }
+}
+
+impl Preconditioner for NystromPrecond {
+    fn solve(&self, r: ArrayView1<f64>) -> Array1<f64> {
+        if self.u.ncols() == 0 {
+            return r.to_owned();
+        }
+        // P^{-1} r = r + U (diag(mu / (lam + mu)) - I) U^T r, scaled
+        // so the unsketched complement passes through unchanged.
+        let t = self.u.t().dot(&r);
+        let adj = Array1::from_iter(
+            t.iter()
+                .zip(self.lam.iter())
+                .map(|(ti, li)| ti * (self.mu / (li + self.mu) - 1.0)),
+        );
+        let mut z = r.to_owned();
+        z += &self.u.dot(&adj);
+        z
+    }
+}
+
+/// Cyclic Jacobi eigendecomposition of a small symmetric matrix.
+/// Returns eigenvalues and the column eigenvectors.
+fn sym_eig_jacobi(mut a: Array2<f64>) -> (Array1<f64>, Array2<f64>) {
+    let k = a.nrows();
+    let mut v = Array2::<f64>::eye(k);
+    for _ in 0..64 {
+        let mut off = 0.0;
+        for p in 0..k {
+            for q in (p + 1)..k {
+                off += a[(p, q)] * a[(p, q)];
+            }
+        }
+        let scale = a.diag().iter().map(|d| d.abs()).fold(1.0, f64::max);
+        if off.sqrt() <= 1e-15 * scale {
+            break;
+        }
+        for p in 0..k {
+            for q in (p + 1)..k {
+                let apq = a[(p, q)];
+                if apq.abs() <= 1e-300 {
+                    continue;
+                }
+                let theta = (a[(q, q)] - a[(p, p)]) / (2.0 * apq);
+                let sign = if theta >= 0.0 { 1.0 } else { -1.0 };
+                let t = sign / (theta.abs() + (theta * theta + 1.0).sqrt());
+                let c = 1.0 / (t * t + 1.0).sqrt();
+                let s = t * c;
+                for i in 0..k {
+                    let aip = a[(i, p)];
+                    let aiq = a[(i, q)];
+                    a[(i, p)] = c * aip - s * aiq;
+                    a[(i, q)] = s * aip + c * aiq;
+                }
+                for i in 0..k {
+                    let api = a[(p, i)];
+                    let aqi = a[(q, i)];
+                    a[(p, i)] = c * api - s * aqi;
+                    a[(q, i)] = s * api + c * aqi;
+                }
+                for i in 0..k {
+                    let vip = v[(i, p)];
+                    let viq = v[(i, q)];
+                    v[(i, p)] = c * vip - s * viq;
+                    v[(i, q)] = s * vip + c * viq;
+                }
+            }
+        }
+    }
+    (a.diag().to_owned(), v)
 }
 
 const ETA_ACCEPT: f64 = 0.1;
