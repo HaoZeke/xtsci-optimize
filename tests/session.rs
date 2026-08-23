@@ -609,7 +609,7 @@ fn dogleg_kills_a_quadratic() {
 #[test]
 fn an_uphill_everywhere_oracle_is_refused_not_moved() {
     use ndarray::ArrayView1;
-    let obj = xtsci_optimize::Oracle::unbounded(|x: ArrayView1<f64>| {
+    let obj = xtsci_optimize::Oracle::unbounded(6, |x: ArrayView1<f64>| {
         // A cone rising away from the origin: every step from the
         // origin increases the value, and the gradient at the origin
         // pretends to point somewhere useful.
@@ -621,7 +621,11 @@ fn an_uphill_everywhere_oracle_is_refused_not_moved() {
         };
         (r, g)
     });
-    let mut solver = xtsci_optimize::Solver::new(xtsci_optimize::Method::Steepest);
+    let mut solver = xtsci_optimize::Solver::new(
+        xtsci_optimize::Method::Steepest,
+        xtsci_optimize::Control::default(),
+        6,
+    );
     solver.set_accept(xtsci_optimize::Accept::Energy);
     let mut x = Array1::from(vec![0.0; 6]);
     let rep = solver.step(&obj, &mut x).expect("step runs");
