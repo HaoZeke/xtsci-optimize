@@ -179,7 +179,28 @@ xts_status_t xts_minimize_eindir(
  */
 typedef struct xts_solver_t xts_solver_t;
 
-/** Allocate a session. \a dim is the length of \c x. Null on error. */
+#ifndef xts_solver_create
+#define xts_solver_create rgmin_solver_create
+#define xts_solver_free rgmin_solver_free
+#define xts_solver_forget rgmin_solver_forget
+#define xts_solver_set_maxmove rgmin_solver_set_maxmove
+#define xts_solver_set_qn_step rgmin_solver_set_qn_step
+#define xts_solver_set_accept rgmin_solver_set_accept
+#define xts_solver_set_atom_maxmove rgmin_solver_set_atom_maxmove
+#define xts_solver_set_project_rigid rgmin_solver_set_project_rigid
+#define xts_solver_set_extra_updates rgmin_solver_set_extra_updates
+#define xts_solver_set_cautious rgmin_solver_set_cautious
+#define xts_solver_set_highs rgmin_solver_set_highs
+#define xts_solver_set_manifold rgmin_solver_set_manifold
+#define xts_solver_set_masses rgmin_solver_set_masses
+#define xts_solver_set_periodic rgmin_solver_set_periodic
+#define xts_solver_step rgmin_solver_step
+#define xts_solver_step_hess rgmin_solver_step_hess
+#define xts_solver_step_fg rgmin_solver_step_fg
+#define xts_solver_step_hess_fg rgmin_solver_step_hess_fg
+#endif
+/** Allocate a session. \a dim is the length of \c x. Null on error.
+ *  The exported symbol is \c rgmin_solver_create. */
 xts_solver_t *xts_solver_create(xts_method_t method, const xts_control_t *ctrl,
                                 size_t dim);
 /** Release a session from \ref xts_solver_create. */

@@ -6,8 +6,8 @@
 
 ** Unreleased
 
-~xts.h~ declares the exported ~rgmin_minimize~ symbol; ~xts_minimize~
-is a macro alias, same shape as ~xts_minimize_scg~.
+~xts.h~ declares the exported ~rgmin_minimize~ / ~rgmin_solver_*~
+symbols; ~xts_minimize~ and ~xts_solver_*~ are macro aliases.
 
 SCG C waist: closed ~xts_conjugacy_t~ on ~xts_scg_params_t~
 (FR=0 .. FrPr=7, dest leaf order). ~params==NULL~ is Netlab
