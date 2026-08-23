@@ -2,7 +2,7 @@
 
 use eindir_core::objectives::Rosenbrock;
 use ndarray::{array, Array1};
-use xtsci_optimize::{Control, Method, Solver};
+use rgmin::{Control, Method, Solver};
 
 fn control() -> Control {
     Control {
@@ -86,7 +86,7 @@ fn retained_pairs_beat_a_cold_start() {
 fn lbfgs_newton_on_a_supplied_hessian_kills_a_quadratic() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::{Array2, ArrayView1};
-    use xtsci_optimize::{HessianObjective, QnStep};
+    use rgmin::{HessianObjective, QnStep};
 
     struct Quad;
     impl Objective<f64> for Quad {
@@ -134,7 +134,7 @@ fn lbfgs_newton_on_a_supplied_hessian_kills_a_quadratic() {
 fn sphere_rayleigh_stays_on_the_sphere() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::ArrayView1;
-    use xtsci_optimize::ManifoldKind;
+    use rgmin::ManifoldKind;
 
     struct Ray;
     impl Objective<f64> for Ray {
@@ -178,7 +178,7 @@ fn sphere_rayleigh_stays_on_the_sphere() {
         3,
     );
     solver.set_manifold(ManifoldKind::Sphere);
-    solver.set_accept(xtsci_optimize::Accept::None);
+    solver.set_accept(rgmin::Accept::None);
     for _ in 0..40 {
         let _ = solver.step(&obj, &mut x).unwrap();
         let nrm = (x[0] * x[0] + x[1] * x[1] + x[2] * x[2]).sqrt();
@@ -188,7 +188,7 @@ fn sphere_rayleigh_stays_on_the_sphere() {
 
 #[test]
 fn stiefel_p1_matches_sphere_retract() {
-    use xtsci_optimize::{Manifold, ManifoldKind};
+    use rgmin::{Manifold, ManifoldKind};
     let x = array![0.0, 1.0, 0.0];
     let v = array![0.1, 0.0, -0.2];
     let ys = ManifoldKind::Sphere.retract(&x, &v);
@@ -200,7 +200,7 @@ fn stiefel_p1_matches_sphere_retract() {
 fn so3_session_stays_orthogonal() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::ArrayView1;
-    use xtsci_optimize::ManifoldKind;
+    use rgmin::ManifoldKind;
 
     struct FrobeniusI;
     impl Objective<f64> for FrobeniusI {
@@ -247,7 +247,7 @@ fn so3_session_stays_orthogonal() {
         9,
     );
     solver.set_manifold(ManifoldKind::So3);
-    solver.set_accept(xtsci_optimize::Accept::None);
+    solver.set_accept(rgmin::Accept::None);
     for _ in 0..20 {
         let _ = solver.step(&obj, &mut x).unwrap();
         let mut rtr = [[0.0; 3]; 3];
@@ -272,7 +272,7 @@ fn so3_session_stays_orthogonal() {
 fn se3_session_keeps_rotation_and_moves_translation() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::ArrayView1;
-    use xtsci_optimize::ManifoldKind;
+    use rgmin::ManifoldKind;
 
     struct Se3Target;
     impl Objective<f64> for Se3Target {
@@ -321,7 +321,7 @@ fn se3_session_keeps_rotation_and_moves_translation() {
         12,
     );
     solver.set_manifold(ManifoldKind::Se3);
-    solver.set_accept(xtsci_optimize::Accept::None);
+    solver.set_accept(rgmin::Accept::None);
     for _ in 0..30 {
         let _ = solver.step(&obj, &mut x).unwrap();
         let mut rtr = [[0.0; 3]; 3];
@@ -346,7 +346,7 @@ fn default_manifold_is_euclidean() {
     let obj = Rosenbrock::<2>::new();
     let mut x = array![-1.2, 1.0];
     let mut solver = Solver::new(Method::lbfgs(), control(), 2).with_gtol(1e-8);
-    solver.set_manifold(xtsci_optimize::ManifoldKind::Euclidean);
+    solver.set_manifold(rgmin::ManifoldKind::Euclidean);
     let rep = solver.step(&obj, &mut x).unwrap();
     assert!(rep.grad_norm.is_finite());
 }
@@ -356,10 +356,10 @@ fn so3_rejects_a_3n_cluster() {
     let obj = Rosenbrock::<6>::new();
     let mut x = Array1::from_elem(6, 0.1);
     let mut solver = Solver::new(Method::Steepest, control(), 6);
-    solver.set_manifold(xtsci_optimize::ManifoldKind::So3);
+    solver.set_manifold(rgmin::ManifoldKind::So3);
     let err = solver.step(&obj, &mut x).unwrap_err();
     match err {
-        xtsci_optimize::Error::ManifoldDim { kind, got } => {
+        rgmin::Error::ManifoldDim { kind, got } => {
             assert_eq!(kind, "so3");
             assert_eq!(got, 6);
         }
@@ -372,10 +372,10 @@ fn se3_rejects_a_3n_cluster() {
     let obj = Rosenbrock::<114>::new();
     let mut x = Array1::from_elem(114, 0.1);
     let mut solver = Solver::new(Method::Steepest, control(), 114);
-    solver.set_manifold(xtsci_optimize::ManifoldKind::Se3);
+    solver.set_manifold(rgmin::ManifoldKind::Se3);
     let err = solver.step(&obj, &mut x).unwrap_err();
     match err {
-        xtsci_optimize::Error::ManifoldDim { kind, got } => {
+        rgmin::Error::ManifoldDim { kind, got } => {
             assert_eq!(kind, "se3");
             assert_eq!(got, 114);
         }
@@ -432,7 +432,7 @@ fn rigid_quotient_drops_translation_and_keeps_3n() {
     let obj = Pair;
     let mut x = array![0.0, 0.0, 0.0, 1.2, 0.0, 0.0, 0.0, 1.2, 0.0];
     let mut solver = Solver::new(Method::Steepest, control(), 9);
-    solver.set_manifold(xtsci_optimize::ManifoldKind::RigidQuotient);
+    solver.set_manifold(rgmin::ManifoldKind::RigidQuotient);
     let com0 = [(x[0] + x[3] + x[6]) / 3.0, (x[1] + x[4] + x[7]) / 3.0];
     for _ in 0..20 {
         let _ = solver.step(&obj, &mut x).unwrap();
@@ -468,7 +468,7 @@ fn nlcg_second_step_is_not_steepest() {
 fn fire_and_bb_kill_a_sphere() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::ArrayView1;
-    use xtsci_optimize::Accept;
+    use rgmin::Accept;
 
     struct Sphere;
     impl Objective<f64> for Sphere {
@@ -501,10 +501,10 @@ fn fire_and_bb_kill_a_sphere() {
     let obj = Sphere;
     for method in [
         Method::Fire {
-            kind: xtsci_optimize::FireKind::V1,
+            kind: rgmin::FireKind::V1,
         },
         Method::Fire {
-            kind: xtsci_optimize::FireKind::V2,
+            kind: rgmin::FireKind::V2,
         },
         Method::Bb,
     ] {
@@ -542,7 +542,7 @@ fn fire_and_bb_kill_a_sphere() {
 fn dogleg_kills_a_quadratic() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::{Array2, ArrayView1};
-    use xtsci_optimize::HessianObjective;
+    use rgmin::HessianObjective;
 
     struct Quad;
     impl Objective<f64> for Quad {
@@ -609,7 +609,7 @@ fn dogleg_kills_a_quadratic() {
 #[test]
 fn an_uphill_everywhere_oracle_is_refused_not_moved() {
     use ndarray::ArrayView1;
-    let obj = xtsci_optimize::Oracle::unbounded(6, |x: ArrayView1<f64>| {
+    let obj = rgmin::Oracle::unbounded(6, |x: ArrayView1<f64>| {
         // A cone rising away from the origin: every step from the
         // origin increases the value, and the gradient at the origin
         // pretends to point somewhere useful.
@@ -621,12 +621,12 @@ fn an_uphill_everywhere_oracle_is_refused_not_moved() {
         };
         (r, g)
     });
-    let mut solver = xtsci_optimize::Solver::new(
-        xtsci_optimize::Method::Steepest,
-        xtsci_optimize::Control::default(),
+    let mut solver = rgmin::Solver::new(
+        rgmin::Method::Steepest,
+        rgmin::Control::default(),
         6,
     );
-    solver.set_accept(xtsci_optimize::Accept::Energy);
+    solver.set_accept(rgmin::Accept::Energy);
     let mut x = Array1::from(vec![0.0; 6]);
     let rep = solver.step(&obj, &mut x).expect("step runs");
     assert!(

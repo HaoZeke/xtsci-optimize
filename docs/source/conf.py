@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-project = "xtsci-optimize"
+project = "rgmin"
 copyright = "2024--present, Rohit Goswami"
 author = "Rohit Goswami"
-html_logo = "_static/xtsci-optimize-notext-light.webp"
+html_logo = "_static/rgmin-notext-light.webp"
 
 extensions = [
     "myst_parser",
@@ -21,12 +21,12 @@ html_theme = "shibuya"
 html_static_path = ["_static"]
 
 html_theme_options = {
-    "github_url": "https://github.com/HaoZeke/xtsci-optimize",
+    "github_url": "https://github.com/OmniPotentRPC/rgmin",
     "accent_color": "indigo",
     "dark_code": True,
     "globaltoc_expand_depth": 1,
-    "light_logo": "_static/xtsci-optimize-notext-light.webp",
-    "dark_logo": "_static/xtsci-optimize-notext-dark.webp",
+    "light_logo": "_static/rgmin-notext-light.webp",
+    "dark_logo": "_static/rgmin-notext-dark.webp",
     "nav_links": [
         {
             "title": "Ecosystem",
@@ -54,7 +54,7 @@ html_theme_options = {
 html_context = {
     "source_type": "github",
     "source_user": "HaoZeke",
-    "source_repo": "xtsci-optimize",
+    "source_repo": "rgmin",
     "source_version": "main",
     "source_docs_path": "/docs/source/",
 }

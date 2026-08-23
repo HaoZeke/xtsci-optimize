@@ -1,16 +1,16 @@
-# xtsci-optimize branding
+# rgmin branding
 
 Same LODE indigo / amber family as landfold, linkcell, and
 readcon-core. The geometry is an hourglass.
 
-**xtsci-optimize** is the local-minimization crate of the xtsci
+**rgmin** is the local-minimization crate of the rgmin (formerly xtsci-optimize)
 family. Solvers live in Rust. C and C++ reach them through a
 narrow waist.
 
 ## Concept
 
 - **Upper chamber** — a potential well (nested contours).
-- **Waist** — the C ABI (`xts_solver_t` / `xts_minimize`). Amber
+- **Waist** — the C ABI (`rgmin_solver_t` / `rgmin_minimize`). Amber
   ring.
 - **Lower chamber** — a unit sphere. Embedded manifolds retract
   here.
@@ -23,13 +23,13 @@ narrow waist.
 
 | File | Use |
 | --- | --- |
-| `xtsci-optimize-logo-light.svg` | Docs header (light), READMEs |
-| `xtsci-optimize-logo-dark.svg` | Docs header (dark) |
-| `xtsci-optimize-icon.svg` | Favicon / avatar (square) |
-| `xtsci-optimize-notext-light.svg` | Navbar glyph (light) |
-| `xtsci-optimize-notext-dark.svg` | Navbar glyph (dark) |
-| `xtsci-optimize-logo.webp` | README raster (light wordmark) |
-| `xtsci-optimize-logo-light.webp` | Sphinx `_static` |
-| `xtsci-optimize-logo-dark.webp` | Sphinx `_static` |
-| `xtsci-optimize-notext-light.webp` | Sphinx navbar |
-| `xtsci-optimize-notext-dark.webp` | Sphinx navbar |
+| `rgmin-logo-light.svg` | Docs header (light), READMEs |
+| `rgmin-logo-dark.svg` | Docs header (dark) |
+| `rgmin-icon.svg` | Favicon / avatar (square) |
+| `rgmin-notext-light.svg` | Navbar glyph (light) |
+| `rgmin-notext-dark.svg` | Navbar glyph (dark) |
+| `rgmin-logo.webp` | README raster (light wordmark) |
+| `rgmin-logo-light.webp` | Sphinx `_static` |
+| `rgmin-logo-dark.webp` | Sphinx `_static` |
+| `rgmin-notext-light.webp` | Sphinx navbar |
+| `rgmin-notext-dark.webp` | Sphinx navbar |

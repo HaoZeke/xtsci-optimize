@@ -4,8 +4,8 @@
 //! contract the API promises and fails when the contract does.
 
 use ndarray::{array, Array1, ArrayView1};
-use xtsci_optimize::manifold::{Manifold, MwRigid, Sphere, Stiefel};
-use xtsci_optimize::{
+use rgmin::manifold::{Manifold, MwRigid, Sphere, Stiefel};
+use rgmin::{
     minimize_scg_exact, Conjugacy, Control, DirectionalCurvature, Restart, ScgParams,
 };
 use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};

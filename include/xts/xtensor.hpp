@@ -2,7 +2,7 @@
 
 /**
  * \file xts/xtensor.hpp
- * \brief xt::xarray adapter onto the xtsci-optimize C ABI (dlpk).
+ * \brief xt::xarray adapter onto the rgmin C ABI (dlpk).
  */
 
 #include "optimize.hpp"
@@ -38,13 +38,13 @@ inline Report minimize(E&& eval, G&& grad, ::xt::xarray<double>& x,
         return xv;
     };
     auto eval_c = [](void* user, DLManagedTensorVersioned const* t,
-                     double* value_out) -> xts_status_t {
+                     double* value_out) -> rgmin_status_t {
         auto* b = static_cast<Box*>(user);
         *value_out = b->eval(as_xarray(t));
-        return XTS_SUCCESS;
+        return RGMIN_SUCCESS;
     };
     auto grad_c = [](void* user, DLManagedTensorVersioned const* t,
-                     DLManagedTensorVersioned* g) -> xts_status_t {
+                     DLManagedTensorVersioned* g) -> rgmin_status_t {
         auto* b = static_cast<Box*>(user);
         auto gv = b->grad(as_xarray(t));
         auto const& dl = g->dl_tensor;
@@ -52,12 +52,12 @@ inline Report minimize(E&& eval, G&& grad, ::xt::xarray<double>& x,
             static_cast<unsigned char*>(dl.data) + dl.byte_offset);
         std::copy(gv.begin(), gv.end(), p);
         (void)dl;
-        return XTS_SUCCESS;
+        return RGMIN_SUCCESS;
     };
     std::vector<double> buf(x.begin(), x.end());
     DLManagedTensorVersioned* xt = borrow_cpu_f64(buf.data(), n);
     Report r = minimize_fn(eval_c, grad_c, &box, xt, ctrl, method);
-    xts_tensor_free(xt);
+    rgmin_tensor_free(xt);
     std::copy(buf.begin(), buf.end(), x.begin());
     return r;
 }

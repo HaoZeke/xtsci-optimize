@@ -3,7 +3,7 @@
 use eindir_core::DifferentiableObjective;
 use eindir_core::objectives::Rosenbrock;
 use ndarray::array;
-use xtsci_optimize::{Control, LineSearch, Method, minimize_method};
+use rgmin::{Control, LineSearch, Method, minimize_method};
 
 fn control() -> Control {
     Control {

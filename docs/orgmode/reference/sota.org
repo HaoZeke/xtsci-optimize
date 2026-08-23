@@ -78,7 +78,7 @@ the direction is a Newton step, not a two-loop pair history.
 
 ~Method::Newton { kind: NewtonKind::Shifted | NewtonKind::Rfo }~ and
 ~minimize_newton~ are that solver. The C waist is
-~xts_minimize_hess~. It is not an L-BFGS option.
+~rgmin_minimize_hess~. It is not an L-BFGS option.
 
 ** What beat OptBench min, and what did not
 
@@ -159,7 +159,7 @@ update still fails the secant condition.
 
 ** FIRE, Barzilai–Borwein, and dogleg
 
-These four tokens share ~xts_solver_t~ and a fused =(f, g)=.
+These four tokens share ~rgmin_solver_t~ and a fused =(f, g)=.
 
 - FIRE (Bitzek 2006,
   [[https://doi.org/10.1103/PhysRevLett.97.170201][10.1103/PhysRevLett.97.170201]]) is the ASE / LAMMPS / eOn
@@ -171,7 +171,7 @@ These four tokens share ~xts_solver_t~ and a fused =(f, g)=.
   [[https://doi.org/10.1093/imanum/8.1.141][10.1093/imanum/8.1.141]]) with Raydan's nonmonotone globalization
   ([[https://doi.org/10.1137/S1052623494266365][10.1137/S1052623494266365]]) is a two-point spectral step.
 - Powell dogleg (Nocedal–Wright algorithm 4.1) consumes the host
-  pair Hessian already passed to ~xts_solver_step_hess~.
+  pair Hessian already passed to ~rgmin_solver_step_hess~.
 
 Steihaug–Toint, ARC, DFP, SPSA, CMA-ES, Nelder–Mead, and BOBYQA
 were surveyed and not added: DFP is dominated by BFGS already

@@ -6,20 +6,20 @@
 
 Hopping chains in [[https://github.com/HaoZeke/anneal][anneal]] relax thousands of times from perturbations of
 an already-relaxed structure. They do not own a second L-BFGS: they hold
-an ~xtsci_optimize::Lbfgs~ through ~anneal_core::methods::warm_lbfgs::WarmLbfgs~.
+an ~rgmin::Lbfgs~ through ~anneal_core::methods::warm_lbfgs::WarmLbfgs~.
 
 ** Checkout layout
 
 #+begin_example
 Rust/
   eindir/
-  xtsci-optimize/
+  rgmin/
   anneal/
   landfold/
 #+end_example
 
 ~anneal~ and ~landfold~ path-depend on the two siblings so there is one
-~eindir-core~ and one ~xtsci-optimize~ in the graph.
+~eindir-core~ and one ~rgmin~ in the graph.
 
 ** Call site
 

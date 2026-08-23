@@ -42,7 +42,7 @@ pub enum Method {
     /// Nocedal and Wright, *Numerical Optimization*,
     /// <https://doi.org/10.1007/978-0-387-40065-5>.
     Sr1,
-    /// SR2 Hessian update (`xtsci-optimize` `sr2.hpp`).
+    /// SR2 Hessian update (`rgmin` `sr2.hpp`).
     ///
     /// Nocedal and Wright, *Numerical Optimization*,
     /// <https://doi.org/10.1007/978-0-387-40065-5>.

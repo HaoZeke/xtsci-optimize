@@ -6,8 +6,8 @@ use approx::assert_relative_eq;
 use eindir_core::objectives::Rosenbrock;
 use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
 use ndarray::{Array1, ArrayView1, array};
-use xtsci_optimize::nlcg::{Conjugacy, Restart};
-use xtsci_optimize::{Control, ScgParams, minimize_scg};
+use rgmin::nlcg::{Conjugacy, Restart};
+use rgmin::{Control, ScgParams, minimize_scg};
 
 fn control() -> Control {
     Control {

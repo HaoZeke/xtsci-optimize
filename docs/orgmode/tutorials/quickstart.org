@@ -9,7 +9,7 @@ This tutorial minimizes the 2-D Rosenbrock banana from the classic start
 
 ** What you will need
 
-A checkout of ~xtsci-optimize~ next to ~eindir~ (the crate path-depends on
+A checkout of ~rgmin~ next to ~eindir~ (the crate path-depends on
 ~../eindir~). Build on the remote builder.
 
 ** Rust
@@ -17,7 +17,7 @@ A checkout of ~xtsci-optimize~ next to ~eindir~ (the crate path-depends on
 #+begin_src rust
 use eindir_core::objectives::Rosenbrock;
 use ndarray::array;
-use xtsci_optimize::{Control, LineSearch, Method, minimize_method};
+use rgmin::{Control, LineSearch, Method, minimize_method};
 
 let obj = Rosenbrock::<2>::new();
 let report = minimize_method(
@@ -36,7 +36,7 @@ relaxation is a perturbation of the last minimum:
 
 #+begin_src rust
 use ndarray::array;
-use xtsci_optimize::Lbfgs;
+use rgmin::Lbfgs;
 
 let mut opt = Lbfgs::default();
 let x0 = array![-1.2, 1.0];
@@ -59,7 +59,7 @@ Hosts that already own an outer loop hold a ~Solver~ and call
 ~step~ once per iteration:
 
 #+begin_src rust
-use xtsci_optimize::{Control, Method, Solver};
+use rgmin::{Control, Method, Solver};
 
 let mut solver = Solver::new(Method::lbfgs(), Control::default(), 2);
 let rep = solver.step(&obj, &mut x).unwrap();

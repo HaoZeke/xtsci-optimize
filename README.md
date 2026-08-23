@@ -1,7 +1,7 @@
-# xtsci-optimize
+# rgmin
 
 <p align="center">
-  <img src="branding/logo/xtsci-optimize-logo-light.svg" width="420" alt="xtsci-optimize">
+  <img src="branding/logo/rgmin-logo-light.svg" width="420" alt="rgmin">
 </p>
 
 Rust rewrite. `main` is this tree (current tag `v0.2.0`). The C++
@@ -11,18 +11,18 @@ Algorithms live only in Rust, over
 [`eindir`](https://github.com/HaoZeke/eindir) `DifferentiableObjective`s.
 
 C and C++ keep the old `xts::optimize` names through an hourglass C ABI
-(`xts_solver_t` / `xts_minimize`) that carries **dlpk**
+(`rgmin_solver_t` / `rgmin_minimize`) that carries **dlpk**
 `DLManagedTensorVersioned` tensors.
 `include/xts/optimize.hpp` is the C++ wrapper; `include/xts/xtensor.hpp`
 adapts `xt::xarray`. There is no second solver implementation in C++.
 
 The C ABI also accepts an `eindir_objective_t*` directly through
-`xts_minimize_eindir`. The caller supplies the `eindir_abi_stamp_t`, retains
+`rgmin_minimize_eindir`. The caller supplies the `eindir_abi_stamp_t`, retains
 ownership of the objective, and gets the same CPU f64 DLPack optimization path.
 This lets rgpot's first-member `eindir_objective_t` embedding reach xtsci
 without a callback shim in each consumer.
 
-CPU f64 is wired now. A non-CPU tensor returns `XTS_UNSUPPORTED_DEVICE`
+CPU f64 is wired now. A non-CPU tensor returns `RGMIN_UNSUPPORTED_DEVICE`
 so a CUDA path does not change the ABI.
 
 The production unconstrained local method is [`Lbfgs`] with strong Wolfe
@@ -49,7 +49,7 @@ The mark is documented in [`branding/logo/`](branding/logo/README.md).
 ```rust
 use eindir_core::objectives::Rosenbrock;
 use ndarray::array;
-use xtsci_optimize::{Conjugacy, Control, LineSearch, Restart, minimize};
+use rgmin::{Conjugacy, Control, LineSearch, Restart, minimize};
 
 let obj = Rosenbrock::<2>::new();
 let report = minimize(

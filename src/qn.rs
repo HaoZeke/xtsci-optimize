@@ -135,7 +135,7 @@ where
     Ok(done(value, pos, control.maxiter, l2(&grad)))
 }
 
-/// SR2 Hessian update from xtsci-optimize `sr2.hpp`.
+/// SR2 Hessian update from rgmin `sr2.hpp`.
 ///
 /// Maintains a dense Hessian `B` (starts as `I`). The search direction is
 /// `-B^{-1} g`. After a move, `B += δ(y + Bs)^T / (δ^T s)` with `δ = y - Bs`.

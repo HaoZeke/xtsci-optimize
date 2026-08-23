@@ -16,8 +16,8 @@ Unconstrained, =highs_step= is the two-loop direction. A box or trust
 region scales the whole increment (direction preserved). Packed
 centering is a mean subtract. Arbitrary equalities still go to HiGHS.
 
-When a host Hessian is present (=xts_solver_step_hess=) and
-=xts_solver_set_highs= is on, HiGHS solves the convex Newton QP
+When a host Hessian is present (=rgmin_solver_step_hess=) and
+=rgmin_solver_set_highs= is on, HiGHS solves the convex Newton QP
 =min 1/2 p^T P p + g^T p= with per-coordinate boxes from atom
 maxmove. That is the path eOn / rgpot / any eindir objective share.
 Without the =highs= cargo feature the setter returns 1.
@@ -30,7 +30,7 @@ cargo test --features highs
 #+end_src
 
 #+begin_src rust
-use xtsci_optimize::{HighsStep, Lbfgs};
+use rgmin::{HighsStep, Lbfgs};
 
 let mut opt = Lbfgs::default();
 opt.highs = Some(HighsStep {

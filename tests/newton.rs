@@ -2,7 +2,7 @@
 
 use approx::assert_relative_eq;
 use ndarray::{array, Array1, Array2, ArrayView1};
-use xtsci_optimize::{
+use rgmin::{
     minimize_newton, Control, HessianOracle, NewtonKind,
 };
 

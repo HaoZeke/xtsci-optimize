@@ -6,7 +6,7 @@
 
 The default geometry is ambient Euclidean space. A session can
 retract each trial point onto an embedded Riemannian manifold
-through ~Solver::set_manifold~ / ~xts_solver_set_manifold~.
+through ~Solver::set_manifold~ / ~rgmin_solver_set_manifold~.
 
 The contract is manopt_cpp's ~AbstractManifold~ on a rank-1 f64
 vector: ~project~, ~retract~, ~transport~. Citations:
@@ -54,7 +54,7 @@ not change until a host calls the setter.
 
 #+begin_src rust
 use ndarray::array;
-use xtsci_optimize::{Control, ManifoldKind, Method, Solver};
+use rgmin::{Control, ManifoldKind, Method, Solver};
 
 let n = (3.0_f64).sqrt();
 let mut x = array![1.0 / n, 1.0 / n, 1.0 / n];
@@ -70,14 +70,14 @@ accept rule.
 ** C
 
 #+begin_src c
-xts_solver_set_manifold(s, XTS_MANIFOLD_RIGID_QUOTIENT);
-xts_solver_set_manifold(s, XTS_MANIFOLD_MW_RIGID);
-xts_solver_set_masses(s, masses, n_atoms);
-xts_solver_set_manifold(s, XTS_MANIFOLD_SPHERE);
-xts_solver_set_manifold(s, XTS_MANIFOLD_SO3);
-xts_solver_set_manifold(s, XTS_MANIFOLD_STIEFEL);
-xts_solver_set_manifold(s, XTS_MANIFOLD_SE3);
-xts_solver_set_manifold(s, XTS_MANIFOLD_EUCLIDEAN);
+rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_RIGID_QUOTIENT);
+rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_MW_RIGID);
+rgmin_solver_set_masses(s, masses, n_atoms);
+rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SPHERE);
+rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SO3);
+rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_STIEFEL);
+rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SE3);
+rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_EUCLIDEAN);
 #+end_src
 
 Changing the manifold drops method memory (~forget~).
@@ -87,7 +87,7 @@ Changing the manifold drops method memory (~forget~).
 - ~RigidQuotient~ is 3N Cartesians. Isolated: kernel of three
   translations and three infinitesimal rotations
   (~R^{3N}/SE(3)~). Periodic: Sella ~proj_rot = false~, so only
-  translations (~R^{3N}/T(3)~) via ~xts_solver_set_periodic~.
+  translations (~R^{3N}/T(3)~) via ~rgmin_solver_set_periodic~.
   TRICs are a different chart, not a different packing here.
 - ~MwRigid~ is the same 3N packing. Masses are per atom (length
   N). The IRC path itself is steepest descent in that metric,

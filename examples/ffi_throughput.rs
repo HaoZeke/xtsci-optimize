@@ -10,9 +10,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use dlpk::sys::DLManagedTensorVersioned;
-use xtsci_optimize::ffi::{
-    xts_control_t, xts_method_t, xts_minimize, xts_report_t, xts_status_t,
-    xts_tensor_borrow_cpu_f64, xts_tensor_free,
+use rgmin::ffi::{
+    rgmin_control_t, rgmin_method_t, rgmin_minimize, rgmin_report_t, rgmin_status_t,
+    rgmin_tensor_borrow_cpu_f64, rgmin_tensor_free,
 };
 
 static EVALS: AtomicUsize = AtomicUsize::new(0);
@@ -33,24 +33,24 @@ unsafe extern "C" fn bowl_eval(
     _user: *mut c_void,
     x: *const DLManagedTensorVersioned,
     value_out: *mut f64,
-) -> xts_status_t {
+) -> rgmin_status_t {
     EVALS.fetch_add(1, Ordering::Relaxed);
     let xs = unsafe { slice_of(x) };
     unsafe { *value_out = xs.iter().map(|v| v * v).sum() };
-    xts_status_t::XTS_SUCCESS
+    rgmin_status_t::RGMIN_SUCCESS
 }
 
 unsafe extern "C" fn bowl_grad(
     _user: *mut c_void,
     x: *const DLManagedTensorVersioned,
     grad_out: *mut DLManagedTensorVersioned,
-) -> xts_status_t {
+) -> rgmin_status_t {
     let xs = unsafe { slice_of(x) };
     let gs = unsafe { slice_of_mut(grad_out) };
     for (g, v) in gs.iter_mut().zip(xs) {
         *g = 2.0 * v;
     }
-    xts_status_t::XTS_SUCCESS
+    rgmin_status_t::RGMIN_SUCCESS
 }
 
 fn main() {
@@ -63,7 +63,7 @@ fn main() {
         .and_then(|s| s.parse().ok())
         .unwrap_or(200);
 
-    let ctrl = xts_control_t {
+    let ctrl = rgmin_control_t {
         maxiter: 60,
         gtol: 1e-10,
         istep: 1e-3,
@@ -76,25 +76,25 @@ fn main() {
         let mut x: Vec<f64> = (0..n)
             .map(|i| 1.0 + ((i + round) % 7) as f64 * 0.1)
             .collect();
-        let xt = unsafe { xts_tensor_borrow_cpu_f64(x.as_mut_ptr(), n) };
-        let mut report = xts_report_t {
+        let xt = unsafe { rgmin_tensor_borrow_cpu_f64(x.as_mut_ptr(), n) };
+        let mut report = rgmin_report_t {
             value: 0.0,
             steps: 0,
             grad_norm: 0.0,
         };
         let st = unsafe {
-            xts_minimize(
+            rgmin_minimize(
                 Some(bowl_eval),
                 Some(bowl_grad),
                 std::ptr::null_mut(),
                 xt,
                 &ctrl,
-                xts_method_t::XTS_LBFGS,
+                rgmin_method_t::RGMIN_LBFGS,
                 &mut report,
             )
         };
-        unsafe { xts_tensor_free(xt) };
-        assert_eq!(st, xts_status_t::XTS_SUCCESS, "round {round}");
+        unsafe { rgmin_tensor_free(xt) };
+        assert_eq!(st, rgmin_status_t::RGMIN_SUCCESS, "round {round}");
     }
     let dt = start.elapsed().as_secs_f64();
     let evals = EVALS.load(Ordering::Relaxed);

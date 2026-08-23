@@ -2,9 +2,9 @@
 
 /**
  * \file xts/optimize.hpp
- * \brief C++ API for the Rust xtsci-optimize hourglass.
+ * \brief C++ API for the Rust rgmin hourglass.
  *
- * Solvers live in Rust. This header wraps xts_minimize over dlpk tensors.
+ * Solvers live in Rust. This header wraps rgmin_minimize over dlpk tensors.
  * It does not reimplement BFGS, L-BFGS, NLCG, or line search in C++.
  * xtensor callers also include xts/xtensor.hpp.
  */
@@ -18,30 +18,30 @@
 namespace xts {
 namespace optimize {
 
-inline const char* version() noexcept { return xts_version(); }
+inline const char* version() noexcept { return rgmin_version(); }
 
 enum class Method {
-    PolakRibiere = XTS_POLAK_RIBIERE,
-    FletcherReeves = XTS_FLETCHER_REEVES,
-    Bfgs = XTS_BFGS,
-    Lbfgs = XTS_LBFGS,
-    Sr1 = XTS_SR1,
-    Adam = XTS_ADAM,
-    Steepest = XTS_STEEPEST,
-    Sr2 = XTS_SR2,
-    Pso = XTS_PSO,
-    HestenesStiefel = XTS_HESTENES_STIEFEL,
-    DaiYuan = XTS_DAI_YUAN,
-    ConjugateDescent = XTS_CONJUGATE_DESCENT,
-    HagerZhang = XTS_HAGER_ZHANG,
-    LiuStorey = XTS_LIU_STOREY,
-    FrPr = XTS_FR_PR,
-    Newton = XTS_NEWTON,
-    Rfo = XTS_RFO,
-    Fire = XTS_FIRE,
-    Bb = XTS_BB,
-    Dogleg = XTS_DOGLEG,
-    Fire2 = XTS_FIRE2,
+    PolakRibiere = RGMIN_POLAK_RIBIERE,
+    FletcherReeves = RGMIN_FLETCHER_REEVES,
+    Bfgs = RGMIN_BFGS,
+    Lbfgs = RGMIN_LBFGS,
+    Sr1 = RGMIN_SR1,
+    Adam = RGMIN_ADAM,
+    Steepest = RGMIN_STEEPEST,
+    Sr2 = RGMIN_SR2,
+    Pso = RGMIN_PSO,
+    HestenesStiefel = RGMIN_HESTENES_STIEFEL,
+    DaiYuan = RGMIN_DAI_YUAN,
+    ConjugateDescent = RGMIN_CONJUGATE_DESCENT,
+    HagerZhang = RGMIN_HAGER_ZHANG,
+    LiuStorey = RGMIN_LIU_STOREY,
+    FrPr = RGMIN_FR_PR,
+    Newton = RGMIN_NEWTON,
+    Rfo = RGMIN_RFO,
+    Fire = RGMIN_FIRE,
+    Bb = RGMIN_BB,
+    Dogleg = RGMIN_DOGLEG,
+    Fire2 = RGMIN_FIRE2,
 };
 
 struct Control {
@@ -95,30 +95,30 @@ struct OptimizeResult {
     }
 };
 
-inline Report minimize_fn(xts_eval_fn eval, xts_grad_fn grad, void* user,
+inline Report minimize_fn(rgmin_eval_fn eval, rgmin_grad_fn grad, void* user,
                           DLManagedTensorVersioned* x, Control const& ctrl,
                           Method method) {
-    xts_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
-    xts_report_t out{};
-    xts_status_t st =
-        xts_minimize(eval, grad, user, x, &c, static_cast<xts_method_t>(method), &out);
-    if (st != XTS_SUCCESS) {
-        char const* msg = xts_last_error();
-        throw std::runtime_error(msg ? msg : "xts_minimize failed");
+    rgmin_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
+    rgmin_report_t out{};
+    rgmin_status_t st =
+        rgmin_minimize(eval, grad, user, x, &c, static_cast<rgmin_method_t>(method), &out);
+    if (st != RGMIN_SUCCESS) {
+        char const* msg = rgmin_last_error();
+        throw std::runtime_error(msg ? msg : "rgmin_minimize failed");
     }
     return Report{out.value, out.steps, out.grad_norm};
 }
 
-inline Report minimize_hess_fn(xts_eval_fn eval, xts_grad_fn grad, xts_hess_fn hess,
+inline Report minimize_hess_fn(rgmin_eval_fn eval, rgmin_grad_fn grad, rgmin_hess_fn hess,
                                void* user, DLManagedTensorVersioned* x,
                                Control const& ctrl, Method method) {
-    xts_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
-    xts_report_t out{};
-    xts_status_t st = xts_minimize_hess(
-        eval, grad, hess, user, x, &c, static_cast<xts_method_t>(method), &out);
-    if (st != XTS_SUCCESS) {
-        char const* msg = xts_last_error();
-        throw std::runtime_error(msg ? msg : "xts_minimize_hess failed");
+    rgmin_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
+    rgmin_report_t out{};
+    rgmin_status_t st = rgmin_minimize_hess(
+        eval, grad, hess, user, x, &c, static_cast<rgmin_method_t>(method), &out);
+    if (st != RGMIN_SUCCESS) {
+        char const* msg = rgmin_last_error();
+        throw std::runtime_error(msg ? msg : "rgmin_minimize_hess failed");
     }
     return Report{out.value, out.steps, out.grad_norm};
 }
@@ -127,18 +127,18 @@ inline Report minimize_eindir(const eindir_objective_t* objective,
                               const eindir_abi_stamp_t* stamp,
                               DLManagedTensorVersioned* x, Control const& ctrl,
                               Method method) {
-    xts_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
-    xts_report_t out{};
-    xts_status_t st = xts_minimize_eindir(
-        objective, stamp, x, &c, static_cast<xts_method_t>(method), &out);
-    if (st != XTS_SUCCESS) {
-        char const* msg = xts_last_error();
-        throw std::runtime_error(msg ? msg : "xts_minimize_eindir failed");
+    rgmin_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
+    rgmin_report_t out{};
+    rgmin_status_t st = rgmin_minimize_eindir(
+        objective, stamp, x, &c, static_cast<rgmin_method_t>(method), &out);
+    if (st != RGMIN_SUCCESS) {
+        char const* msg = rgmin_last_error();
+        throw std::runtime_error(msg ? msg : "rgmin_minimize_eindir failed");
     }
     return Report{out.value, out.steps, out.grad_norm};
 }
 
-inline OptimizeResult minimize(xts_eval_fn eval, xts_grad_fn grad, void* user,
+inline OptimizeResult minimize(rgmin_eval_fn eval, rgmin_grad_fn grad, void* user,
                                DLManagedTensorVersioned* x,
                                OptimizeControl const& ctrl, Method method) {
     return OptimizeResult::from_report(
@@ -146,7 +146,7 @@ inline OptimizeResult minimize(xts_eval_fn eval, xts_grad_fn grad, void* user,
 }
 
 inline DLManagedTensorVersioned* borrow_cpu_f64(double* data, std::size_t n) {
-    return xts_tensor_borrow_cpu_f64(data, n);
+    return rgmin_tensor_borrow_cpu_f64(data, n);
 }
 
 namespace minimize {
@@ -164,54 +164,54 @@ inline constexpr Method PSOptim = Method::Pso;
 
 /// RAII session. One step() is one outer iteration.
 class Solver {
-    xts_solver_t* ptr_ = nullptr;
+    rgmin_solver_t* ptr_ = nullptr;
 
 public:
     Solver(Method method, Control const& ctrl, std::size_t dim) {
-        xts_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
-        ptr_ = xts_solver_create(static_cast<xts_method_t>(method), &c, dim);
+        rgmin_control_t c{ctrl.maxiter, ctrl.gtol, ctrl.istep, ctrl.memory};
+        ptr_ = rgmin_solver_create(static_cast<rgmin_method_t>(method), &c, dim);
         if (ptr_ == nullptr) {
-            char const* msg = xts_last_error();
-            throw std::runtime_error(msg ? msg : "xts_solver_create failed");
+            char const* msg = rgmin_last_error();
+            throw std::runtime_error(msg ? msg : "rgmin_solver_create failed");
         }
     }
-    ~Solver() { xts_solver_free(ptr_); }
+    ~Solver() { rgmin_solver_free(ptr_); }
     Solver(Solver const&) = delete;
     Solver& operator=(Solver const&) = delete;
     Solver(Solver&& o) noexcept : ptr_(o.ptr_) { o.ptr_ = nullptr; }
     Solver& operator=(Solver&& o) noexcept {
         if (this != &o) {
-            xts_solver_free(ptr_);
+            rgmin_solver_free(ptr_);
             ptr_ = o.ptr_;
             o.ptr_ = nullptr;
         }
         return *this;
     }
 
-    void forget() { xts_solver_forget(ptr_); }
-    void set_maxmove(double m) { xts_solver_set_maxmove(ptr_, m); }
-    void set_qn_step(xts_qn_step_t step) { xts_solver_set_qn_step(ptr_, step); }
-    void set_accept(xts_accept_t accept) { xts_solver_set_accept(ptr_, accept); }
-    void set_atom_maxmove(double m) { xts_solver_set_atom_maxmove(ptr_, m); }
+    void forget() { rgmin_solver_forget(ptr_); }
+    void set_maxmove(double m) { rgmin_solver_set_maxmove(ptr_, m); }
+    void set_qn_step(rgmin_qn_step_t step) { rgmin_solver_set_qn_step(ptr_, step); }
+    void set_accept(rgmin_accept_t accept) { rgmin_solver_set_accept(ptr_, accept); }
+    void set_atom_maxmove(double m) { rgmin_solver_set_atom_maxmove(ptr_, m); }
     void set_project_rigid(bool on) {
-        xts_solver_set_project_rigid(ptr_, on ? 1 : 0);
+        rgmin_solver_set_project_rigid(ptr_, on ? 1 : 0);
     }
     void set_extra_updates(std::size_t n) {
-        xts_solver_set_extra_updates(ptr_, n);
+        rgmin_solver_set_extra_updates(ptr_, n);
     }
     void set_cautious(double eps, double alpha) {
-        xts_solver_set_cautious(ptr_, eps, alpha);
+        rgmin_solver_set_cautious(ptr_, eps, alpha);
     }
-    int set_highs(bool on) { return xts_solver_set_highs(ptr_, on ? 1 : 0); }
-    void set_manifold(xts_manifold_t m) { xts_solver_set_manifold(ptr_, m); }
+    int set_highs(bool on) { return rgmin_solver_set_highs(ptr_, on ? 1 : 0); }
+    void set_manifold(rgmin_manifold_t m) { rgmin_solver_set_manifold(ptr_, m); }
 
-    Report step(xts_eval_fn eval, xts_grad_fn grad, void* user,
+    Report step(rgmin_eval_fn eval, rgmin_grad_fn grad, void* user,
                 DLManagedTensorVersioned* x) {
-        xts_report_t out{};
-        xts_status_t st = xts_solver_step(ptr_, eval, grad, user, x, &out);
-        if (st != XTS_SUCCESS) {
-            char const* msg = xts_last_error();
-            throw std::runtime_error(msg ? msg : "xts_solver_step failed");
+        rgmin_report_t out{};
+        rgmin_status_t st = rgmin_solver_step(ptr_, eval, grad, user, x, &out);
+        if (st != RGMIN_SUCCESS) {
+            char const* msg = rgmin_last_error();
+            throw std::runtime_error(msg ? msg : "rgmin_solver_step failed");
         }
         return Report{out.value, out.steps, out.grad_norm};
     }

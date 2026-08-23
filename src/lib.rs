@@ -1,12 +1,13 @@
 //! Local first-order minimization over eindir objectives.
 //!
-//! This crate is the Rust rewrite of HaoZeke/xtsci-optimize. Conjugacy,
+//! This crate is the Rust rewrite of the C++ xtsci-optimize (its
+//! xtensor heritage is where the old name came from). Conjugacy,
 //! restart, and line search stay independent. Nonlinear CG is Nocedal and
 //! Wright algorithm 5.4. Quasi-Newton methods (BFGS, L-BFGS, SR1, SR2),
 //! Adam, steepest descent, and particle swarm share the same eindir
 //! `DifferentiableObjective` handle. C and C++ reach these solvers
-//! through an `xts_solver_t` session (`create` / `step` / `free`)
-//! and the one-shot `xts_minimize` wrappers.
+//! through an `rgmin_solver_t` session (`create` / `step` / `free`)
+//! and the one-shot `rgmin_minimize` wrappers.
 //!
 //! The production unconstrained local method is [`Lbfgs`] with
 //! [`LineSearch::Wolfe`]: limited-memory BFGS (Nocedal-Wright 7.4) and

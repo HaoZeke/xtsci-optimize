@@ -1,41 +1,41 @@
 /* Homepage hero: full logo with wordmark; swap light/dark variants via Shibuya
    color-mode classes (html.light / html.dark). Fallback: prefers-color-scheme. */
 
-.xtsci-hero {
+.rgmin-hero {
   text-align: center;
   margin: 0.5rem 0 1.25rem;
 }
 
-.xtsci-hero-logo {
+.rgmin-hero-logo {
   display: none;
   margin: 0 auto;
   max-width: min(420px, 80vw);
   height: auto;
 }
 
-html.light .xtsci-hero-logo--light,
-html:not(.dark) .xtsci-hero-logo--light {
+html.light .rgmin-hero-logo--light,
+html:not(.dark) .rgmin-hero-logo--light {
   display: block;
 }
 
-html.dark .xtsci-hero-logo--light {
+html.dark .rgmin-hero-logo--light {
   display: none;
 }
 
-html.dark .xtsci-hero-logo--dark {
+html.dark .rgmin-hero-logo--dark {
   display: block;
 }
 
-html.light .xtsci-hero-logo--dark,
-html:not(.dark) .xtsci-hero-logo--dark {
+html.light .rgmin-hero-logo--dark,
+html:not(.dark) .rgmin-hero-logo--dark {
   display: none;
 }
 
 @media (prefers-color-scheme: dark) {
-  html:not(.light):not(.dark) .xtsci-hero-logo--light {
+  html:not(.light):not(.dark) .rgmin-hero-logo--light {
     display: none;
   }
-  html:not(.light):not(.dark) .xtsci-hero-logo--dark {
+  html:not(.light):not(.dark) .rgmin-hero-logo--dark {
     display: block;
   }
 }

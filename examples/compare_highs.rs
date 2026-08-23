@@ -4,7 +4,7 @@
 use std::time::Instant;
 
 use ndarray::{Array1, ArrayView1};
-use xtsci_optimize::{HighsStep, Lbfgs};
+use rgmin::{HighsStep, Lbfgs};
 
 fn rosenbrock(x: ArrayView1<f64>) -> (f64, Array1<f64>) {
     let a = 1.0 - x[0];

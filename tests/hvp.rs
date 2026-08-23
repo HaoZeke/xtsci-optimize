@@ -3,8 +3,8 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use ndarray::{Array1, array};
-use xtsci_optimize::nlcg::{Conjugacy, Restart};
-use xtsci_optimize::{
+use rgmin::nlcg::{Conjugacy, Restart};
+use rgmin::{
     Control, FdHvp, HvpOracle, Oracle, ScgParams, minimize_newton_cg, minimize_scg_exact,
     steihaug_cg,
 };
@@ -101,7 +101,7 @@ fn finite_difference_actions_match_the_analytic_hessian() {
     let fd = FdHvp::new(&base, 1e-6);
     let x = array![0.5, -1.0, 2.0];
     let v = array![1.0, 2.0, -1.0];
-    let hv = xtsci_optimize::HessianVector::hessian_vector(&fd, x.view(), v.view());
+    let hv = rgmin::HessianVector::hessian_vector(&fd, x.view(), v.view());
     for (i, xi) in x.iter().enumerate() {
         let want = 12.0 * xi * xi * v[i];
         assert!(
@@ -148,7 +148,7 @@ fn the_fd_wrapper_minimizes_without_an_analytic_hessian() {
 
 #[test]
 fn nystrom_flattens_a_decaying_spectrum() {
-    use xtsci_optimize::{NystromPrecond, steihaug_pcg};
+    use rgmin::{NystromPrecond, steihaug_pcg};
     // lambda_i = 1e4 / i^2: a few stiff modes over a soft bulk.
     let n = 300;
     let lam: Vec<f64> = (1..=n).map(|i| 1.0e4 / ((i * i) as f64)).collect();
@@ -206,7 +206,7 @@ fn nystrom_flattens_a_decaying_spectrum() {
 
 #[test]
 fn the_preconditioned_boundary_lives_in_the_sketch_metric() {
-    use xtsci_optimize::{IdentityPrecond, steihaug_pcg};
+    use rgmin::{IdentityPrecond, steihaug_pcg};
     // Identity preconditioner must reproduce steihaug_cg exactly.
     let obj = HvpOracle::unbounded(
         2,

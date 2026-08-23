@@ -1,7 +1,7 @@
 /**
- * \mainpage xtsci-optimize
+ * \mainpage rgmin
  *
- * Rust rewrite of HaoZeke/xtsci-optimize. Solvers live in Rust over
+ * Rust rewrite of the C++ xtsci-optimize. Solvers live in Rust over
  * eindir `DifferentiableObjective`s. This HTML is the C / C++ hourglass.
  *
  * - \c xts_solver_t is the stateful waist (\c create / \c step / \c free).

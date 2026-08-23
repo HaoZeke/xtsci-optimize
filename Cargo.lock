@@ -671,6 +671,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "rgmin"
+version = "0.2.0"
+dependencies = [
+ "approx",
+ "cbindgen",
+ "dlpk",
+ "eindir-core",
+ "highs",
+ "highs-sys",
+ "ndarray",
+ "rand",
+ "rayon",
+ "rgpot-core",
+ "thiserror",
+]
+
+[[package]]
 name = "rgpot-core"
 version = "3.0.2"
 source = "git+https://github.com/OmniPotentRPC/rgpot.git?rev=b19227f9197a4c927633f1225f1e7546794a6f1e#b19227f9197a4c927633f1225f1e7546794a6f1e"
@@ -915,22 +932,6 @@ name = "wit-bindgen"
 version = "0.57.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
-
-[[package]]
-name = "xtsci-optimize"
-version = "0.1.0"
-dependencies = [
- "approx",
- "cbindgen",
- "dlpk",
- "eindir-core",
- "highs",
- "highs-sys",
- "ndarray",
- "rand",
- "rgpot-core",
- "thiserror",
-]
 
 [[package]]
 name = "zerocopy"

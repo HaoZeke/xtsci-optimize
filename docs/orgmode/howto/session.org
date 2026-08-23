@@ -5,8 +5,8 @@
 * Hold a stateful solver
 
 Geometry hosts such as eOn call ~Optimizer::step()~ once per outer
-iteration. ~xts_minimize~ is a full solve. The session type
-~xts_solver_t~ (Rust ~Solver~) is the matching handle: create once,
+iteration. ~rgmin_minimize~ is a full solve. The session type
+~rgmin_solver_t~ (Rust ~Solver~) is the matching handle: create once,
 step many times, free at the end.
 
 ** Rust
@@ -14,7 +14,7 @@ step many times, free at the end.
 #+begin_src rust
 use eindir_core::objectives::Rosenbrock;
 use ndarray::array;
-use xtsci_optimize::{Accept, Control, Method, QnStep, Solver};
+use rgmin::{Accept, Control, Method, QnStep, Solver};
 
 let obj = Rosenbrock::<2>::new();
 let mut x = array![-1.2, 1.0];
@@ -36,20 +36,20 @@ clusters.
 #+begin_src c
 #include "xts.h"
 
-xts_control_t ctrl = { .maxiter = 200, .gtol = 1e-8, .istep = 1.0, .memory = 8 };
-xts_solver_t *s = xts_solver_create(XTS_LBFGS, &ctrl, n);
-xts_report_t report;
+rgmin_control_t ctrl = { .maxiter = 200, .gtol = 1e-8, .istep = 1.0, .memory = 8 };
+rgmin_solver_t *s = rgmin_solver_create(RGMIN_LBFGS, &ctrl, n);
+rgmin_report_t report;
 while (!done) {
-    xts_solver_set_maxmove(s, max_move);
-    xts_solver_set_qn_step(s, XTS_QN_NEWTON);
-    xts_solver_set_accept(s, XTS_ACCEPT_NONE);
-    xts_solver_step_hess_fg(s, evalgrad, hess, user, x, &report);
+    rgmin_solver_set_maxmove(s, max_move);
+    rgmin_solver_set_qn_step(s, RGMIN_QN_NEWTON);
+    rgmin_solver_set_accept(s, RGMIN_ACCEPT_NONE);
+    rgmin_solver_step_hess_fg(s, evalgrad, hess, user, x, &report);
 }
-xts_solver_free(s);
+rgmin_solver_free(s);
 #+end_src
 
 Callbacks are arguments of each step, not stored on the handle.
-~xts_solver_step_fg~ / ~xts_solver_step_hess_fg~ take one fused
+~rgmin_solver_step_fg~ / ~rgmin_solver_step_hess_fg~ take one fused
 ~(f, g)~ callback so a host that already bills energy and forces
 together is not asked twice.
 
@@ -67,9 +67,9 @@ together is not asked twice.
 | ~set_manifold~ | Embedded geometry; ~rigid_quotient~ for 3N clusters |
 | ~set_masses~ | Per-atom masses for ~mw_rigid~ (Page–McIver) |
 
-** When to use ~xts_minimize~ instead
+** When to use ~rgmin_minimize~ instead
 
 Scripts that want a cold-start solve to ~gtol~ still call
-~xts_minimize~ / ~minimize_method~. Hopping chains that own the
+~rgmin_minimize~ / ~minimize_method~. Hopping chains that own the
 pair history hold ~Lbfgs~ directly (see
 [[file:embed-anneal.org][embed in anneal]]).

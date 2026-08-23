@@ -1,7 +1,7 @@
 //! Persistent L-BFGS: watch hook, budget, warm start.
 
 use ndarray::{Array1, ArrayView1};
-use xtsci_optimize::Lbfgs;
+use rgmin::Lbfgs;
 
 fn quad(x: ArrayView1<f64>) -> (f64, Array1<f64>) {
     let scales = [1.0, 10.0, 100.0, 1000.0];
@@ -154,7 +154,7 @@ fn a_recognised_descent_returns_the_stand_in_and_refunds_the_rest() {
 /// garbage point.
 #[test]
 fn a_nan_gradient_is_not_convergence() {
-    for norm in [xtsci_optimize::GradNorm::Infinity, xtsci_optimize::GradNorm::Euclidean] {
+    for norm in [rgmin::GradNorm::Infinity, rgmin::GradNorm::Euclidean] {
         let x0 = Array1::from(vec![1.0; 4]);
         let mut opt = Lbfgs::default();
         opt.norm = norm;
@@ -182,7 +182,7 @@ fn the_cubic_zoom_keeps_the_evaluation_budget() {
     let x0 = Array1::from(vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]);
     let mut opt = Lbfgs::default();
     opt.gtol = 1e-8;
-    opt.norm = xtsci_optimize::GradNorm::Euclidean;
+    opt.norm = rgmin::GradNorm::Euclidean;
     let (f, _, evals) = opt.minimize(x0.view(), 200, |v| Some(quad(v)));
     assert!(f < 1e-12, "the bowl minimum is zero, got {f}");
     assert!(

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="560" height="112" viewBox="0 0 560 112" fill="none" role="img" aria-labelledby="xtsDarkTitle">
-  <title id="xtsDarkTitle">xtsci-optimize</title>
+  <title id="xtsDarkTitle">rgmin</title>
   <desc>Local minimization over eindir objectives. Hourglass C ABI.</desc>
   <rect x="8" y="16" width="80" height="80" rx="18" fill="#312E81"/>
   <rect x="15" y="23" width="66" height="66" rx="14" fill="none" stroke="#1E1B4B" stroke-width="1.4"/>
@@ -13,7 +13,7 @@
   <path d="M48 37.5 C48 44 50 48 48 52 C45.6 58.2 50.4 63 49 68.2" fill="none" stroke="#FBBF24" stroke-width="1.55" stroke-linecap="round"/>
   <circle cx="49" cy="69" r="1.9" fill="#FBBF24"/>
   <text x="108" y="52" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
-        font-size="32" font-weight="750" letter-spacing="-1.0" fill="#F8FAFC">xtsci-optimize</text>
+        font-size="32" font-weight="750" letter-spacing="-1.0" fill="#F8FAFC">rgmin</text>
   <text x="108" y="74" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
         font-size="12" font-weight="600" letter-spacing="0.07em" fill="#A5B4FC">LOCAL MINIMIZATION</text>
   <text x="108" y="90" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"

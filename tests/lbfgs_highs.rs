@@ -5,7 +5,7 @@
 use approx::assert_relative_eq;
 use ndarray::Array2;
 use ndarray::{Array1, ArrayView1};
-use xtsci_optimize::{HighsStep, Lbfgs};
+use rgmin::{HighsStep, Lbfgs};
 
 fn quad(x: ArrayView1<f64>) -> (f64, Array1<f64>) {
     let scales = [1.0, 10.0, 100.0, 1000.0];
@@ -154,7 +154,7 @@ fn center_axes_kills_the_mean() {
 fn highs_newton_qp_on_a_quadratic_respects_a_box() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::{ArrayView1, array};
-    use xtsci_optimize::{Control, HessianObjective, Method, QnStep, Solver};
+    use rgmin::{Control, HessianObjective, Method, QnStep, Solver};
 
     struct Quad;
     impl Objective<f64> for Quad {
