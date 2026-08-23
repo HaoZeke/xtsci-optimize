@@ -47,6 +47,7 @@ ISBN). Do not invent DOIs.
 | GLL nonmonotone 1986 | 10.1137/0723046 | A Nonmonotone Line Search Technique for Newton's Method |
 | Conn–Gould–Toint 2000 | 10.1137/1.9780898719857 | Trust Region Methods |
 | Li–Fukushima cautious BFGS 2001 | 10.1137/S1052623499354242 | On the Global Convergence of the BFGS Method for Nonconvex Unconstrained Optimization Problems |
+| Møller SCG 1993 | 10.1016/S0893-6080(05)80056-5 | A scaled conjugate gradient algorithm for fast supervised learning |
 
 Polak-Ribiere 1969 and Hestenes-Stiefel 1952: cite the paper/book
 title in rustdoc if no DOI is on this list. Do not mint a DOI.
