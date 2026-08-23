@@ -89,6 +89,7 @@ pub fn nrminf(x: ArrayView1<f64>) -> f64 {
 /// this seam; without one, construction fails loudly rather than
 /// staging device data through the host, which the single-copy waist
 /// contract forbids.
+#[derive(Debug)]
 pub struct Vector {
     data: Array1<f64>,
     device: dlpk::sys::DLDevice,

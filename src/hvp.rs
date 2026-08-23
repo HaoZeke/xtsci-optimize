@@ -416,7 +416,7 @@ impl NystromPrecond {
     }
 
     /// Captured eigenvalue estimates, unordered.
-    pub fn spectrum(&self) -> ArrayView1<f64> {
+    pub fn spectrum(&self) -> ArrayView1<'_, f64> {
         self.lam.view()
     }
 }

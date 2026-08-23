@@ -121,6 +121,7 @@ where
     s
 }
 
+#[cfg(test)]
 fn l2(v: &Array1<f64>) -> f64 {
     crate::vecops::nrm2(v.view())
 }
