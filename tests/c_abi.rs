@@ -538,7 +538,7 @@ fn fused_evalgrad_is_one_callback_per_oracle() {
 fn abi_stamp_identifies_this_optimizer_layout() {
     let stamp = rgmin_abi_stamp();
     assert_eq!(stamp.abi_major, 1);
-    assert_eq!(stamp.abi_minor, 10);
+    assert_eq!(stamp.abi_minor, 11);
     assert_eq!(stamp.layout_revision, 2);
     assert_eq!(unsafe { rgmin_abi_compatible(&stamp) }, 1);
 }
