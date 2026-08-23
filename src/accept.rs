@@ -93,11 +93,20 @@ where
                 }
                 alpha *= 0.5;
             }
+            // The fallback faces the same test it exists to satisfy. It
+            // was returned as moved unconditionally, so after refusing ten
+            // scaled steps the policy could accept an uphill steepest step
+            // it never measured -- a silent exception to the rule the
+            // caller chose. A fallback that also fails reports unmoved,
+            // and the caller's stall machinery owns what happens next.
             let sd = grad.mapv(|g| -g);
             let trial = trial_point(obj, pos, &sd, 0.1, control, atom_maxmove, manifold);
             let (ft, gt) = obj.value_and_gradient(trial.view());
-            push_energy(e_hist, ft);
-            (trial, ft, gt, true)
+            if ft - ref_e <= ENERGY_RISE {
+                push_energy(e_hist, ft);
+                return (trial, ft, gt, true);
+            }
+            (pos.clone(), value, grad.clone(), false)
         }
     }
 }

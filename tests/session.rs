@@ -601,3 +601,37 @@ fn dogleg_kills_a_quadratic() {
     assert!(rep.value < 1e-12, "dogleg value {}", rep.value);
     assert!(x.iter().all(|v| v.abs() < 1e-6));
 }
+
+/// The energy policy's fallback faces the same test as the steps it
+/// replaces: an oracle that rises in every direction must come back
+/// unmoved rather than accepting an uphill steepest step the policy
+/// spent ten halvings refusing.
+#[test]
+fn an_uphill_everywhere_oracle_is_refused_not_moved() {
+    use ndarray::ArrayView1;
+    let obj = xtsci_optimize::Oracle::unbounded(|x: ArrayView1<f64>| {
+        // A cone rising away from the origin: every step from the
+        // origin increases the value, and the gradient at the origin
+        // pretends to point somewhere useful.
+        let r = x.iter().map(|v| v * v).sum::<f64>().sqrt();
+        let g = if r > 1e-12 {
+            x.mapv(|v| v / r)
+        } else {
+            Array1::from(vec![1.0; x.len()])
+        };
+        (r, g)
+    });
+    let mut solver = xtsci_optimize::Solver::new(xtsci_optimize::Method::Steepest);
+    solver.set_accept(xtsci_optimize::Accept::Energy);
+    let mut x = Array1::from(vec![0.0; 6]);
+    let rep = solver.step(&obj, &mut x).expect("step runs");
+    assert!(
+        rep.value <= 1e-12,
+        "refused steps must not report an uphill point as progress, got {}",
+        rep.value
+    );
+    assert!(
+        x.iter().all(|v| v.abs() <= 1e-12),
+        "a refused step must leave the position where it stood"
+    );
+}

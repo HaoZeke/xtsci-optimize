@@ -21,6 +21,21 @@ use ndarray::{Array1, Array2, ArrayView1};
 use crate::error::{Error, Result};
 use crate::lbfgs::Lbfgs;
 
+/// Pin OpenMP to one thread exactly once, before any HiGHS solve.
+///
+/// The setter mutated the process environment from inside library calls,
+/// which is a data race the moment two threads reach a solve together:
+/// getenv in one thread against setenv in another is undefined behaviour
+/// in glibc. One write through a `Once`, ordered before the first solve
+/// on any thread, and the option calls below keep HiGHS itself serial
+/// regardless.
+fn serialise_openmp_once() {
+    static OMP: std::sync::Once = std::sync::Once::new();
+    OMP.call_once(|| unsafe {
+        std::env::set_var("OMP_NUM_THREADS", "1");
+    });
+}
+
 /// Bounds and equalities on one L-BFGS model step.
 #[derive(Clone, Debug, Default)]
 pub struct HighsStep {
@@ -97,9 +112,7 @@ fn project_qp(d: &Array1<f64>, x: ArrayView1<f64>, opts: &HighsStep) -> Result<A
         .try_optimise(Sense::Minimise)
         .map_err(|e| Error::Highs(format!("pass LP {e:?}")))?;
     model.make_quiet();
-    unsafe {
-        std::env::set_var("OMP_NUM_THREADS", "1");
-    }
+    serialise_openmp_once();
     model
         .try_set_option("parallel", "off")
         .map_err(|_| Error::Highs("cannot set parallel=off".into()))?;
@@ -294,9 +307,7 @@ pub fn highs_feasible_step(
         .try_optimise(Sense::Minimise)
         .map_err(|e| Error::Highs(format!("pass LP {e:?}")))?;
     model.make_quiet();
-    unsafe {
-        std::env::set_var("OMP_NUM_THREADS", "1");
-    }
+    serialise_openmp_once();
     let _ = model.try_set_option("parallel", "off");
     let _ = model.try_set_option("threads", 1_i32);
     let _ = model.try_set_option("time_limit", 1.0_f64);
