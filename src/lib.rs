@@ -50,6 +50,8 @@ mod qn;
 mod qn_step;
 mod report;
 mod rigid;
+/// Moller scaled conjugate gradient (damped-model step, no line search).
+pub mod scg;
 mod session;
 mod step;
 mod trust;
@@ -73,4 +75,5 @@ pub use pso::minimize_pso;
 pub use qn::{minimize_bfgs, minimize_lbfgs, minimize_sd, minimize_sr1, minimize_sr2};
 pub use qn_step::QnStep;
 pub use report::Report;
+pub use scg::{ScgParams, minimize_scg};
 pub use session::Solver;

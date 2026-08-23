@@ -27,6 +27,13 @@ pub enum Error {
         /// Length of the working vector.
         got: usize,
     },
+    /// SCG cannot make progress (non-finite objective everywhere it
+    /// can step, or damping at its limit).
+    #[error("SCG stalled: {what}")]
+    ScgStalled {
+        /// What exhausted the algorithm.
+        what: &'static str,
+    },
 }
 
 /// Result alias for this crate.
