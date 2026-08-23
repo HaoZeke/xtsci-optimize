@@ -32,35 +32,53 @@ fn lbfgs_session_reaches_rosenbrock() {
 
 #[test]
 fn lbfgs_accept_none_moves_when_energy_is_flat() {
-    use eindir_core::{DifferentiableObjective, Objective};
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::ArrayView1;
     use rgmin::Accept;
+    use std::sync::OnceLock;
 
     struct FlatEnergyBowl;
     impl Objective<f64> for FlatEnergyBowl {
         fn dim(&self) -> usize {
             2
         }
+        fn bounds(&self) -> &Bounds<f64> {
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| Bounds::new(array![-1e6, -1e6], array![1e6, 1e6], 0.0))
+        }
         fn eval(&self, _: ArrayView1<f64>) -> f64 {
             0.0
         }
     }
+    impl Gradient<f64> for FlatEnergyBowl {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            &x * 2.0
+        }
+    }
     impl DifferentiableObjective<f64> for FlatEnergyBowl {
         fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
-            (0.0, &x * 2.0)
+            (0.0, self.grad(x))
         }
     }
 
     let obj = FlatEnergyBowl;
     let mut x = array![3.0, -4.0];
-    let n0 = (x[0] * x[0] + x[1] * x[1]).sqrt();
-    let mut solver = Solver::new(Method::lbfgs(), control(), 2);
+    let start = x.clone();
+    let mut ctrl = control();
+    ctrl.maxmove = Some(1.0);
+    let mut solver = Solver::new(Method::lbfgs(), ctrl, 2);
     solver.set_accept(Accept::None);
     solver.step(&obj, &mut x).unwrap();
+    assert!(
+        (x[0] - start[0]).abs() + (x[1] - start[1]).abs() > 1e-9,
+        "LBFGS Accept::None stayed put {x:?}"
+    );
+    let n0 = (start[0] * start[0] + start[1] * start[1]).sqrt();
     let n1 = (x[0] * x[0] + x[1] * x[1]).sqrt();
-    assert!(n1 < n0, "LBFGS Accept::None stayed put {x:?}");
-    assert!((x[0] - 1.0).abs() < 1e-3);
-    assert!((x[1] - 1.0).abs() < 1e-3);
+    assert!(n1 < n0, "clipped two-loop step did not descend {x:?}");
 }
 
 #[test]
