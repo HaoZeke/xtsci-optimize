@@ -236,6 +236,16 @@ impl Lbfgs {
     }
 
     fn gnorm(&self, g: &Array1<f64>) -> f64 {
+        // A non-finite component means the gradient is broken, not small:
+        // f64::max returns its other operand against NaN, so the infinity
+        // fold would report an all-NaN gradient as norm zero and the
+        // relaxation would terminate as converged at a garbage point. The
+        // Euclidean arm failed safe only by accident, NaN propagating into
+        // a comparison that then never passes. Both arms now answer
+        // infinity, which no gtol accepts.
+        if g.iter().any(|v| !v.is_finite()) {
+            return f64::INFINITY;
+        }
         match self.norm {
             GradNorm::Euclidean => l2(g),
             GradNorm::Infinity => g.iter().fold(0.0_f64, |a, v| a.max(v.abs())),

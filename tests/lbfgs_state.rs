@@ -146,3 +146,29 @@ fn a_recognised_descent_returns_the_stand_in_and_refunds_the_rest() {
         "recognition must refund evaluations: {evals} against {evals_full}"
     );
 }
+
+/// A broken gradient must never read as converged. f64::max returns its
+/// other operand against NaN, so an infinity-norm fold over an all-NaN
+/// gradient is zero, which passes any tolerance: measured before the
+/// guard, this test terminated in one iteration reporting success at a
+/// garbage point.
+#[test]
+fn a_nan_gradient_is_not_convergence() {
+    for norm in [xtsci_optimize::GradNorm::Infinity, xtsci_optimize::GradNorm::Euclidean] {
+        let x0 = Array1::from(vec![1.0; 4]);
+        let mut opt = Lbfgs::default();
+        opt.norm = norm;
+        opt.gtol = 1e-6;
+        let mut calls = 0usize;
+        let (f, _, evals) = opt.minimize(x0.view(), 5, |v| {
+            calls += 1;
+            let g = Array1::from(vec![f64::NAN; v.len()]);
+            Some((1.0, g))
+        });
+        assert!(
+            calls > 1,
+            "an all-NaN gradient must not satisfy the convergence test on \
+             the first evaluation (norm {norm:?}, f {f}, evals {evals})"
+        );
+    }
+}
