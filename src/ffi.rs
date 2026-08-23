@@ -322,6 +322,97 @@ unsafe fn create_borrowed_f64_1d(
     Box::into_raw(managed)
 }
 
+/// A reusable DLPack shell for handing borrowed CPU f64 buffers across
+/// the callback boundary without per-call allocation. Shape and strides
+/// live beside the managed struct behind one `Box`, so the tensor's
+/// self-referential pointers stay valid for the shell's lifetime; only
+/// the data pointer and length change between calls. `deleter` is
+/// `None` because the callee never owns the tensor.
+struct StandingShell(Box<ShellInner>);
+
+struct ShellInner {
+    managed: DLManagedTensorVersioned,
+    shape: [i64; 1],
+    strides: [i64; 1],
+}
+
+// SAFETY: the raw pointers inside the shell reference only the shell's
+// own boxed fields and, transiently, the buffer handed to `point_at`
+// for one callback under the owning Mutex.
+unsafe impl Send for StandingShell {}
+
+impl StandingShell {
+    fn new() -> Self {
+        let mut inner = Box::new(ShellInner {
+            managed: DLManagedTensorVersioned {
+                version: DLPackVersion { major: 1, minor: 0 },
+                manager_ctx: std::ptr::null_mut(),
+                deleter: None,
+                flags: 0,
+                dl_tensor: DLTensor {
+                    data: std::ptr::null_mut(),
+                    device: DLDevice {
+                        device_type: DLDeviceType::kDLCPU,
+                        device_id: 0,
+                    },
+                    ndim: 1,
+                    dtype: DLDataType {
+                        code: DLDataTypeCode::kDLFloat,
+                        bits: 64,
+                        lanes: 1,
+                    },
+                    shape: std::ptr::null_mut(),
+                    strides: std::ptr::null_mut(),
+                    byte_offset: 0,
+                },
+            },
+            shape: [0],
+            strides: [1],
+        });
+        inner.managed.dl_tensor.shape = inner.shape.as_mut_ptr();
+        inner.managed.dl_tensor.strides = inner.strides.as_mut_ptr();
+        StandingShell(inner)
+    }
+
+    fn point_at(&mut self, data: *mut f64, len: usize) -> *mut DLManagedTensorVersioned {
+        self.0.shape[0] = len as i64;
+        self.0.managed.dl_tensor.data = data.cast();
+        &mut self.0.managed
+    }
+}
+
+/// Per-oracle standing storage: one shell for the iterate, one for the
+/// output tensor, and a copy buffer for the rare non-contiguous view.
+struct Scratch {
+    x: StandingShell,
+    out: StandingShell,
+    xbuf: Vec<f64>,
+}
+
+impl Scratch {
+    fn new() -> std::sync::Mutex<Self> {
+        std::sync::Mutex::new(Scratch {
+            x: StandingShell::new(),
+            out: StandingShell::new(),
+            xbuf: Vec::new(),
+        })
+    }
+
+    /// The iterate tensor: pointed straight at contiguous view storage
+    /// (the callback side receives it const), through the standing
+    /// copy buffer otherwise.
+    fn x_tensor(&mut self, xv: ndarray::ArrayView1<f64>) -> *mut DLManagedTensorVersioned {
+        match xv.as_slice() {
+            Some(s) => self.x.point_at(s.as_ptr() as *mut f64, s.len()),
+            None => {
+                self.xbuf.clear();
+                self.xbuf.extend(xv.iter());
+                self.x.point_at(self.xbuf.as_mut_ptr(), self.xbuf.len())
+            }
+        }
+    }
+}
+
 fn cpu_f64_slice<'a>(
     t: *const DLManagedTensorVersioned,
     name: &str,
@@ -421,32 +512,7 @@ pub unsafe extern "C" fn xts_minimize(
             Err(st) => return st,
         };
         let n = init.len();
-        let eval_ptr = eval as usize;
-        let grad_ptr = grad as usize;
-        let user_addr = user as usize;
-        let obj = Oracle::unbounded(n, move |xv| {
-            let eval_fn: xts_eval_fn = unsafe { std::mem::transmute(eval_ptr) };
-            let grad_fn: xts_grad_fn = unsafe { std::mem::transmute(grad_ptr) };
-            let user = user_addr as *mut c_void;
-            let mut xs = xv.to_vec();
-            let xt = unsafe {
-                create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
-            };
-            let mut value = 0.0;
-            let ev_st = unsafe { eval_fn(user, xt, &mut value) };
-            let mut g = vec![0.0; xs.len()];
-            let gt =
-                unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
-            let gr_st = unsafe { grad_fn(user, xt, gt) };
-            unsafe {
-                xts_tensor_free(xt);
-                xts_tensor_free(gt);
-            }
-            if ev_st != xts_status_t::XTS_SUCCESS || gr_st != xts_status_t::XTS_SUCCESS {
-                return (f64::INFINITY, Array1::from(g));
-            }
-            (value, Array1::from(g))
-        });
+        let obj = c_oracle(eval, grad, user, n);
         let c = unsafe { &*ctrl };
         let control = Control {
             maxiter: c.maxiter,
@@ -543,58 +609,7 @@ pub unsafe extern "C" fn xts_minimize_hess(
             Err(st) => return st,
         };
         let n = init.len();
-        let eval_ptr = eval as usize;
-        let grad_ptr = grad as usize;
-        let hess_ptr = hess as usize;
-        let user_addr = user as usize;
-        let obj = HessianOracle::unbounded(
-            n,
-            move |xv| {
-                let eval_fn: xts_eval_fn = unsafe { std::mem::transmute(eval_ptr) };
-                let grad_fn: xts_grad_fn = unsafe { std::mem::transmute(grad_ptr) };
-                let user = user_addr as *mut c_void;
-                let mut xs = xv.to_vec();
-                let xt = unsafe {
-                    create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
-                };
-                let mut value = 0.0;
-                let ev_st = unsafe { eval_fn(user, xt, &mut value) };
-                let mut g = vec![0.0; xs.len()];
-                let gt = unsafe {
-                    create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0)
-                };
-                let gr_st = unsafe { grad_fn(user, xt, gt) };
-                unsafe {
-                    xts_tensor_free(xt);
-                    xts_tensor_free(gt);
-                }
-                if ev_st != xts_status_t::XTS_SUCCESS || gr_st != xts_status_t::XTS_SUCCESS {
-                    return (f64::INFINITY, Array1::from(g));
-                }
-                (value, Array1::from(g))
-            },
-            move |xv| {
-                let hess_fn: xts_hess_fn = unsafe { std::mem::transmute(hess_ptr) };
-                let user = user_addr as *mut c_void;
-                let mut xs = xv.to_vec();
-                let xt = unsafe {
-                    create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
-                };
-                let mut h = vec![0.0; n * n];
-                let ht = unsafe {
-                    create_borrowed_f64_1d(h.as_mut_ptr(), h.len(), DLDeviceType::kDLCPU, 0)
-                };
-                let st = unsafe { hess_fn(user, xt, ht) };
-                unsafe {
-                    xts_tensor_free(xt);
-                    xts_tensor_free(ht);
-                }
-                if st != xts_status_t::XTS_SUCCESS {
-                    return Array2::eye(n);
-                }
-                Array2::from_shape_vec((n, n), h).unwrap_or_else(|_| Array2::eye(n))
-            },
-        );
+        let obj = c_oracle_hess(eval, grad, hess, user, n);
         let c = unsafe { &*ctrl };
         let control = Control {
             maxiter: c.maxiter,
@@ -690,35 +705,24 @@ pub unsafe extern "C" fn xts_minimize_eindir(
             return xts_status_t::XTS_INVALID_PARAMETER;
         }
         let objective_addr = objective as usize;
+        let scratch = Scratch::new();
         let obj = Oracle::unbounded(dim, move |xv| {
             let objective = objective_addr as *const eindir_objective_t;
-            let mut xs = xv.to_vec();
-            let xt = unsafe {
-                create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
-            };
+            let m = xv.len();
+            let mut s = scratch.lock().expect("ffi scratch");
+            let xt = s.x_tensor(xv);
             let mut value = 0.0;
             let eval_status = unsafe { eindir_objective_eval(objective, xt, &mut value) };
-            let mut gradient = vec![0.0; xs.len()];
-            let gt = unsafe {
-                create_borrowed_f64_1d(
-                    gradient.as_mut_ptr(),
-                    gradient.len(),
-                    DLDeviceType::kDLCPU,
-                    0,
-                )
-            };
+            let mut gradient = Array1::zeros(m);
+            let gt = s.out.point_at(gradient.as_mut_ptr(), m);
             let grad_status = unsafe { eindir_objective_grad(objective, xt, gt) };
-            unsafe {
-                xts_tensor_free(xt);
-                xts_tensor_free(gt);
-            }
             if eval_status != eindir_status_t::EINDIR_SUCCESS
                 || grad_status != eindir_status_t::EINDIR_SUCCESS
             {
                 set_last_error("xts_minimize_eindir: eindir evaluation failed");
-                return (f64::INFINITY, Array1::from(gradient));
+                return (f64::INFINITY, Array1::from_elem(m, f64::NAN));
             }
-            (value, Array1::from(gradient))
+            (value, gradient)
         });
         let c = unsafe { &*ctrl };
         let control = Control {
@@ -1231,27 +1235,26 @@ fn c_oracle(
     let eval_ptr = eval as usize;
     let grad_ptr = grad as usize;
     let user_addr = user as usize;
+    let scratch = Scratch::new();
     Oracle::unbounded(n, move |xv| {
         let eval_fn: xts_eval_fn = unsafe { std::mem::transmute(eval_ptr) };
         let grad_fn: xts_grad_fn = unsafe { std::mem::transmute(grad_ptr) };
         let user = user_addr as *mut c_void;
-        let mut xs = xv.to_vec();
-        let xt =
-            unsafe { create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0) };
+        let m = xv.len();
+        let mut s = scratch.lock().expect("ffi scratch");
+        let xt = s.x_tensor(xv);
         let mut value = 0.0;
         let ev_st = unsafe { eval_fn(user, xt, &mut value) };
-        let mut g = vec![0.0; xs.len()];
-        let gt =
-            unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
+        let mut g = Array1::zeros(m);
+        let gt = s.out.point_at(g.as_mut_ptr(), m);
         let gr_st = unsafe { grad_fn(user, xt, gt) };
-        unsafe {
-            xts_tensor_free(xt);
-            xts_tensor_free(gt);
-        }
         if ev_st != xts_status_t::XTS_SUCCESS || gr_st != xts_status_t::XTS_SUCCESS {
-            return (f64::INFINITY, Array1::from(g));
+            // A failed callback yields no gradient: the NaN fill keeps
+            // any consumer from mistaking half-written storage for a
+            // small (or converged) gradient.
+            return (f64::INFINITY, Array1::from_elem(m, f64::NAN));
         }
-        (value, Array1::from(g))
+        (value, g)
     })
 }
 
@@ -1269,50 +1272,45 @@ fn c_oracle_hess(
     let grad_ptr = grad as usize;
     let hess_ptr = hess as usize;
     let user_addr = user as usize;
+    let scratch = Scratch::new();
+    let hscratch = Scratch::new();
     HessianOracle::unbounded(
         n,
         move |xv| {
             let eval_fn: xts_eval_fn = unsafe { std::mem::transmute(eval_ptr) };
             let grad_fn: xts_grad_fn = unsafe { std::mem::transmute(grad_ptr) };
             let user = user_addr as *mut c_void;
-            let mut xs = xv.to_vec();
-            let xt = unsafe {
-                create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
-            };
+            let m = xv.len();
+            let mut s = scratch.lock().expect("ffi scratch");
+            let xt = s.x_tensor(xv);
             let mut value = 0.0;
             let ev_st = unsafe { eval_fn(user, xt, &mut value) };
-            let mut g = vec![0.0; xs.len()];
-            let gt =
-                unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
+            let mut g = Array1::zeros(m);
+            let gt = s.out.point_at(g.as_mut_ptr(), m);
             let gr_st = unsafe { grad_fn(user, xt, gt) };
-            unsafe {
-                xts_tensor_free(xt);
-                xts_tensor_free(gt);
-            }
             if ev_st != xts_status_t::XTS_SUCCESS || gr_st != xts_status_t::XTS_SUCCESS {
-                return (f64::INFINITY, Array1::from(g));
+                return (f64::INFINITY, Array1::from_elem(m, f64::NAN));
             }
-            (value, Array1::from(g))
+            (value, g)
         },
         move |xv| {
             let hess_fn: xts_hess_fn = unsafe { std::mem::transmute(hess_ptr) };
             let user = user_addr as *mut c_void;
-            let mut xs = xv.to_vec();
-            let xt = unsafe {
-                create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
-            };
-            let mut h = vec![0.0; n * n];
-            let ht =
-                unsafe { create_borrowed_f64_1d(h.as_mut_ptr(), h.len(), DLDeviceType::kDLCPU, 0) };
+            let mut s = hscratch.lock().expect("ffi scratch");
+            let xt = s.x_tensor(xv);
+            let mut h = Array2::zeros((n, n));
+            let ht = s.out.point_at(
+                h.as_slice_mut().expect("contiguous").as_mut_ptr(),
+                n * n,
+            );
             let st = unsafe { hess_fn(user, xt, ht) };
-            unsafe {
-                xts_tensor_free(xt);
-                xts_tensor_free(ht);
-            }
             if st != xts_status_t::XTS_SUCCESS {
-                return Array2::<f64>::eye(n);
+                // A failed Hessian is no Hessian: NaN poisons the
+                // Newton solve into a refused step instead of quietly
+                // substituting a plausible matrix.
+                return Array2::from_elem((n, n), f64::NAN);
             }
-            Array2::from_shape_vec((n, n), h).unwrap_or_else(|_| Array2::<f64>::eye(n))
+            h
         },
     )
 }
@@ -1324,25 +1322,21 @@ fn c_oracle_fg(
 ) -> Oracle<impl Fn(ndarray::ArrayView1<f64>) -> (f64, Array1<f64>) + Send + Sync> {
     let fg_ptr = evalgrad as usize;
     let user_addr = user as usize;
+    let scratch = Scratch::new();
     Oracle::unbounded(n, move |xv| {
         let fg_fn: xts_evalgrad_fn = unsafe { std::mem::transmute(fg_ptr) };
         let user = user_addr as *mut c_void;
-        let mut xs = xv.to_vec();
-        let xt =
-            unsafe { create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0) };
+        let m = xv.len();
+        let mut s = scratch.lock().expect("ffi scratch");
+        let xt = s.x_tensor(xv);
         let mut value = 0.0;
-        let mut g = vec![0.0; xs.len()];
-        let gt =
-            unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
+        let mut g = Array1::zeros(m);
+        let gt = s.out.point_at(g.as_mut_ptr(), m);
         let st = unsafe { fg_fn(user, xt, &mut value, gt) };
-        unsafe {
-            xts_tensor_free(xt);
-            xts_tensor_free(gt);
-        }
         if st != xts_status_t::XTS_SUCCESS {
-            return (f64::INFINITY, Array1::from(g));
+            return (f64::INFINITY, Array1::from_elem(m, f64::NAN));
         }
-        (value, Array1::from(g))
+        (value, g)
     })
 }
 
@@ -1358,48 +1352,40 @@ fn c_oracle_hess_fg(
     let fg_ptr = evalgrad as usize;
     let hess_ptr = hess as usize;
     let user_addr = user as usize;
+    let scratch = Scratch::new();
+    let hscratch = Scratch::new();
     HessianOracle::unbounded(
         n,
         move |xv| {
             let fg_fn: xts_evalgrad_fn = unsafe { std::mem::transmute(fg_ptr) };
             let user = user_addr as *mut c_void;
-            let mut xs = xv.to_vec();
-            let xt = unsafe {
-                create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
-            };
+            let m = xv.len();
+            let mut s = scratch.lock().expect("ffi scratch");
+            let xt = s.x_tensor(xv);
             let mut value = 0.0;
-            let mut g = vec![0.0; xs.len()];
-            let gt =
-                unsafe { create_borrowed_f64_1d(g.as_mut_ptr(), g.len(), DLDeviceType::kDLCPU, 0) };
+            let mut g = Array1::zeros(m);
+            let gt = s.out.point_at(g.as_mut_ptr(), m);
             let st = unsafe { fg_fn(user, xt, &mut value, gt) };
-            unsafe {
-                xts_tensor_free(xt);
-                xts_tensor_free(gt);
-            }
             if st != xts_status_t::XTS_SUCCESS {
-                return (f64::INFINITY, Array1::from(g));
+                return (f64::INFINITY, Array1::from_elem(m, f64::NAN));
             }
-            (value, Array1::from(g))
+            (value, g)
         },
         move |xv| {
             let hess_fn: xts_hess_fn = unsafe { std::mem::transmute(hess_ptr) };
             let user = user_addr as *mut c_void;
-            let mut xs = xv.to_vec();
-            let xt = unsafe {
-                create_borrowed_f64_1d(xs.as_mut_ptr(), xs.len(), DLDeviceType::kDLCPU, 0)
-            };
-            let mut h = vec![0.0; n * n];
-            let ht =
-                unsafe { create_borrowed_f64_1d(h.as_mut_ptr(), h.len(), DLDeviceType::kDLCPU, 0) };
+            let mut s = hscratch.lock().expect("ffi scratch");
+            let xt = s.x_tensor(xv);
+            let mut h = Array2::zeros((n, n));
+            let ht = s.out.point_at(
+                h.as_slice_mut().expect("contiguous").as_mut_ptr(),
+                n * n,
+            );
             let st = unsafe { hess_fn(user, xt, ht) };
-            unsafe {
-                xts_tensor_free(xt);
-                xts_tensor_free(ht);
-            }
             if st != xts_status_t::XTS_SUCCESS {
-                return Array2::<f64>::eye(n);
+                return Array2::from_elem((n, n), f64::NAN);
             }
-            Array2::from_shape_vec((n, n), h).unwrap_or_else(|_| Array2::<f64>::eye(n))
+            h
         },
     )
 }
