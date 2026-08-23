@@ -512,7 +512,7 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
         memory: 8,
         maxmove: 0.0,
     };
-    let session = unsafe { xts_solver_create(xts_method_t::XTS_LBFGS, &ctrl, 6) };
+    let session = unsafe { xts_solver_create(xts_method_t::XTS_LBFGS, &ctrl, 2) };
     assert!(!session.is_null());
     let masses = [1.0_f64, 12.0, 16.0];
     unsafe {
@@ -531,18 +531,18 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
     }
     // The configured session still relaxes: setters must leave a
     // working solver behind, not only avoid crashing.
-    let mut x = [-1.2_f64, 1.0, 0.3, -0.4, 0.2, 0.1];
+    let mut x = [-1.2_f64, 1.0];
     let mut out = xts_report_t {
         value: 0.0,
         steps: 0,
         grad_norm: 0.0,
     };
-    let xt = unsafe { xts_tensor_borrow_cpu_f64(x.as_mut_ptr(), 6) };
+    let xt = unsafe { xts_tensor_borrow_cpu_f64(x.as_mut_ptr(), 2) };
     let st = unsafe {
         xts_solver_step(
             session,
-            Some(quadratic_eval),
-            Some(quadratic_grad),
+            Some(rosen_eval),
+            Some(rosen_grad),
             std::ptr::null_mut(),
             xt,
             &mut out,
