@@ -17,6 +17,21 @@ use crate::error::{Error, Result};
 use crate::nlcg::{Conjugacy, ConjugacyContext, Restart};
 use crate::report::Report;
 use crate::step::l2;
+use ndarray::ArrayView1;
+
+/// Exact directional curvature `d . grad^2 f(x) . d` for SCG's step
+/// pricing. gpr_optim supplies this from its analytic marginal-likelihood
+/// Hessian-vector product (`ScgCurvatureMode::EXACT`); whenever it
+/// returns `None` the finite-difference probe prices the step instead,
+/// so partial implementations degrade gracefully.
+pub trait DirectionalCurvature: DifferentiableObjective<f64> {
+    /// `d . grad^2 f(x) . d`, or `None` to fall back to the probe.
+    fn directional_curvature(
+        &self,
+        x: ArrayView1<f64>,
+        d: ArrayView1<f64>,
+    ) -> Option<f64>;
+}
 
 /// Damping schedule and convergence tolerances for [`minimize_scg`].
 ///
@@ -94,7 +109,43 @@ pub fn minimize_scg<O>(
 where
     O: DifferentiableObjective<f64> + ?Sized,
 {
-    let mut w = init.into();
+    run_scg(obj, init.into(), control, params, conjugacy, restart, |_, _| None)
+}
+
+/// [`minimize_scg`] with exact curvature: the probe (and its extra
+/// gradient per iteration) is replaced by the objective's
+/// Hessian-vector product wherever one is available, the same
+/// Newton-Krylov-style pricing PETSc/TAO's `nls` obtains from
+/// user HVP callbacks.
+pub fn minimize_scg_exact<O>(
+    obj: &O,
+    init: impl Into<Array1<f64>>,
+    control: &Control,
+    params: &ScgParams,
+    conjugacy: Conjugacy,
+    restart: Restart,
+) -> Result<Report>
+where
+    O: DirectionalCurvature + ?Sized,
+{
+    run_scg(obj, init.into(), control, params, conjugacy, restart, |x, d| {
+        obj.directional_curvature(x, d)
+    })
+}
+
+fn run_scg<O>(
+    obj: &O,
+    init: Array1<f64>,
+    control: &Control,
+    params: &ScgParams,
+    conjugacy: Conjugacy,
+    restart: Restart,
+    curvature: impl Fn(ArrayView1<f64>, ArrayView1<f64>) -> Option<f64>,
+) -> Result<Report>
+where
+    O: DifferentiableObjective<f64> + ?Sized,
+{
+    let mut w = init;
     if w.len() != Objective::dim(obj) {
         return Err(Error::Dim {
             got: w.len(),
@@ -149,8 +200,13 @@ where
                 });
             }
 
-            // One-sided curvature probe along the direction; double
-            // the probe step until the objective is finite there.
+            // Exact Hessian-vector curvature when the objective
+            // offers one; the one-sided probe otherwise.
+            if let Some(exact) = curvature(w.view(), dir.view())
+                .filter(|c| c.is_finite())
+            {
+                gamma = exact;
+            } else {
             let mut sigma = params.sigma0 / kappa.sqrt();
             let mut probed =
                 obj.value_and_gradient((&w + &(sigma * &dir)).view());
@@ -172,6 +228,7 @@ where
                 });
             }
             gamma = (&probed.1 - &grad).dot(&dir) / sigma;
+            }
         }
 
         let mut delta = gamma + lambda * kappa;
