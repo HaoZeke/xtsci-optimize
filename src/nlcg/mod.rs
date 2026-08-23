@@ -59,14 +59,6 @@ pub enum Conjugacy {
     /// Nocedal and Wright, *Numerical Optimization*,
     /// <https://doi.org/10.1007/978-0-387-40065-5>.
     FrPr,
-    /// gpr_optim `SCG.inl`: `(g_old - g)·g / (d·g_old)`.
-    ///
-    /// `mu` in that file is `p·r` on the pre-step residual (the old
-    /// gradient). After a successful step it sets
-    /// `beta = (r_old - r).dot(r) / mu` and `p = beta * p - r`.
-    /// On a steepest-descent restart (`d = -g_old`) this equals
-    /// Polak-Ribiere; after the first conjugate update it does not.
-    MollerScg,
     /// xtsci `HybridizedConj`: `max` or `min` of two child β formulas.
     ///
     /// This is not the Gilbert-Nocedal FR-PR hybrid ([`Self::FrPr`]).
@@ -160,7 +152,6 @@ impl Conjugacy {
                 y_g / y_d - 2.0 * yy * d_g / (y_d * y_d)
             }
             Self::LiuStorey => div(-y_g, dot(d, gold)),
-            Self::MollerScg => div(dot(gold, g) - gg, dot(d, gold)),
             Self::FrPr => {
                 let beta_pr = Self::PolakRibiere.beta(ctx);
                 let beta_fr = Self::FletcherReeves.beta(ctx);
@@ -214,8 +205,6 @@ mod tests {
         };
         assert_eq!(Conjugacy::FletcherReeves.beta(&ctx), 1.0);
         assert_eq!(Conjugacy::PolakRibiere.beta(&ctx), 1.0);
-        // d=-e1, gold=e2: (gold-g)·g / (d·gold) = 0 / 0 -> 0
-        assert_eq!(Conjugacy::MollerScg.beta(&ctx), 0.0);
         // y = [1, -1], y·d = -1, g·y = 1, β_HS = -1
         assert_eq!(Conjugacy::HestenesStiefel.beta(&ctx), -1.0);
         // β_DY = 1 / (d·y) = 1 / -1 = -1
@@ -308,8 +297,10 @@ mod tests {
     }
 
     #[test]
-    fn moller_scg_beta_matches_gpr_optim_scg_inl() {
-        // Restart: d = -g_old. Equals Polak-Ribiere.
+    fn liu_storey_is_the_gpr_optim_scg_inl_beta() {
+        // SCG.inl: mu = p·r on the pre-step residual; after accept,
+        // beta = (r_old - r).dot(r) / mu. That is Liu-Storey
+        // -g·(g-g_old)/(d·g_old). Restart (d = -g_old) equals PR.
         let g = array![2.0, 0.0];
         let gold = array![1.0, 0.0];
         let d = -&gold;
@@ -319,13 +310,11 @@ mod tests {
             previous_direction: d.view(),
         };
         assert_eq!(
-            Conjugacy::MollerScg.beta(&ctx),
+            Conjugacy::LiuStorey.beta(&ctx),
             Conjugacy::PolakRibiere.beta(&ctx)
         );
-        assert_eq!(Conjugacy::MollerScg.beta(&ctx), 2.0);
+        assert_eq!(Conjugacy::LiuStorey.beta(&ctx), 2.0);
 
-        // After a conjugate step, d is not -g_old. SCG.inl:
-        // beta = (g_old - g)·g / (d·g_old)
         let g2 = array![2.0, 1.0];
         let gold2 = array![1.0, 0.0];
         let d2 = array![-0.5, 1.0];
@@ -334,9 +323,9 @@ mod tests {
             previous_gradient: gold2.view(),
             previous_direction: d2.view(),
         };
-        assert_eq!(Conjugacy::MollerScg.beta(&ctx2), 6.0);
+        assert_eq!(Conjugacy::LiuStorey.beta(&ctx2), 6.0);
         assert_ne!(
-            Conjugacy::MollerScg.beta(&ctx2),
+            Conjugacy::LiuStorey.beta(&ctx2),
             Conjugacy::PolakRibiere.beta(&ctx2)
         );
     }

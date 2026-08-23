@@ -744,7 +744,7 @@ pub unsafe extern "C" fn rgmin_minimize_scg(
                 Array1::from(init),
                 &control,
                 &scg,
-                Conjugacy::MollerScg,
+                Conjugacy::LiuStorey,
                 Restart::Never,
             )
         } else {
@@ -753,7 +753,7 @@ pub unsafe extern "C" fn rgmin_minimize_scg(
                 Array1::from(init),
                 &control,
                 &scg,
-                Conjugacy::MollerScg,
+                Conjugacy::LiuStorey,
                 Restart::Never,
             )
         };
