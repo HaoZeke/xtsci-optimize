@@ -116,7 +116,7 @@ fn scg_exact_reaches_the_bowl_floor_on_supplied_curvature() {
         &Control { maxiter: 200, ..Control::default() },
         &ScgParams::default(),
         Conjugacy::PolakRibiere,
-        Restart::Powell,
+        Restart::Njws { threshold: 0.1 },
     )
     .expect("scg exact runs");
     assert!(
