@@ -146,9 +146,12 @@ void rgmin_tensor_free(DLManagedTensorVersioned *tensor);
  * \param method Solver. \c XTS_LBFGS is the production choice.
  * \param out   Filled on success.
  */
-xts_status_t xts_minimize(xts_eval_fn eval, xts_grad_fn grad, void *user,
-                          DLManagedTensorVersioned *x, const xts_control_t *ctrl,
-                          xts_method_t method, xts_report_t *out);
+xts_status_t rgmin_minimize(xts_eval_fn eval, xts_grad_fn grad, void *user,
+                            DLManagedTensorVersioned *x, const xts_control_t *ctrl,
+                            xts_method_t method, xts_report_t *out);
+#ifndef xts_minimize
+#define xts_minimize rgmin_minimize
+#endif
 /**
  * Newton / RFO. \a hess writes a length-\c n*n row-major Hessian.
  * \c method is \c XTS_NEWTON or \c XTS_RFO.
