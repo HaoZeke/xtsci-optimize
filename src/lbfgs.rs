@@ -302,6 +302,7 @@ impl Lbfgs {
         let mut slope_lo = slope;
         let mut hi = f64::NAN;
         let mut f_hi = f64::NAN;
+        let mut slope_hi = f64::NAN;
         let mut bracketed = false;
 
         let bracket_cap = self.max_line_evals;
@@ -319,6 +320,7 @@ impl Lbfgs {
                 slope_lo = slope_prev;
                 hi = a;
                 f_hi = fa;
+                slope_hi = slope_a;
                 bracketed = true;
                 break;
             }
@@ -332,6 +334,7 @@ impl Lbfgs {
                 slope_lo = slope_a;
                 hi = a_prev;
                 f_hi = f_prev;
+                slope_hi = slope_prev;
                 bracketed = true;
                 break;
             }
@@ -348,11 +351,35 @@ impl Lbfgs {
         while evals < total_cap {
             let width = hi - lo;
             let mut trial = lo + 0.5 * width;
-            let denom = 2.0 * (f_hi - f_lo - slope_lo * width);
-            if denom.abs() > 1e-16 {
-                let q = lo - slope_lo * width * width / denom;
-                if (q - lo) / width > 0.1 && (q - lo) / width < 0.9 {
-                    trial = q;
+            // Cubic Hermite minimizer over the bracket (Nocedal-Wright
+            // eq. 3.59), possible because both ends carry their slopes:
+            // the slope at hi is information an evaluation already paid
+            // for, and discarding it forced a quadratic model that the
+            // doc nevertheless called cubic. More-Thuente's dcstep is
+            // the reference for the guards: the discriminant clamps at
+            // zero, a degenerate denominator falls back, and every
+            // candidate is confined to the bracket interior so a wild
+            // extrapolation costs a bisection, never a divergence.
+            if slope_hi.is_finite() {
+                let d1 = slope_lo + slope_hi - 3.0 * (f_lo - f_hi) / (lo - hi);
+                let disc = d1 * d1 - slope_lo * slope_hi;
+                if disc >= 0.0 && (lo - hi).abs() > 1e-16 {
+                    let d2 = (hi - lo).signum() * disc.sqrt();
+                    let denom = slope_hi - slope_lo + 2.0 * d2;
+                    if denom.abs() > 1e-16 {
+                        let q = hi - (hi - lo) * (slope_hi + d2 - d1) / denom;
+                        if (q - lo) / width > 0.1 && (q - lo) / width < 0.9 {
+                            trial = q;
+                        }
+                    }
+                }
+            } else {
+                let denom = 2.0 * (f_hi - f_lo - slope_lo * width);
+                if denom.abs() > 1e-16 {
+                    let q = lo - slope_lo * width * width / denom;
+                    if (q - lo) / width > 0.1 && (q - lo) / width < 0.9 {
+                        trial = q;
+                    }
                 }
             }
             let (ft, gt) = match probe(trial, fg, &mut evals, &mut scratch) {
@@ -363,6 +390,7 @@ impl Lbfgs {
             if ft > f0 + self.armijo * trial * slope || ft >= f_lo {
                 hi = trial;
                 f_hi = ft;
+                slope_hi = slope_t;
             } else {
                 if slope_t.abs() <= -self.curvature * slope {
                     self.accept(x, f, g, d, trial, ft, gt);
@@ -371,6 +399,7 @@ impl Lbfgs {
                 if slope_t * (hi - lo) >= 0.0 {
                     hi = lo;
                     f_hi = f_lo;
+                    slope_hi = slope_lo;
                 }
                 lo = trial;
                 f_lo = ft;
