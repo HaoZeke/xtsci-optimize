@@ -287,6 +287,7 @@ xts_status_t rgmin_minimize_scg(xts_eval_fn eval, xts_grad_fn grad, xts_curv_fn 
 #ifndef rgmin_curv_fn
 #define rgmin_curv_fn xts_curv_fn
 #define rgmin_scg_params_t xts_scg_params_t
+#define rgmin_status_t xts_status_t
 #define rgmin_eval_fn xts_eval_fn
 #define rgmin_grad_fn xts_grad_fn
 #define rgmin_control_t xts_control_t
