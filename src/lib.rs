@@ -44,6 +44,8 @@ pub mod manifold;
 /// The vector seam: solver algebra behind one interface.
 pub mod vecops;
 mod minimize;
+/// Matrix-free Newton: Hessian actions and Steihaug-Toint CG.
+pub mod hvp;
 /// Shifted Newton and Banerjee RFO on a dense Hessian.
 pub mod newton;
 mod oracle;
@@ -63,6 +65,7 @@ pub use adam::minimize_adam;
 pub use control::Control;
 pub use error::{Error, Result};
 pub use fire::FireKind;
+pub use hvp::{FdHvp, HessianVector, HvpOracle, minimize_newton_cg, steihaug_cg};
 pub use lbfgs::{GradNorm, Lbfgs};
 #[cfg(feature = "highs")]
 pub use lbfgs_qp::HighsStep;

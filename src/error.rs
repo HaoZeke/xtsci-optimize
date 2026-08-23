@@ -34,6 +34,14 @@ pub enum Error {
         /// What exhausted the algorithm.
         what: &'static str,
     },
+    /// The trust region collapsed without an acceptable step: a
+    /// non-finite gradient, a broken curvature action, or an
+    /// objective that rejects every trial the model proposes.
+    #[error("trust region collapsed after {steps} steps")]
+    TrustCollapsed {
+        /// Outer iterations completed when the radius hit its floor.
+        steps: usize,
+    },
 }
 
 /// Result alias for this crate.
