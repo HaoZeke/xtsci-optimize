@@ -40,10 +40,16 @@ Methods: NLCG, BFGS, L-BFGS, SR1, SR2, Newton, RFO, Adam, steepest
 descent, PSO, FIRE, FIRE 2.0, Barzilai-Borwein, Powell dogleg.
 
 Narrative docs live in [`docs/orgmode/`](docs/orgmode/index.org)
-(Diataxis). C ABI HTML is Doxygen plus
+(Diataxis); the explanation quadrant derives the math behind each
+solver, and every derivation's exact algebra is pinned by the Lean
+(Mathlib) development under [`proofs/lean/`](proofs/lean/), indexed in
+[`docs/orgmode/reference/proofs.org`](docs/orgmode/reference/proofs.org).
+C ABI HTML is Doxygen plus
 [doxyYoda](https://github.com/HaoZeke/doxyYoda):
 `scripts/get_doxyyoda.sh` then `doxygen docs/source/Doxyfile_doxyyoda.cfg`.
-Validated DOIs are in [`docs/CITATIONS.md`](docs/CITATIONS.md).
+Validated DOIs are in [`docs/CITATIONS.md`](docs/CITATIONS.md); the
+Sphinx bibliography is the `rgmin-docs` ookcite collection exported to
+`docs/source/references.bib`.
 The mark is documented in [`branding/logo/`](branding/logo/README.md).
 
 ```rust
