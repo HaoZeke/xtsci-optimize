@@ -59,7 +59,7 @@ detail behind four functions.
 
 A pair with y . s <= 0 would corrupt the inverse model, so the update
 skips it; the ``cautious`` knob (Li-Fukushima) additionally requires
-y . s >= eps ||s||\ :sup:`alpha`\ before a pair enters the history, which
+y . s >= eps norm(s)\ :sup:`alpha`\ before a pair enters the history, which
 keeps far-from-quadratic steps from polluting the memory. Skipping is
 always sound: the two-loop over any subset of valid pairs is the BFGS
 inverse built from exactly those pairs.

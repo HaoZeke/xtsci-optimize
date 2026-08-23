@@ -17,7 +17,7 @@ Along the current conjugate direction ``d``, SCG builds the quadratic
 model from the directional derivative mu = d . g and a curvature
 estimate gamma = d . H d, then damps the curvature with lambda >= 0:
 
-delta = gamma + lambda |d|\ :sup:`2`\,     alpha = -mu / delta.
+delta = gamma + lambda norm(d)\ :sup:`2`\,     alpha = -mu / delta.
 
 The damping plays exactly the role of the trust radius: lambda = 0
 trusts the quadratic model fully (a Newton-like step along the ray);

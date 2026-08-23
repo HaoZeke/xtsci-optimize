@@ -19,7 +19,7 @@ Around the current point the quadratic model is
 
 m(p) = f + g . p + (1/2) p . H p,
 
-trusted only within ||p|| <= Delta. After solving the subproblem
+trusted only within norm(p) <= Delta. After solving the subproblem
 approximately for a step ``p``, the honesty check compares the actual
 reduction to the predicted one:
 
@@ -55,7 +55,7 @@ H p = -g, spending one Hessian action per iteration, and stops early
 on any of three events.
 
 1. Small residual: the inexact-Newton forcing sequence
-   rtol = min(sqrt(||g||), 1/2) keeps early outer iterations cheap and
+   rtol = min(sqrt(norm(g)), 1/2) keeps early outer iterations cheap and
    the tail superlinear (Nocedal-Wright eq. 7.3).
 
 2. Negative curvature: if d . H d <= 0 the model is unbounded along
@@ -78,9 +78,7 @@ and direction. With the discriminant named as a square
 construction, both in ``Steihaug.lean``:
 
 - ``boundary_on_sphere``: the root lands exactly on the sphere,
-
-  .. table::
-
+  norm(z + tau d)\ :sup:`2`\ = r\ :sup:`2`\, in whichever inner product the caller
   tracked -- the same algebra serves the Euclidean and preconditioned
   runs.
 

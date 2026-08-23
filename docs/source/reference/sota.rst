@@ -38,7 +38,7 @@ Bound-constrained model
 
 ``Lbfgs.highs`` keeps the two-loop direction and asks HiGHS only to
 project it onto the trust region, the box, and any equalities
-(``min 1/2 ||p - d||^2``, ``Q = I``;
+(``min 1/2 norm(p - d)^2``, ``Q = I``;
 `10.1007/s12532-017-0130-5 <https://doi.org/10.1007/s12532-017-0130-5>`_).
 A dense compact Hessian is not a production QP: after a short accepted
 step it is indefinite and the HiGHS QP solver does not return.
@@ -60,13 +60,13 @@ perturbed minima, overlaps repaired first):
 
 .. table::
 
-    +-----------+----------------------+---------------+---+---+
-    | arm       | evals per relaxation | worst final ~ | g | ~ |
-    +===========+======================+===============+===+===+
-    | WarmLbfgs |                386.1 |       1.45e-5 |
-    +-----------+----------------------+---------------+
-    | L-BFGS-B  |                  273 |       1.43e-5 |
-    +-----------+----------------------+---------------+
+    +-----------+----------------------+----------------------+
+    | arm       | evals per relaxation | worst final ``gmax`` |
+    +===========+======================+======================+
+    | WarmLbfgs |                386.1 |              1.45e-5 |
+    +-----------+----------------------+----------------------+
+    | L-BFGS-B  |                  273 |              1.43e-5 |
+    +-----------+----------------------+----------------------+
 
 Both arms converge. The remaining gap is bound handling and the
 L-BFGS-B Cauchy / subspace machinery, not a different unconstrained
@@ -96,7 +96,7 @@ the direction is a Newton step, not a two-loop pair history.
 What beat OptBench min, and what did not
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Chill OptBench min, repo INIs (LJ38 ``||F||_2 = 0.01``, Morse
+Chill OptBench min, repo INIs (LJ38 ``norm2(F) = 0.01``, Morse
 ``1e-3``), 100/100 clusters. Force-call averages on converged
 runs. OPTIM 2014 is 176 / 46.
 
@@ -295,7 +295,7 @@ Defaults in this crate
 - Line search: ``LineSearch::Wolfe { c1: 1e-4, c2: 0.9, maxiter: 20 }``
 
 - First trial step: ``1`` when the memory is occupied (the Newton step);
-  ``1 / ||d||`` when the memory is empty (raw steepest descent)
+  ``1 / norm(d)`` when the memory is empty (raw steepest descent)
 
-- Gradient stop: ``||g||_inf < 1e-6`` on ``Lbfgs``, ``||g||_2`` on
+- Gradient stop: ``norminf(g) < 1e-6`` on ``Lbfgs``, ``norm2(g)`` on
   ``minimize_lbfgs`` so existing cold-start reports stay comparable

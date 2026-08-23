@@ -28,7 +28,7 @@ vector: ~project~, ~retract~, ~transport~. Citations:
 | ~Euclidean~ | length ~n~ | ~x + v~ |
 | ~RigidQuotient~ | 3N Cartesians, N >= 2 | horizontal lift ~x + v~ |
 | ~MwRigid~ | same; masses on the session | same; Eckart inner product |
-| ~Sphere~ | unit vector, length ~n~ | ~(x+v)/||x+v||~ |
+| ~Sphere~ | unit vector, length ~n~ | ~(x+v)/norm(x+v)~ |
 | ~So3~ | row-major ~R~, length 9 | QR with positive diagonal |
 | ~Stiefel~ | ~St(n,1)~: same as the sphere | same as the sphere |
 | ~Se3~ | row-major ~R~ then ~t~, length 12 | SO(3) on the rotation, Euclidean on ~t~ |

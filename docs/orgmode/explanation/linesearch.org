@@ -18,7 +18,7 @@ a real improvement, not a rounding story. That one-line consequence is
 the Lean theorem ~Rgmin.armijo_strict~ in
 [[file:../../../proofs/lean/Rgmin/Zoom.lean][proofs/lean/Rgmin/Zoom.lean]].
 
-The curvature condition demands |phi'(a)| <= c2 |phi'(0)| with
+The curvature condition demands abs(phi'(a)) <= c2 abs(phi'(0)) with
 c1 < c2 < 1: the slope must have flattened enough that the quasi-Newton
 update built from this step carries curvature information. Nocedal and
 Wright's algorithms 3.5 and 3.6 (the bracket and the zoom) find a point
@@ -73,9 +73,9 @@ facts follow, proved in
 - ~Rgmin.zoom_shrinks~: whichever end the trial replaces, the surviving
   bracket is at most ~9/10~ of the old width.
 
-The width therefore decays geometrically (~Rgmin.widthBound~ is the
-envelope, with ~widthBound_le_start~ and ~widthBound_nonneg~ pinning
-its shape), and the evaluation budget of the zoom is logarithmic in the
+The width therefore decays geometrically (~Rgmin.width_envelope~ is
+the bound, ~width_envelope_tendsto~ takes it to zero in the limit),
+and the evaluation budget of the zoom is logarithmic in the
 requested tolerance regardless of what the cubic does. The Rust test
 ~the_cubic_zoom_keeps_the_evaluation_budget~ in
 ~tests/lbfgs_state.rs~ holds the crate to that budget on a quadratic
