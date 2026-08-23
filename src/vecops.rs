@@ -79,6 +79,116 @@ pub fn nrminf(x: ArrayView1<f64>) -> f64 {
     m
 }
 
+/// A solver-owned vector: storage plus the DLPack device it lives on.
+///
+/// This is the seam's storage handle (nbgu step of the TAO `Vec`
+/// story): solvers hold `Vector`s and call the `v*` operations, which
+/// dispatch on the device tag. The CPU arm wraps the crate's ndarray
+/// storage at zero cost, so it is bit-identical to calling the slice
+/// operations directly. A non-CPU tag needs a kernel backend behind
+/// this seam; without one, construction fails loudly rather than
+/// staging device data through the host, which the single-copy waist
+/// contract forbids.
+pub struct Vector {
+    data: Array1<f64>,
+    device: dlpk::sys::DLDevice,
+}
+
+const CPU: dlpk::sys::DLDevice = dlpk::sys::DLDevice {
+    device_type: dlpk::sys::DLDeviceType::kDLCPU,
+    device_id: 0,
+};
+
+impl Vector {
+    /// A zero CPU vector of length `n`.
+    pub fn zeros_cpu(n: usize) -> Self {
+        Self {
+            data: Array1::zeros(n),
+            device: CPU,
+        }
+    }
+
+    /// Wrap host storage as a CPU vector. No copy.
+    pub fn from_host(data: Array1<f64>) -> Self {
+        Self { data, device: CPU }
+    }
+
+    /// Claim `data` for `device`. Only the CPU has a backend today;
+    /// any other tag is refused so device data is never silently
+    /// staged through the host.
+    pub fn try_on(
+        device: dlpk::sys::DLDevice,
+        data: Array1<f64>,
+    ) -> std::result::Result<Self, UnsupportedDevice> {
+        if device.device_type == dlpk::sys::DLDeviceType::kDLCPU {
+            Ok(Self { data, device })
+        } else {
+            Err(UnsupportedDevice {
+                device_type: device.device_type as i32,
+            })
+        }
+    }
+
+    /// The device this vector lives on.
+    pub fn device(&self) -> dlpk::sys::DLDevice {
+        self.device
+    }
+
+    /// Host view of the CPU arm.
+    pub fn host_view(&self) -> ArrayView1<'_, f64> {
+        self.data.view()
+    }
+
+    /// Mutable host storage of the CPU arm.
+    pub fn host_mut(&mut self) -> &mut Array1<f64> {
+        &mut self.data
+    }
+
+    /// Unwrap into host storage.
+    pub fn into_host(self) -> Array1<f64> {
+        self.data
+    }
+}
+
+/// The device tag names a backend this build does not carry.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UnsupportedDevice {
+    /// The DLPack `DLDeviceType` discriminant that was refused.
+    pub device_type: i32,
+}
+
+impl std::fmt::Display for UnsupportedDevice {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "DLPack device {} has no kernel backend in this build (CPU only)",
+            self.device_type
+        )
+    }
+}
+
+impl std::error::Error for UnsupportedDevice {}
+
+/// `x . y` on the vectors' device.
+pub fn vdot(x: &Vector, y: &Vector) -> f64 {
+    dot(x.data.view(), y.data.view())
+}
+
+/// `y += a x` on the vectors' device.
+pub fn vaxpy(a: f64, x: &Vector, y: &mut Vector) {
+    axpy(a, x.data.view(), &mut y.data);
+}
+
+/// `||x||_2` on the vector's device.
+pub fn vnrm2(x: &Vector) -> f64 {
+    nrm2(x.data.view())
+}
+
+/// `||x||_inf` on the vector's device, infinity on non-finite.
+pub fn vnrminf(x: &Vector) -> f64 {
+    nrminf(x.data.view())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,5 +212,29 @@ mod tests {
     fn the_infinity_norm_never_calls_a_broken_vector_small() {
         let x = Array1::from(vec![0.0, f64::NAN, 1.0]);
         assert!(nrminf(x.view()).is_infinite());
+    }
+
+    #[test]
+    fn the_cpu_vector_is_the_slice_path_verbatim() {
+        let a = Array1::from((0..64).map(|i| (i as f64).sin()).collect::<Vec<_>>());
+        let b = Array1::from((0..64).map(|i| (i as f64).cos()).collect::<Vec<_>>());
+        let vx = Vector::from_host(a.clone());
+        let mut vy = Vector::from_host(b.clone());
+        assert_eq!(vdot(&vx, &vy), dot(a.view(), b.view()));
+        assert_eq!(vnrm2(&vx), nrm2(a.view()));
+        vaxpy(0.25, &vx, &mut vy);
+        let mut reference = b.clone();
+        axpy(0.25, a.view(), &mut reference);
+        assert_eq!(vy.into_host(), reference);
+    }
+
+    #[test]
+    fn a_device_without_a_backend_is_refused_not_staged() {
+        let cuda = dlpk::sys::DLDevice {
+            device_type: dlpk::sys::DLDeviceType::kDLCUDA,
+            device_id: 0,
+        };
+        let err = Vector::try_on(cuda, Array1::zeros(4)).unwrap_err();
+        assert_eq!(err.device_type, dlpk::sys::DLDeviceType::kDLCUDA as i32);
     }
 }
