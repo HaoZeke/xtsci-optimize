@@ -33,3 +33,6 @@ docs/doxyYoda/
 docs/doxygen-html/
 docs/source/_build/
 .grok/
+.lake/
+.pixi/
+pixi.lock
