@@ -46,8 +46,8 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 11
-#define XTS_ABI_LAYOUT_REVISION 2
+#define XTS_ABI_VERSION_MINOR 12
+#define XTS_ABI_LAYOUT_REVISION 3
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
 typedef enum xts_method_t {
@@ -73,6 +73,24 @@ typedef enum xts_method_t {
     XTS_DOGLEG = 19,
     XTS_FIRE2 = 20
 } xts_method_t;
+
+/** Conjugacy coefficient β. Closed leaf subset of dest Conjugacy
+ *  (src/nlcg). Integers are dest declaration order. Hybrid stays
+ *  Rust-only. This is not xts_method_t (that enum is the solver axis). */
+typedef enum xts_conjugacy_t {
+    XTS_CONJUGACY_FLETCHER_REEVES = 0,
+    XTS_CONJUGACY_POLAK_RIBIERE = 1,
+    XTS_CONJUGACY_HESTENES_STIEFEL = 2,
+    XTS_CONJUGACY_DAI_YUAN = 3,
+    XTS_CONJUGACY_CONJUGATE_DESCENT = 4,
+    XTS_CONJUGACY_HAGER_ZHANG = 5,
+    XTS_CONJUGACY_LIU_STOREY = 6,
+    XTS_CONJUGACY_FR_PR = 7
+} xts_conjugacy_t;
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+_Static_assert(sizeof(xts_conjugacy_t) == sizeof(int32_t),
+               "xts_conjugacy_t is i32-wide; do not build this header with -fshort-enums");
+#endif
 
 /** Outer-loop controls. \c memory is the L-BFGS pair cap. */
 typedef struct xts_control_t {
@@ -242,11 +260,21 @@ typedef struct xts_scg_params_t {
     double lambda_limit;
     double tol_sol;
     double tol_func;
+    /** Leaf conjugacy. Literal: 0 is Fletcher-Reeves. Values outside
+     *  0..7 are \c XTS_INVALID_PARAMETER. Ignored when \a params is
+     *  NULL (Netlab Polak-Ribiere). */
+    xts_conjugacy_t conjugacy;
 } xts_scg_params_t;
 
 /**
  * Møller SCG. \a curv may be NULL (finite-difference probe).
  * The exported symbol is \c rgmin_minimize_scg.
+ *
+ * \a params NULL selects ScgParams defaults, Polak-Ribiere, and
+ * Restart::Never. A filled \a params takes \c conjugacy literally
+ * (0 is Fletcher-Reeves). Restart is not a C token; the waist
+ * passes Never. Møller n-success reset stays inside the Rust loop.
+ * gpr_optim SCG.inl writes \c XTS_CONJUGACY_LIU_STOREY.
  */
 xts_status_t rgmin_minimize_scg(xts_eval_fn eval, xts_grad_fn grad, xts_curv_fn curv,
                                 void *user, DLManagedTensorVersioned *x,
@@ -265,6 +293,17 @@ xts_status_t rgmin_minimize_scg(xts_eval_fn eval, xts_grad_fn grad, xts_curv_fn 
 #define rgmin_report_t xts_report_t
 #define RGMIN_SUCCESS XTS_SUCCESS
 #define RGMIN_INVALID_PARAMETER XTS_INVALID_PARAMETER
+#endif
+#ifndef rgmin_conjugacy_t
+#define rgmin_conjugacy_t xts_conjugacy_t
+#define RGMIN_CONJUGACY_FLETCHER_REEVES XTS_CONJUGACY_FLETCHER_REEVES
+#define RGMIN_CONJUGACY_POLAK_RIBIERE XTS_CONJUGACY_POLAK_RIBIERE
+#define RGMIN_CONJUGACY_HESTENES_STIEFEL XTS_CONJUGACY_HESTENES_STIEFEL
+#define RGMIN_CONJUGACY_DAI_YUAN XTS_CONJUGACY_DAI_YUAN
+#define RGMIN_CONJUGACY_CONJUGATE_DESCENT XTS_CONJUGACY_CONJUGATE_DESCENT
+#define RGMIN_CONJUGACY_HAGER_ZHANG XTS_CONJUGACY_HAGER_ZHANG
+#define RGMIN_CONJUGACY_LIU_STOREY XTS_CONJUGACY_LIU_STOREY
+#define RGMIN_CONJUGACY_FR_PR XTS_CONJUGACY_FR_PR
 #endif
 
 #ifdef __cplusplus

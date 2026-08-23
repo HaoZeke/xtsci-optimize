@@ -11,11 +11,11 @@ use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir
 use rgpot_core::status::rgpot_status_t;
 use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 use rgmin::ffi::{
-    rgmin_abi_compatible, rgmin_abi_stamp, rgmin_accept_t, rgmin_control_t, rgmin_curv_fn,
-    rgmin_method_t, rgmin_minimize, rgmin_minimize_eindir, rgmin_minimize_scg, rgmin_report_t,
-    rgmin_scg_params_t, rgmin_solver_create, rgmin_solver_free, rgmin_solver_set_accept,
-    rgmin_solver_step, rgmin_solver_step_fg, rgmin_status_t, rgmin_tensor_borrow_cpu_f64,
-    rgmin_tensor_free,
+    rgmin_abi_compatible, rgmin_abi_stamp, rgmin_accept_t, rgmin_conjugacy_t, rgmin_control_t,
+    rgmin_curv_fn, rgmin_last_error, rgmin_method_t, rgmin_minimize, rgmin_minimize_eindir,
+    rgmin_minimize_scg, rgmin_report_t, rgmin_scg_params_t, rgmin_solver_create, rgmin_solver_free,
+    rgmin_solver_set_accept, rgmin_solver_step, rgmin_solver_step_fg, rgmin_status_t,
+    rgmin_tensor_borrow_cpu_f64, rgmin_tensor_free,
 };
 
 unsafe extern "C" fn quadratic_eval(
@@ -211,6 +211,7 @@ fn c_abi_scg_quadratic_bowl_with_exact_curvature() {
         lambda_limit: 1e60,
         tol_sol: 1e-10,
         tol_func: 1e-12,
+        conjugacy: rgmin_conjugacy_t::RGMIN_CONJUGACY_LIU_STOREY as i32,
     };
     let mut out = rgmin_report_t {
         value: 0.0,
@@ -234,6 +235,165 @@ fn c_abi_scg_quadratic_bowl_with_exact_curvature() {
     assert!(out.value < 1e-8, "C ABI SCG value {}", out.value);
     assert!(x[0].abs() < 1e-4);
     assert!(x[1].abs() < 1e-4);
+}
+
+fn scg_bowl_ctrl() -> rgmin_control_t {
+    rgmin_control_t {
+        maxiter: 50,
+        gtol: 1e-10,
+        istep: 1.0,
+        memory: 0,
+        maxmove: 0.0,
+    }
+}
+
+fn scg_bowl_params(conjugacy: i32) -> rgmin_scg_params_t {
+    rgmin_scg_params_t {
+        sigma0: 1e-4,
+        lambda: 1.0,
+        lambda_limit: 1e60,
+        tol_sol: 1e-10,
+        tol_func: 1e-12,
+        conjugacy,
+    }
+}
+
+fn last_error_text() -> String {
+    unsafe { std::ffi::CStr::from_ptr(rgmin_last_error()) }
+        .to_string_lossy()
+        .into_owned()
+}
+
+#[test]
+fn c_abi_scg_null_params_uses_netlab_polak_ribiere() {
+    let mut x = [3.0, -4.0];
+    let xt = unsafe { rgmin_tensor_borrow_cpu_f64(x.as_mut_ptr(), 2) };
+    let ctrl = scg_bowl_ctrl();
+    let mut out = rgmin_report_t {
+        value: 0.0,
+        steps: 0,
+        grad_norm: 0.0,
+    };
+    let st = unsafe {
+        rgmin_minimize_scg(
+            Some(quad_eval),
+            Some(quad_grad),
+            Some(quadratic_curv),
+            std::ptr::null_mut(),
+            xt,
+            &ctrl,
+            std::ptr::null(),
+            &mut out,
+        )
+    };
+    unsafe { rgmin_tensor_free(xt) };
+    assert_eq!(st, rgmin_status_t::RGMIN_SUCCESS);
+    assert!(out.value < 1e-8, "null-params SCG value {}", out.value);
+    assert!(x[0].abs() < 1e-4);
+    assert!(x[1].abs() < 1e-4);
+}
+
+#[test]
+fn c_abi_scg_zero_conjugacy_is_fletcher_reeves() {
+    let mut x = [3.0, -4.0];
+    let xt = unsafe { rgmin_tensor_borrow_cpu_f64(x.as_mut_ptr(), 2) };
+    let ctrl = scg_bowl_ctrl();
+    let params = scg_bowl_params(rgmin_conjugacy_t::RGMIN_CONJUGACY_FLETCHER_REEVES as i32);
+    let mut out = rgmin_report_t {
+        value: 0.0,
+        steps: 0,
+        grad_norm: 0.0,
+    };
+    let st = unsafe {
+        rgmin_minimize_scg(
+            Some(quad_eval),
+            Some(quad_grad),
+            Some(quadratic_curv),
+            std::ptr::null_mut(),
+            xt,
+            &ctrl,
+            &params,
+            &mut out,
+        )
+    };
+    unsafe { rgmin_tensor_free(xt) };
+    assert_eq!(st, rgmin_status_t::RGMIN_SUCCESS);
+    assert!(out.value < 1e-8, "FR SCG value {}", out.value);
+    assert!(x[0].abs() < 1e-4);
+    assert!(x[1].abs() < 1e-4);
+}
+
+#[test]
+fn c_abi_scg_unknown_conjugacy_is_invalid() {
+    let mut x = [3.0, -4.0];
+    let xt = unsafe { rgmin_tensor_borrow_cpu_f64(x.as_mut_ptr(), 2) };
+    let ctrl = scg_bowl_ctrl();
+    let params = scg_bowl_params(99);
+    let mut out = rgmin_report_t {
+        value: 0.0,
+        steps: 0,
+        grad_norm: 0.0,
+    };
+    let st = unsafe {
+        rgmin_minimize_scg(
+            Some(quad_eval),
+            Some(quad_grad),
+            Some(quadratic_curv),
+            std::ptr::null_mut(),
+            xt,
+            &ctrl,
+            &params,
+            &mut out,
+        )
+    };
+    unsafe { rgmin_tensor_free(xt) };
+    assert_eq!(st, rgmin_status_t::RGMIN_INVALID_PARAMETER);
+    assert!(
+        last_error_text().contains("conjugacy"),
+        "last_error={}",
+        last_error_text()
+    );
+}
+
+#[test]
+fn c_abi_scg_method_t_codes_are_not_conjugacy() {
+    let ctrl = scg_bowl_ctrl();
+    for raw in [
+        rgmin_method_t::RGMIN_FIRE as i32,
+        rgmin_method_t::RGMIN_LIU_STOREY as i32,
+    ] {
+        let mut x = [3.0, -4.0];
+        let xt = unsafe { rgmin_tensor_borrow_cpu_f64(x.as_mut_ptr(), 2) };
+        let params = scg_bowl_params(raw);
+        let mut out = rgmin_report_t {
+            value: 0.0,
+            steps: 0,
+            grad_norm: 0.0,
+        };
+        let st = unsafe {
+            rgmin_minimize_scg(
+                Some(quad_eval),
+                Some(quad_grad),
+                Some(quadratic_curv),
+                std::ptr::null_mut(),
+                xt,
+                &ctrl,
+                &params,
+                &mut out,
+            )
+        };
+        unsafe { rgmin_tensor_free(xt) };
+        assert_eq!(
+            st,
+            rgmin_status_t::RGMIN_INVALID_PARAMETER,
+            "method_t {raw} accepted as conjugacy"
+        );
+        assert!(
+            last_error_text().contains("conjugacy"),
+            "last_error for {raw}: {}",
+            last_error_text()
+        );
+    }
 }
 
 #[test]
@@ -538,8 +698,8 @@ fn fused_evalgrad_is_one_callback_per_oracle() {
 fn abi_stamp_identifies_this_optimizer_layout() {
     let stamp = rgmin_abi_stamp();
     assert_eq!(stamp.abi_major, 1);
-    assert_eq!(stamp.abi_minor, 11);
-    assert_eq!(stamp.layout_revision, 2);
+    assert_eq!(stamp.abi_minor, 12);
+    assert_eq!(stamp.layout_revision, 3);
     assert_eq!(unsafe { rgmin_abi_compatible(&stamp) }, 1);
 }
 
@@ -548,6 +708,13 @@ fn abi_stamp_rejects_an_incompatible_layout() {
     let mut stamp = rgmin_abi_stamp();
     stamp.layout_revision += 1;
     assert_eq!(unsafe { rgmin_abi_compatible(&stamp) }, 0);
+}
+
+#[test]
+fn abi_stamp_ignores_minor() {
+    let mut stamp = rgmin_abi_stamp();
+    stamp.abi_minor = stamp.abi_minor.saturating_add(1);
+    assert_eq!(unsafe { rgmin_abi_compatible(&stamp) }, 1);
 }
 
 #[test]

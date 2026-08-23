@@ -51,8 +51,8 @@ pub struct rgmin_abi_stamp_t {
 }
 
 pub const RGMIN_ABI_VERSION_MAJOR: u16 = 1;
-pub const RGMIN_ABI_VERSION_MINOR: u16 = 11;
-pub const RGMIN_ABI_LAYOUT_REVISION: u16 = 2;
+pub const RGMIN_ABI_VERSION_MINOR: u16 = 12;
+pub const RGMIN_ABI_LAYOUT_REVISION: u16 = 3;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
 #[repr(C)]
@@ -100,6 +100,21 @@ pub enum rgmin_method_t {
     RGMIN_DOGLEG = 19,
     /// FIRE 2.0 (Guénolé 2020).
     RGMIN_FIRE2 = 20,
+}
+
+/// Closed leaf conjugacy. Integers match dest [`Conjugacy`] declaration
+/// order. Not [`rgmin_method_t`] (that enum is the solver axis).
+#[repr(i32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum rgmin_conjugacy_t {
+    RGMIN_CONJUGACY_FLETCHER_REEVES = 0,
+    RGMIN_CONJUGACY_POLAK_RIBIERE = 1,
+    RGMIN_CONJUGACY_HESTENES_STIEFEL = 2,
+    RGMIN_CONJUGACY_DAI_YUAN = 3,
+    RGMIN_CONJUGACY_CONJUGATE_DESCENT = 4,
+    RGMIN_CONJUGACY_HAGER_ZHANG = 5,
+    RGMIN_CONJUGACY_LIU_STOREY = 6,
+    RGMIN_CONJUGACY_FR_PR = 7,
 }
 
 /// Iteration controls. `memory` is used only by L-BFGS (0 means 10).
@@ -169,7 +184,7 @@ pub type rgmin_curv_fn = unsafe extern "C" fn(
 ) -> rgmin_status_t;
 
 /// Møller SCG damping / tolerances. Null at the C entry selects
-/// [`ScgParams::default`].
+/// [`ScgParams::default`] plus [`Conjugacy::PolakRibiere`].
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct rgmin_scg_params_t {
@@ -183,6 +198,9 @@ pub struct rgmin_scg_params_t {
     pub tol_sol: f64,
     /// Relative objective-change tolerance.
     pub tol_func: f64,
+    /// Leaf conjugacy as [`xts_conjugacy_t`]. Stored as `i32` so an
+    /// unknown C enumerant is not UB on a closed Rust enum.
+    pub conjugacy: i32,
 }
 
 thread_local! {
@@ -229,6 +247,25 @@ pub unsafe extern "C" fn rgmin_abi_compatible(stamp: *const rgmin_abi_stamp_t) -
         stamp.abi_major == RGMIN_ABI_VERSION_MAJOR
             && stamp.layout_revision == RGMIN_ABI_LAYOUT_REVISION,
     )
+}
+
+fn conjugacy_from_c(raw: i32) -> Result<Conjugacy, rgmin_status_t> {
+    match raw {
+        0 => Ok(Conjugacy::FletcherReeves),
+        1 => Ok(Conjugacy::PolakRibiere),
+        2 => Ok(Conjugacy::HestenesStiefel),
+        3 => Ok(Conjugacy::DaiYuan),
+        4 => Ok(Conjugacy::ConjugateDescent),
+        5 => Ok(Conjugacy::HagerZhang),
+        6 => Ok(Conjugacy::LiuStorey),
+        7 => Ok(Conjugacy::FrPr),
+        other => {
+            set_last_error(&format!(
+                "rgmin_minimize_scg: unknown conjugacy {other}"
+            ));
+            Err(rgmin_status_t::RGMIN_INVALID_PARAMETER)
+        }
+    }
 }
 
 fn method_from_c(m: rgmin_method_t, memory: usize) -> Method {
@@ -720,18 +757,25 @@ pub unsafe extern "C" fn rgmin_minimize_scg(
                 None
             },
         };
-        let scg = if params.is_null() {
-            ScgParams::default()
+        let (scg, conjugacy) = if params.is_null() {
+            (ScgParams::default(), Conjugacy::PolakRibiere)
         } else {
             let p = unsafe { &*params };
-            ScgParams {
-                sigma0: p.sigma0,
-                lambda: p.lambda,
-                lambda_limit: p.lambda_limit,
-                tol_sol: p.tol_sol,
-                tol_func: p.tol_func,
+            match conjugacy_from_c(p.conjugacy) {
+                Ok(c) => (
+                    ScgParams {
+                        sigma0: p.sigma0,
+                        lambda: p.lambda,
+                        lambda_limit: p.lambda_limit,
+                        tol_sol: p.tol_sol,
+                        tol_func: p.tol_func,
+                    },
+                    c,
+                ),
+                Err(st) => return st,
             }
         };
+        let restart = Restart::Never;
         let obj = ScgFfiOracle {
             inner: c_oracle(eval, grad, user, n),
             curv: curv.map(|f| f as usize),
@@ -744,8 +788,8 @@ pub unsafe extern "C" fn rgmin_minimize_scg(
                 Array1::from(init),
                 &control,
                 &scg,
-                Conjugacy::LiuStorey,
-                Restart::Never,
+                conjugacy,
+                restart,
             )
         } else {
             minimize_scg(
@@ -753,8 +797,8 @@ pub unsafe extern "C" fn rgmin_minimize_scg(
                 Array1::from(init),
                 &control,
                 &scg,
-                Conjugacy::LiuStorey,
-                Restart::Never,
+                conjugacy,
+                restart,
             )
         };
         match report {
@@ -1648,5 +1692,62 @@ mod device_tests {
         let err = cpu_f64_slice(t, "cuda").unwrap_err();
         unsafe { rgmin_tensor_free(t) };
         assert_eq!(err, rgmin_status_t::RGMIN_UNSUPPORTED_DEVICE);
+    }
+}
+
+#[cfg(test)]
+mod conjugacy_abi_tests {
+    use super::*;
+    use std::mem::{offset_of, size_of};
+
+    #[test]
+    fn scg_params_layout_is_five_doubles_then_i32() {
+        assert_eq!(size_of::<rgmin_conjugacy_t>(), 4);
+        assert_eq!(size_of::<rgmin_scg_params_t>(), 48);
+        assert_eq!(offset_of!(rgmin_scg_params_t, sigma0), 0);
+        assert_eq!(offset_of!(rgmin_scg_params_t, lambda), 8);
+        assert_eq!(offset_of!(rgmin_scg_params_t, lambda_limit), 16);
+        assert_eq!(offset_of!(rgmin_scg_params_t, tol_sol), 24);
+        assert_eq!(offset_of!(rgmin_scg_params_t, tol_func), 32);
+        assert_eq!(offset_of!(rgmin_scg_params_t, conjugacy), 40);
+    }
+
+    #[test]
+    fn conjugacy_from_c_is_dest_leaf_order() {
+        assert_eq!(
+            conjugacy_from_c(0).unwrap(),
+            Conjugacy::FletcherReeves
+        );
+        assert_eq!(conjugacy_from_c(1).unwrap(), Conjugacy::PolakRibiere);
+        assert_eq!(
+            conjugacy_from_c(2).unwrap(),
+            Conjugacy::HestenesStiefel
+        );
+        assert_eq!(conjugacy_from_c(3).unwrap(), Conjugacy::DaiYuan);
+        assert_eq!(
+            conjugacy_from_c(4).unwrap(),
+            Conjugacy::ConjugateDescent
+        );
+        assert_eq!(conjugacy_from_c(5).unwrap(), Conjugacy::HagerZhang);
+        assert_eq!(conjugacy_from_c(6).unwrap(), Conjugacy::LiuStorey);
+        assert_eq!(conjugacy_from_c(7).unwrap(), Conjugacy::FrPr);
+        assert_ne!(conjugacy_from_c(7).unwrap(), {
+            Conjugacy::hybrid(Conjugacy::FletcherReeves, Conjugacy::PolakRibiere, true)
+        });
+    }
+
+    #[test]
+    fn conjugacy_from_c_rejects_unknown_and_method_t_codes() {
+        for raw in [-1, 8, 99, 13] {
+            assert_eq!(
+                conjugacy_from_c(raw),
+                Err(rgmin_status_t::RGMIN_INVALID_PARAMETER)
+            );
+            let msg = unsafe { std::ffi::CStr::from_ptr(rgmin_last_error()) };
+            assert!(
+                msg.to_string_lossy().contains("conjugacy"),
+                "last_error for {raw}: {msg:?}"
+            );
+        }
     }
 }
