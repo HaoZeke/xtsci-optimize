@@ -491,3 +491,80 @@ fn c_abi_respects_maxmove_when_initial_step_is_larger() {
     assert_eq!(st, xts_status_t::XTS_SUCCESS);
     assert!((1.0 - x[0]).abs() <= 0.1 + 1e-12);
 }
+
+/// Every C setter the header exports has to survive being called: on a
+/// live session, and on a null one, where the contract is a silent
+/// no-op rather than a crash. These were the thirteen exported symbols
+/// with no test at the C surface -- the ABI cannot be called stable
+/// while most of it has never been dialled from C.
+#[test]
+fn c_abi_every_setter_survives_live_and_null_sessions() {
+    use xtsci_optimize::ffi::{
+        xts_manifold_t, xts_qn_step_t, xts_solver_forget, xts_solver_set_atom_maxmove,
+        xts_solver_set_cautious, xts_solver_set_extra_updates, xts_solver_set_manifold,
+        xts_solver_set_masses, xts_solver_set_maxmove, xts_solver_set_periodic,
+        xts_solver_set_project_rigid, xts_solver_set_qn_step,
+    };
+    let ctrl = xts_control_t {
+        maxiter: 20,
+        gtol: 1e-8,
+        istep: 0.1,
+        memory: 8,
+        maxmove: 0.0,
+    };
+    let session = unsafe { xts_solver_create(xts_method_t::XTS_LBFGS, &ctrl, 6) };
+    assert!(!session.is_null());
+    let masses = [1.0_f64, 12.0, 16.0];
+    unsafe {
+        xts_solver_set_maxmove(session, 0.5);
+        xts_solver_set_atom_maxmove(session, 0.2);
+        xts_solver_set_qn_step(session, xts_qn_step_t::XTS_QN_LBFGS);
+        xts_solver_set_extra_updates(session, 2);
+        xts_solver_set_cautious(session, 1e-6, 0.01);
+        xts_solver_set_project_rigid(session, 1);
+        xts_solver_set_periodic(session, 1);
+        xts_solver_set_manifold(session, xts_manifold_t::XTS_MANIFOLD_MW_RIGID);
+        xts_solver_set_masses(session, masses.as_ptr(), masses.len());
+        xts_solver_set_masses(session, std::ptr::null(), 0);
+        xts_solver_set_manifold(session, xts_manifold_t::XTS_MANIFOLD_EUCLIDEAN);
+        xts_solver_forget(session);
+    }
+    // The configured session still relaxes: setters must leave a
+    // working solver behind, not only avoid crashing.
+    let mut x = [-1.2_f64, 1.0, 0.3, -0.4, 0.2, 0.1];
+    let mut out = xts_report_t {
+        value: 0.0,
+        steps: 0,
+        grad_norm: 0.0,
+    };
+    let xt = unsafe { xts_tensor_borrow_cpu_f64(x.as_mut_ptr(), 6) };
+    let st = unsafe {
+        xts_solver_step(
+            session,
+            Some(quadratic_eval),
+            Some(quadratic_grad),
+            std::ptr::null_mut(),
+            xt,
+            &mut out,
+        )
+    };
+    unsafe { xts_tensor_free(xt) };
+    assert_eq!(st, xts_status_t::XTS_SUCCESS);
+    assert!(out.value.is_finite());
+    unsafe { xts_solver_free(session) };
+
+    // The null contract: every setter is a no-op, never a crash.
+    let null = std::ptr::null_mut();
+    unsafe {
+        xts_solver_set_maxmove(null, 0.5);
+        xts_solver_set_atom_maxmove(null, 0.2);
+        xts_solver_set_qn_step(null, xts_qn_step_t::XTS_QN_NEWTON);
+        xts_solver_set_extra_updates(null, 2);
+        xts_solver_set_cautious(null, 1e-6, 0.01);
+        xts_solver_set_project_rigid(null, 1);
+        xts_solver_set_periodic(null, 0);
+        xts_solver_set_manifold(null, xts_manifold_t::XTS_MANIFOLD_SPHERE);
+        xts_solver_set_masses(null, masses.as_ptr(), masses.len());
+        xts_solver_forget(null);
+    }
+}
