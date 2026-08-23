@@ -183,14 +183,14 @@ where
         }
 
         if success {
-            mu = dir.dot(&grad);
+            mu = crate::vecops::dot(dir.view(), grad.view());
             if mu >= 0.0 {
                 // Descent safeguard (Møller step 2): a non-descent
                 // direction resets to steepest descent.
                 dir = -grad.clone();
-                mu = dir.dot(&grad);
+                mu = crate::vecops::dot(dir.view(), grad.view());
             }
-            kappa = dir.dot(&dir);
+            kappa = crate::vecops::dot(dir.view(), dir.view());
             if kappa < f64::EPSILON {
                 return Ok(Report {
                     value: f_old,
@@ -227,7 +227,8 @@ where
                     what: "no finite curvature probe along the search direction",
                 });
             }
-            gamma = (&probed.1 - &grad).dot(&dir) / sigma;
+            let dg = &probed.1 - &grad;
+            gamma = crate::vecops::dot(dg.view(), dir.view()) / sigma;
             }
         }
 
@@ -268,8 +269,7 @@ where
         success = ratio >= 0.0;
         if success {
             nsuccess += 1;
-            let step_inf =
-                alpha.abs() * dir.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+            let step_inf = alpha.abs() * crate::vecops::nrminf(dir.view());
             let solution_converged = step_inf < params.tol_sol;
             let objective_converged =
                 (f_new - f_old).abs() < params.tol_func * (f_old.abs() + 1.0);
@@ -284,7 +284,7 @@ where
             }
             f_old = f_new;
             grad_old = std::mem::replace(&mut grad, grad_new);
-            if grad.dot(&grad) < f64::EPSILON {
+            if crate::vecops::dot(grad.view(), grad.view()) < f64::EPSILON {
                 return Ok(Report {
                     value: f_old,
                     coords: w,
