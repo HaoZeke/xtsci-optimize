@@ -28,6 +28,37 @@ fn lbfgs_session_reaches_rosenbrock() {
     }
     let rep = last.unwrap();
     assert!(rep.value < 1e-6, "value {}", rep.value);
+}
+
+#[test]
+fn lbfgs_accept_none_moves_when_energy_is_flat() {
+    use eindir_core::{DifferentiableObjective, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::Accept;
+
+    struct FlatEnergyBowl;
+    impl Objective<f64> for FlatEnergyBowl {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn eval(&self, _: ArrayView1<f64>) -> f64 {
+            0.0
+        }
+    }
+    impl DifferentiableObjective<f64> for FlatEnergyBowl {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (0.0, &x * 2.0)
+        }
+    }
+
+    let obj = FlatEnergyBowl;
+    let mut x = array![3.0, -4.0];
+    let n0 = (x[0] * x[0] + x[1] * x[1]).sqrt();
+    let mut solver = Solver::new(Method::lbfgs(), control(), 2);
+    solver.set_accept(Accept::None);
+    solver.step(&obj, &mut x).unwrap();
+    let n1 = (x[0] * x[0] + x[1] * x[1]).sqrt();
+    assert!(n1 < n0, "LBFGS Accept::None stayed put {x:?}");
     assert!((x[0] - 1.0).abs() < 1e-3);
     assert!((x[1] - 1.0).abs() < 1e-3);
 }

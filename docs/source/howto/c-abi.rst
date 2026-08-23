@@ -43,6 +43,20 @@ One-shot
     rgmin_report_t report;
     rgmin_status_t st = rgmin_minimize(eval, grad, user, x, &ctrl, RGMIN_LBFGS, &report);
 
+SCG is the same one-shot shape. Conjugacy is a field on
+``rgmin_scg_params_t``, not a different entry point. Stamp is 1.12.3
+(``xts_abi_compatible`` still checks major and layout only).
+
+.. code:: c
+
+    rgmin_scg_params_t params = {
+        .sigma0 = 1e-4, .lambda = 1.0, .lambda_limit = 1e60,
+        .tol_sol = 1e-6, .tol_func = 1e-8,
+        .conjugacy = RGMIN_CONJUGACY_LIU_STOREY, /* gpr_optim RgminScg.inl */
+    };
+    rgmin_minimize_scg(eval, grad, curv, user, x, &ctrl, &params, &report);
+    /* params == NULL selects Netlab Polak-Ribiere + ScgParams::default */
+
 A non-CPU tensor returns ``RGMIN_UNSUPPORTED_DEVICE``. The ABI does not
 change when a CUDA path lands.
 

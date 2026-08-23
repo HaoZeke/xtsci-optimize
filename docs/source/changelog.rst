@@ -6,6 +6,19 @@ Changelog
 Unreleased
 ~~~~~~~~~~
 
+``xts.h`` declares the exported ``rgmin_minimize`` / ``rgmin_solver_*``
+symbols; ``xts_minimize`` and ``xts_solver_*`` are macro aliases.
+
+L-BFGS session ``Accept::None`` takes the clipped two-loop
+direction. Wolfe line search stays on Energy / Nonmonotone.
+
+SCG C waist: closed ``xts_conjugacy_t`` on ``xts_scg_params_t``
+(FR=0 .. FrPr=7, dest leaf order). ``params==NULL`` is Netlab
+Polak-Ribiere. Unknown codes are ``RGMIN_INVALID_PARAMETER``.
+Stamp 1.12.3. Hybrid and Restart stay Rust-only. The gpr_optim
+consumer that writes ``RGMIN_CONJUGACY_LIU_STOREY`` is
+``RgminScg.inl``, not in-tree ``SCG.inl``.
+
 Molecular manifolds: ``rigid_quotient`` is Sella Cartesian
 ``R^{3N}/SE(3)`` (``fix_translation`` + ``fix_rotation``);
 ``mw_rigid`` is the Page–McIver / Sella IRC Eckart metric on the

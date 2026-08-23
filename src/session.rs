@@ -614,15 +614,39 @@ impl Solver {
         let gold = grad.clone();
         match &mut self.inner {
             Inner::Lbfgs(solver) => {
-                solver.step_objective(
-                    obj,
-                    x,
-                    &mut value,
-                    &mut grad,
-                    &mut self.istep,
-                    self.linesearch,
-                    &self.control,
-                );
+                if self.accept == Accept::None {
+                    let dir = solver.direction(grad.view());
+                    let old = x.clone();
+                    let gold = grad.clone();
+                    let (npos, nval, ngrad, moved) = accept_step(
+                        obj,
+                        x,
+                        value,
+                        &gold,
+                        &dir,
+                        &self.control,
+                        self.accept,
+                        &mut self.e_hist,
+                        self.atom_maxmove,
+                        self.manifold,
+                    );
+                    *x = npos;
+                    value = nval;
+                    grad = ngrad;
+                    if moved {
+                        solver.push(&*x - &old, &grad - &gold);
+                    }
+                } else {
+                    solver.step_objective(
+                        obj,
+                        x,
+                        &mut value,
+                        &mut grad,
+                        &mut self.istep,
+                        self.linesearch,
+                        &self.control,
+                    );
+                }
             }
             Inner::Steepest => {
                 let dir = grad.mapv(|g| -g);
