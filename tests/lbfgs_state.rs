@@ -100,3 +100,49 @@ fn stops_when_the_budget_ends() {
     });
     assert!(evals <= 3, "spent {evals} with a budget of 3");
 }
+
+/// A recogniser that never fires must leave the relaxation identical to
+/// the plain one, or measurements taken through one form do not
+/// describe the other.
+#[test]
+fn recognising_nothing_changes_nothing() {
+    let x0 = Array1::from(vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]);
+    let mut a = Lbfgs::default();
+    let (fa, xa, ea) = a.minimize(x0.view(), 50, |v| Some(quad(v)));
+    let mut b = Lbfgs::default();
+    let (fb, xb, eb, hit) =
+        b.minimize_recognized(x0.view(), 50, |v| Some(quad(v)), |_, _, _| None);
+    assert!(!hit);
+    assert_eq!(ea, eb);
+    assert_eq!(fa, fb);
+    assert_eq!(xa, xb);
+}
+
+/// A recogniser that fires returns exactly its stand-in, flags it, and
+/// spends fewer evaluations than the full descent: the refund is the
+/// point, so the test measures it rather than assuming it.
+#[test]
+fn a_recognised_descent_returns_the_stand_in_and_refunds_the_rest() {
+    let x0 = Array1::from(vec![1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]);
+    let mut full = Lbfgs::default();
+    let (_, _, evals_full) = full.minimize(x0.view(), 50, |v| Some(quad(v)));
+    let known = Array1::from(vec![0.0; 8]);
+    let mut opt = Lbfgs::default();
+    let known_for_hook = known.clone();
+    let (f, x, evals, hit) = opt.minimize_recognized(
+        x0.view(),
+        50,
+        |v| Some(quad(v)),
+        move |_, _, at| {
+            let d2: f64 = at.iter().map(|v| v * v).sum();
+            (d2.sqrt() < 0.5).then(|| (0.0, known_for_hook.clone()))
+        },
+    );
+    assert!(hit, "the descent enters the ball and must be recognised");
+    assert_eq!(f, 0.0, "the stand-in value is returned verbatim");
+    assert_eq!(x, known, "the stand-in point is returned verbatim");
+    assert!(
+        evals < evals_full,
+        "recognition must refund evaluations: {evals} against {evals_full}"
+    );
+}

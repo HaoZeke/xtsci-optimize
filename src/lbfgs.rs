@@ -459,6 +459,69 @@ impl Lbfgs {
         (f, x, evals)
     }
 
+    /// Relaxes `x0`, consulting `recognise` at each accepted iterate.
+    ///
+    /// `recognise` maps an accepted iterate to a stand-in result when the
+    /// caller can certify where this descent ends: a minimum already on
+    /// file whose catchment the iterate has entered. Returning
+    /// `Some((f_known, x_known))` ends the relaxation with that result and
+    /// the evaluations spent so far, which is the refund -- the remainder
+    /// of a descent whose outcome is already known is never paid for. The
+    /// final `bool` reports whether the result is a stand-in, so a caller
+    /// auditing its recogniser can tell refunded descents from completed
+    /// ones.
+    ///
+    /// The hook sits where `watch` sits, at accepted iterates only, so a
+    /// recogniser never sees a trial step the optimizer has not adopted.
+    /// Soundness is the caller's contract: the stand-in must be the
+    /// minimum this descent would have reached, and the tolerance for
+    /// getting that wrong belongs to the caller's error budget, not to
+    /// the solver.
+    pub fn minimize_recognized<F, R>(
+        &mut self,
+        x0: ArrayView1<f64>,
+        max_iter: usize,
+        mut fg: F,
+        mut recognise: R,
+    ) -> (f64, Array1<f64>, usize, bool)
+    where
+        F: FnMut(ArrayView1<f64>) -> Option<(f64, Array1<f64>)>,
+        R: FnMut(usize, f64, ArrayView1<f64>) -> Option<(f64, Array1<f64>)>,
+    {
+        self.trim();
+        let mut x = x0.to_owned();
+        let mut evals = 0usize;
+        let (mut f, mut g) = match fg(x.view()) {
+            Some(v) => v,
+            None => return (f64::INFINITY, x, evals, false),
+        };
+        evals += 1;
+
+        for it in 0..max_iter {
+            if let Some((f_known, x_known)) = recognise(it, f, x.view()) {
+                return (f_known, x_known, evals, true);
+            }
+            if self.gnorm(&g) < self.gtol {
+                break;
+            }
+            let d = self.search_direction(x.view(), g.view());
+            let slope = d.dot(&g);
+            if slope >= 0.0 {
+                self.forget();
+                continue;
+            }
+            let (ok, evals_used) = self.line_search(&mut x, &mut f, &mut g, &d, slope, &mut fg);
+            evals += evals_used;
+            if !ok {
+                if self.memory.is_empty() {
+                    break;
+                }
+                self.forget();
+            }
+        }
+        (f, x, evals, false)
+    }
+
     /// Cold-start L-BFGS over an eindir objective, any [`LineSearch`].
     ///
     /// Uses Euclidean `||g||_2` against `control.gtol` so
