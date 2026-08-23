@@ -43,6 +43,10 @@ ISBN). Do not invent DOIs.
 | Sella Hermes–Sarsfield–Zádor 2022 | 10.1021/acs.jctc.2c00395 | Sella, an Open-Source Automation-Friendly Molecular Saddle Point Optimizer |
 | Page–McIver 1988 | 10.1063/1.454172 | On evaluating the reaction path Hamiltonian |
 | Ishida–Morokuma–Komornicki 1977 | 10.1063/1.434152 | The intrinsic reaction coordinate |
+| Nyström precond. Frangella–Tropp–Udell 2023 | 10.1137/21M1466244 | Randomized Nyström Preconditioning |
+| GLL nonmonotone 1986 | 10.1137/0723046 | A Nonmonotone Line Search Technique for Newton's Method |
+| Conn–Gould–Toint 2000 | 10.1137/1.9780898719857 | Trust Region Methods |
+| Li–Fukushima cautious BFGS 2001 | 10.1137/S1052623499354242 | On the Global Convergence of the BFGS Method for Nonconvex Unconstrained Optimization Problems |
 
 Polak-Ribiere 1969 and Hestenes-Stiefel 1952: cite the paper/book
 title in rustdoc if no DOI is on this list. Do not mint a DOI.

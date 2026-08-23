@@ -1,0 +1,12 @@
+#+TITLE: Bibliography
+
+Every reference the crate's rustdoc and narrative docs cite, exported
+from the ~rgmin-docs~ ookcite collection (validated DOIs only; the
+gate list rustdoc must draw from is ~docs/CITATIONS.md~). Regenerate
+~docs/source/references.bib~ through ookcite ~export_collection~;
+never edit the BibTeX by hand.
+
+#+begin_export rst
+.. bibliography::
+   :all:
+#+end_export

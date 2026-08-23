@@ -35,3 +35,14 @@ reference). Export to RST with ~emacs --script docs/export.el~ from
 ~branding/logo/~ and are copied into ~docs/source/_static/~.
 The C ABI HTML is Doxygen plus doxyYoda; see
 [[file:../howto/doxygen.org][howto/doxygen]].
+
+* Building the docs
+
+Export the orgmode tree to rst with =emacs --batch -l docs/export.el=,
+then build =docs/source= with Sphinx. The build needs =shibuya=,
+=myst-parser=, and =sphinxcontrib-bibtex=; the bibliography comes from
+=docs/source/references.bib=, which is generated from the
+=rgmin-docs= ookcite collection (=export_collection=), never edited by
+hand. New citations enter through ookcite (=validate_doi= first, then
+=add_to_collection=) and land in =docs/CITATIONS.md= so rustdoc may
+cite them.

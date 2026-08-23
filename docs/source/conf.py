@@ -6,6 +6,7 @@ author = "Rohit Goswami"
 html_logo = "_static/rgmin-notext-light.webp"
 
 extensions = [
+    "sphinxcontrib.bibtex",
     "myst_parser",
     "sphinx.ext.intersphinx",
 ]
@@ -70,3 +71,6 @@ html_sidebars = {
 html_css_files = [
     "custom.css",
 ]
+
+bibtex_bibfiles = ["references.bib"]
+bibtex_default_style = "unsrt"
