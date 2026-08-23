@@ -60,6 +60,10 @@ name = "xtsci_optimize"
 name = "compare_highs"
 required-features = ["highs"]
 
+[[example]]
+name = "ffi_throughput"
+required-features = ["capi"]
+
 
 [profile.release]
 lto = "thin"
