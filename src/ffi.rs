@@ -456,7 +456,7 @@ where
     F: Fn(ndarray::ArrayView1<f64>) -> (f64, Array1<f64>) + Send + Sync,
 {
     fn dim(&self) -> usize {
-        self.inner.dim()
+        Objective::dim(&self.inner)
     }
     fn bounds(&self) -> &Bounds<f64> {
         self.inner.bounds()
@@ -471,7 +471,7 @@ where
     F: Fn(ndarray::ArrayView1<f64>) -> (f64, Array1<f64>) + Send + Sync,
 {
     fn dim(&self) -> usize {
-        self.inner.dim()
+        Gradient::dim(&self.inner)
     }
     fn grad(&self, x: ndarray::ArrayView1<f64>) -> Array1<f64> {
         self.inner.grad(x)
