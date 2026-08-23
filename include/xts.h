@@ -108,12 +108,15 @@ const char *xts_version(void);
 xts_abi_stamp_t xts_abi_stamp(void);
 /** Return nonzero when a stamp is compatible with this build. */
 int32_t xts_abi_compatible(const xts_abi_stamp_t *stamp);
-/** Thread-local last error message after a non-success status. */
-const char *xts_last_error(void);
-/** Borrow a CPU f64 buffer as a dlpk tensor. */
-DLManagedTensorVersioned *xts_tensor_borrow_cpu_f64(double *data, size_t n);
-/** Free a tensor allocated by this ABI. */
-void xts_tensor_free(DLManagedTensorVersioned *tensor);
+/** Thread-local last error. Rust symbol is rgmin_last_error. */
+const char *rgmin_last_error(void);
+/** Borrow a CPU f64 buffer as a dlpk tensor. Rust: rgmin_tensor_borrow_cpu_f64. */
+DLManagedTensorVersioned *rgmin_tensor_borrow_cpu_f64(double *data, size_t n);
+/** Free a tensor from rgmin_tensor_borrow_cpu_f64. */
+void rgmin_tensor_free(DLManagedTensorVersioned *tensor);
+#define xts_last_error rgmin_last_error
+#define xts_tensor_borrow_cpu_f64 rgmin_tensor_borrow_cpu_f64
+#define xts_tensor_free rgmin_tensor_free
 /**
  * Minimize from \a x in place.
  *
