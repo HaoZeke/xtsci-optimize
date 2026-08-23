@@ -277,7 +277,8 @@ typedef struct xts_scg_params_t {
  * Restart::Never. A filled \a params takes \c conjugacy literally
  * (0 is Fletcher-Reeves). Restart is not a C token; the waist
  * passes Never. Møller n-success reset stays inside the Rust loop.
- * gpr_optim SCG.inl writes \c XTS_CONJUGACY_LIU_STOREY.
+ * gpr_optim RgminScg.inl writes \c XTS_CONJUGACY_LIU_STOREY. In-tree
+ * SCG.inl does not call this entry.
  */
 xts_status_t rgmin_minimize_scg(xts_eval_fn eval, xts_grad_fn grad, xts_curv_fn curv,
                                 void *user, DLManagedTensorVersioned *x,
