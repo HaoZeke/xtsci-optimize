@@ -160,9 +160,9 @@ impl Lbfgs {
         for k in (0..idxs.len()).rev() {
             let i = idxs[k];
             let p = &self.memory[i];
-            let a = p.rho * p.s.dot(&q);
+            let a = p.rho * crate::vecops::dot(p.s.view(), q.view());
             alpha[k] = a;
-            q.scaled_add(-a, &p.y);
+            crate::vecops::axpy(-a, p.y.view(), &mut q);
         }
         if let Some(pmat) = precon {
             q = solve_dense(pmat, &q).unwrap_or_else(|| self.scale_gamma(q));
@@ -172,8 +172,8 @@ impl Lbfgs {
         for k in 0..idxs.len() {
             let i = idxs[k];
             let p = &self.memory[i];
-            let b = p.rho * p.y.dot(&q);
-            q.scaled_add(alpha[k] - b, &p.s);
+            let b = p.rho * crate::vecops::dot(p.y.view(), q.view());
+            crate::vecops::axpy(alpha[k] - b, p.s.view(), &mut q);
         }
         q.mapv_inplace(|v| -v);
         q
@@ -242,13 +242,16 @@ impl Lbfgs {
         // relaxation would terminate as converged at a garbage point. The
         // Euclidean arm failed safe only by accident, NaN propagating into
         // a comparison that then never passes. Both arms now answer
-        // infinity, which no gtol accepts.
-        if g.iter().any(|v| !v.is_finite()) {
-            return f64::INFINITY;
-        }
+        // infinity, which no gtol accepts; the seam's infinity norm
+        // carries that guarantee itself.
         match self.norm {
-            GradNorm::Euclidean => l2(g),
-            GradNorm::Infinity => g.iter().fold(0.0_f64, |a, v| a.max(v.abs())),
+            GradNorm::Euclidean => {
+                if g.iter().any(|v| !v.is_finite()) {
+                    return f64::INFINITY;
+                }
+                l2(g)
+            }
+            GradNorm::Infinity => crate::vecops::nrminf(g.view()),
         }
     }
 

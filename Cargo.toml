@@ -19,6 +19,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [features]
 default = []
 capi = []
+par = ["dep:rayon"]
 highs = ["dep:highs", "dep:highs-sys"]
 
 [dependencies]
@@ -27,6 +28,7 @@ dlpk = { version = "0.1.5", features = ["ndarray"] }
 ndarray = "0.17"
 thiserror = "2"
 rand = "0.9"
+rayon = { version = "1.10", optional = true }
 highs = { version = "2.1", optional = true }
 highs-sys = { version = "1.12", optional = true }
 

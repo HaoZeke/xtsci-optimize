@@ -41,6 +41,8 @@ pub mod lbfgs;
 pub mod lbfgs_qp;
 /// Embedded Riemannian manifolds (manopt_cpp proj / retr / transp).
 pub mod manifold;
+/// The vector seam: solver algebra behind one interface.
+pub mod vecops;
 mod minimize;
 /// Shifted Newton and Banerjee RFO on a dense Hessian.
 pub mod newton;
