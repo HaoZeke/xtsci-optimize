@@ -103,7 +103,9 @@ impl LineSearch {
 }
 
 pub(crate) fn axpy(pos: ArrayView1<'_, f64>, t: f64, dir: ArrayView1<'_, f64>) -> Array1<f64> {
-    Array1::from_iter(pos.iter().zip(dir.iter()).map(|(p, d)| p + t * d))
+    let mut trial = pos.to_owned();
+    crate::vecops::axpy(t, dir, &mut trial);
+    trial
 }
 
 fn brent_search<F>(

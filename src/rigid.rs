@@ -122,7 +122,7 @@ where
 }
 
 fn l2(v: &Array1<f64>) -> f64 {
-    v.iter().map(|x| x * x).sum::<f64>().sqrt()
+    crate::vecops::nrm2(v.view())
 }
 
 #[cfg(test)]

@@ -15,11 +15,11 @@ const ALPHA_MAX: f64 = 1e12;
 /// BB1 length `α = (s·s)/(s·y)`. Falls back to `istep` when `s·y`
 /// is not safely positive.
 pub fn bb1_alpha(s: &Array1<f64>, y: &Array1<f64>, istep: f64) -> f64 {
-    let sy = s.dot(y);
+    let sy = crate::vecops::dot(s.view(), y.view());
     if sy <= CURVATURE {
         return istep.max(ALPHA_MIN);
     }
-    let ss = s.dot(s);
+    let ss = crate::vecops::dot(s.view(), s.view());
     (ss / sy).clamp(ALPHA_MIN, ALPHA_MAX)
 }
 

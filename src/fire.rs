@@ -110,7 +110,7 @@ fn adapt(state: &mut FireState, power: f64) {
 pub fn fire_displacement(state: &mut FireState, force: &Array1<f64>) -> Array1<f64> {
     match state.kind {
         FireKind::V2 => {
-            let power = force.dot(&state.vel);
+            let power = crate::vecops::dot(force.view(), state.vel.view());
             if power > 0.0 {
                 mix_velocity(state, force);
             }
@@ -134,7 +134,7 @@ pub fn fire_after_v1(state: &mut FireState, force: &Array1<f64>) {
     if !matches!(state.kind, FireKind::V1) {
         return;
     }
-    let power = force.dot(&state.vel);
+    let power = crate::vecops::dot(force.view(), state.vel.view());
     mix_velocity(state, force);
     adapt(state, power);
 }

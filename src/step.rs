@@ -7,7 +7,7 @@ use crate::control::Control;
 use crate::linesearch::LineSearch;
 
 pub(crate) fn l2(g: &Array1<f64>) -> f64 {
-    g.iter().map(|x| x * x).sum::<f64>().sqrt()
+    crate::vecops::nrm2(g.view())
 }
 
 pub(crate) fn scale_step(origin: &Array1<f64>, trial: &mut Array1<f64>, cap: f64) {
