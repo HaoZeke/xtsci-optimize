@@ -24,10 +24,20 @@ pub fn dot(x: ArrayView1<f64>, y: ArrayView1<f64>) -> f64 {
     x.dot(&y)
 }
 
+/// Below this length the par feature stays on the serial path: on the
+/// reference host the rayon reductions measured 2.6x slower than
+/// serial at n = 20000 (thread coordination outweighs O(n) arithmetic),
+/// so parallel length-n algebra engages only where it has a chance.
+#[cfg(feature = "par")]
+const PAR_MIN_LEN: usize = 65_536;
+
 /// `x . y`, reduced in parallel chunks.
 #[cfg(feature = "par")]
 pub fn dot(x: ArrayView1<f64>, y: ArrayView1<f64>) -> f64 {
     use rayon::prelude::*;
+    if x.len() < PAR_MIN_LEN {
+        return x.dot(&y);
+    }
     match (x.as_slice(), y.as_slice()) {
         (Some(a), Some(b)) => a
             .par_chunks(4096)
@@ -48,6 +58,10 @@ pub fn axpy(a: f64, x: ArrayView1<f64>, y: &mut Array1<f64>) {
 #[cfg(feature = "par")]
 pub fn axpy(a: f64, x: ArrayView1<f64>, y: &mut Array1<f64>) {
     use rayon::prelude::*;
+    if x.len() < PAR_MIN_LEN {
+        y.scaled_add(a, &x);
+        return;
+    }
     match (x.as_slice(), y.as_slice_mut()) {
         (Some(xs), Some(ys)) => ys
             .par_chunks_mut(4096)
