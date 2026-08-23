@@ -228,6 +228,34 @@ xts_status_t xts_solver_step_hess_fg(xts_solver_t *solver,
                                      void *user, DLManagedTensorVersioned *x,
                                      xts_report_t *out);
 
+/** Directional curvature `d^T H(x) d`. Non-success falls back to the probe. */
+typedef xts_status_t (*xts_curv_fn)(void *user, const DLManagedTensorVersioned *x,
+                                    const DLManagedTensorVersioned *d,
+                                    double *curv_out);
+
+typedef struct xts_scg_params_t {
+    double sigma0;
+    double lambda;
+    double lambda_limit;
+    double tol_sol;
+    double tol_func;
+} xts_scg_params_t;
+
+/**
+ * Møller SCG. \a curv may be NULL (finite-difference probe).
+ * The exported symbol is \c rgmin_minimize_scg.
+ */
+xts_status_t rgmin_minimize_scg(xts_eval_fn eval, xts_grad_fn grad, xts_curv_fn curv,
+                                void *user, DLManagedTensorVersioned *x,
+                                const xts_control_t *ctrl,
+                                const xts_scg_params_t *params, xts_report_t *out);
+
+#ifndef xts_minimize_scg
+#define xts_minimize_scg rgmin_minimize_scg
+#define rgmin_curv_fn xts_curv_fn
+#define rgmin_scg_params_t xts_scg_params_t
+#endif
+
 #ifdef __cplusplus
 }
 #endif

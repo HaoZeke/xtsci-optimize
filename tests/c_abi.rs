@@ -11,9 +11,11 @@ use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir
 use rgpot_core::status::rgpot_status_t;
 use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 use rgmin::ffi::{
-    rgmin_abi_compatible, rgmin_abi_stamp, rgmin_accept_t, rgmin_control_t, rgmin_method_t, rgmin_minimize,
-    rgmin_minimize_eindir, rgmin_report_t, rgmin_solver_create, rgmin_solver_free, rgmin_solver_set_accept,
-    rgmin_solver_step, rgmin_solver_step_fg, rgmin_status_t, rgmin_tensor_borrow_cpu_f64, rgmin_tensor_free,
+    rgmin_abi_compatible, rgmin_abi_stamp, rgmin_accept_t, rgmin_control_t, rgmin_curv_fn,
+    rgmin_method_t, rgmin_minimize, rgmin_minimize_eindir, rgmin_minimize_scg, rgmin_report_t,
+    rgmin_scg_params_t, rgmin_solver_create, rgmin_solver_free, rgmin_solver_set_accept,
+    rgmin_solver_step, rgmin_solver_step_fg, rgmin_status_t, rgmin_tensor_borrow_cpu_f64,
+    rgmin_tensor_free,
 };
 
 unsafe extern "C" fn quadratic_eval(
@@ -144,6 +146,94 @@ fn c_abi_lbfgs_rosenbrock() {
     assert!(out.value < 1e-6, "C ABI L-BFGS value {}", out.value);
     assert!((x[0] - 1.0).abs() < 1e-3);
     assert!((x[1] - 1.0).abs() < 1e-3);
+}
+
+unsafe extern "C" fn quad_eval(
+    _user: *mut c_void,
+    x: *const DLManagedTensorVersioned,
+    value_out: *mut f64,
+) -> rgmin_status_t {
+    let (p, n) = unsafe { cpu_f64(x) };
+    let mut acc = 0.0;
+    for i in 0..n {
+        let xi = unsafe { *p.add(i) };
+        acc += xi * xi;
+    }
+    unsafe { *value_out = acc };
+    rgmin_status_t::RGMIN_SUCCESS
+}
+
+unsafe extern "C" fn quad_grad(
+    _user: *mut c_void,
+    x: *const DLManagedTensorVersioned,
+    g: *mut DLManagedTensorVersioned,
+) -> rgmin_status_t {
+    let (p, n) = unsafe { cpu_f64(x) };
+    let (gp, gn) = unsafe { cpu_f64(g as *const _) };
+    assert_eq!(n, gn);
+    for i in 0..n {
+        unsafe { *(gp as *mut f64).add(i) = 2.0 * *p.add(i) };
+    }
+    rgmin_status_t::RGMIN_SUCCESS
+}
+
+unsafe extern "C" fn quadratic_curv(
+    _user: *mut c_void,
+    _x: *const DLManagedTensorVersioned,
+    d: *const DLManagedTensorVersioned,
+    curv_out: *mut f64,
+) -> rgmin_status_t {
+    let (p, n) = unsafe { cpu_f64(d) };
+    let mut acc = 0.0;
+    for i in 0..n {
+        let di = unsafe { *p.add(i) };
+        acc += 2.0 * di * di;
+    }
+    unsafe { *curv_out = acc };
+    rgmin_status_t::RGMIN_SUCCESS
+}
+
+#[test]
+fn c_abi_scg_quadratic_bowl_with_exact_curvature() {
+    let mut x = [3.0, -4.0];
+    let xt = unsafe { rgmin_tensor_borrow_cpu_f64(x.as_mut_ptr(), 2) };
+    assert!(!xt.is_null());
+    let ctrl = rgmin_control_t {
+        maxiter: 50,
+        gtol: 1e-10,
+        istep: 1.0,
+        memory: 0,
+        maxmove: 0.0,
+    };
+    let params = rgmin_scg_params_t {
+        sigma0: 1e-4,
+        lambda: 1.0,
+        lambda_limit: 1e60,
+        tol_sol: 1e-10,
+        tol_func: 1e-12,
+    };
+    let mut out = rgmin_report_t {
+        value: 0.0,
+        steps: 0,
+        grad_norm: 0.0,
+    };
+    let st = unsafe {
+        rgmin_minimize_scg(
+            Some(quad_eval),
+            Some(quad_grad),
+            Some(quadratic_curv),
+            std::ptr::null_mut(),
+            xt,
+            &ctrl,
+            &params,
+            &mut out,
+        )
+    };
+    unsafe { rgmin_tensor_free(xt) };
+    assert_eq!(st, rgmin_status_t::RGMIN_SUCCESS);
+    assert!(out.value < 1e-8, "C ABI SCG value {}", out.value);
+    assert!(x[0].abs() < 1e-4);
+    assert!(x[1].abs() < 1e-4);
 }
 
 #[test]
