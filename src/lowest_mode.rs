@@ -176,15 +176,6 @@ impl<T: HessianVector + ?Sized> ApplyHessian for T {
     }
 }
 
-impl<F> ApplyHessian for F
-where
-    F: Fn(ArrayView1<f64>, ArrayView1<f64>) -> Array1<f64>,
-{
-    fn apply_hessian(&self, x: ArrayView1<f64>, v: ArrayView1<f64>) -> Array1<f64> {
-        self(x, v)
-    }
-}
-
 /// Result of [`lowest_eigenpair`] / [`lowest_mode`].
 #[derive(Clone, Debug)]
 pub struct LowestMode {
@@ -360,7 +351,7 @@ impl Subspace {
         mode.mapv_inplace(|c| c / nrm);
         amode.mapv_inplace(|c| c / nrm);
         let theta = evals[lowest];
-        let mut residual = amode;
+        let mut residual = amode.clone();
         axpy(-theta, mode.view(), &mut residual);
         for qi in &self.q {
             let overlap = dot(residual.view(), qi.view());
