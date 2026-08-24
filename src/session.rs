@@ -24,7 +24,7 @@ use crate::qn::{bfgs_inverse_update, solve_dense, sr1_inverse_update, sr2_hessia
 use crate::qn_step::QnStep;
 use crate::report::Report;
 use crate::rigid::{project_horizontal, project_out_rot_trans};
-use crate::step::{l2, next_istep, scale_step, scale_step_atom, take_step};
+use crate::step::{l2, scale_step, scale_step_atom};
 use crate::trust::{
     accept_ratio, dogleg_direction, predicted_reduction, reduction_ratio, update_radius,
 };
@@ -631,59 +631,51 @@ impl Solver {
         let gold = grad.clone();
         match &mut self.inner {
             Inner::Lbfgs(solver) => {
-                if self.accept == Accept::None {
-                    let dir = solver.direction(grad.view());
-                    let old = x.clone();
-                    let gold = grad.clone();
-                    let (npos, nval, ngrad, moved) = accept_step(
-                        obj,
-                        x,
-                        value,
-                        &gold,
-                        &dir,
-                        &self.control,
-                        self.accept,
-                        &mut self.e_hist,
-                        self.atom_maxmove,
-                        self.manifold,
-                    );
-                    if !moved {
+                let dir = solver.direction(grad.view());
+                let old = x.clone();
+                let gold = grad.clone();
+                let (npos, nval, ngrad, moved) = accept_step(
+                    obj,
+                    x,
+                    value,
+                    &gold,
+                    &dir,
+                    &self.control,
+                    self.accept,
+                    &mut self.e_hist,
+                    self.atom_maxmove,
+                    self.manifold,
+                );
+                if !moved {
+                    if self.accept == Accept::None {
                         return Err(Error::Oracle {
                             what: "non-finite value or gradient",
                         });
                     }
+                } else {
                     *x = npos;
                     value = nval;
                     grad = ngrad;
                     solver.push(&*x - &old, &grad - &gold);
-                } else {
-                    solver.step_objective(
-                        obj,
-                        x,
-                        &mut value,
-                        &mut grad,
-                        &mut self.istep,
-                        self.linesearch,
-                        &self.control,
-                    );
                 }
             }
             Inner::Steepest => {
-                let dir = grad.mapv(|g| -g);
-                let (npos, _, lsstep, _) = take_step(
+                let dir = grad.mapv(|g| -g * self.istep);
+                let (npos, nval, ngrad, _) = accept_step(
                     obj,
                     x,
                     value,
-                    dir.view(),
-                    self.istep,
-                    self.linesearch,
+                    &grad,
+                    &dir,
                     &self.control,
+                    self.accept,
+                    &mut self.e_hist,
+                    self.atom_maxmove,
+                    self.manifold,
                 );
                 *x = npos;
-                let ev = obj.value_and_gradient(x.view());
-                value = ev.0;
-                grad = ev.1;
-                self.istep = next_istep(lsstep, &self.control);
+                value = nval;
+                grad = ngrad;
             }
             Inner::Nlcg {
                 conjugacy,
@@ -694,104 +686,115 @@ impl Solver {
                 initialized,
             } => {
                 if !*initialized {
-                    *dir = grad.mapv(|g| -g);
+                    *dir = grad.mapv(|g| -g * self.istep);
                     *g_old = grad.clone();
                     *d_old = dir.clone();
                     *initialized = true;
                 }
-                let (npos, _, lsstep, _) = take_step(
+                let step_dir = dir.clone();
+                let (npos, nval, ngrad, moved) = accept_step(
                     obj,
                     x,
                     value,
-                    dir.view(),
-                    self.istep,
-                    self.linesearch,
+                    &grad,
+                    &step_dir,
                     &self.control,
+                    self.accept,
+                    &mut self.e_hist,
+                    self.atom_maxmove,
+                    self.manifold,
                 );
                 *x = npos;
-                let ev = obj.value_and_gradient(x.view());
-                value = ev.0;
-                grad = ev.1;
-                let ctx = ConjugacyContext {
-                    current_gradient: grad.view(),
-                    previous_gradient: g_old.view(),
-                    previous_direction: d_old.view(),
-                };
-                let mut beta = conjugacy.beta(&ctx);
-                if restart.should_restart(&ctx) {
-                    beta = 0.0;
+                value = nval;
+                grad = ngrad;
+                if moved {
+                    let ctx = ConjugacyContext {
+                        current_gradient: grad.view(),
+                        previous_gradient: g_old.view(),
+                        previous_direction: d_old.view(),
+                    };
+                    let mut beta = conjugacy.beta(&ctx);
+                    if restart.should_restart(&ctx) {
+                        beta = 0.0;
+                    }
+                    *dir = Array1::from_iter(
+                        grad.iter()
+                            .zip(d_old.iter())
+                            .map(|(g, d)| -g * self.istep + beta * d),
+                    );
+                    g_old.assign(&grad);
+                    d_old.assign(dir);
                 }
-                *dir = Array1::from_iter(grad.iter().zip(d_old.iter()).map(|(g, d)| -g + beta * d));
-                g_old.assign(&grad);
-                d_old.assign(dir);
-                self.istep = next_istep(lsstep, &self.control);
             }
             Inner::Bfgs { h } => {
                 let direction = -h.dot(&grad);
                 let old = x.clone();
                 let gold = grad.clone();
-                let (npos, _, lsstep, moved) = take_step(
+                let (npos, nval, ngrad, moved) = accept_step(
                     obj,
                     x,
                     value,
-                    direction.view(),
-                    self.istep,
-                    self.linesearch,
+                    &gold,
+                    &direction,
                     &self.control,
+                    self.accept,
+                    &mut self.e_hist,
+                    self.atom_maxmove,
+                    self.manifold,
                 );
                 *x = npos;
-                let ev = obj.value_and_gradient(x.view());
-                value = ev.0;
-                grad = ev.1;
+                value = nval;
+                grad = ngrad;
                 if moved {
                     bfgs_inverse_update(h, &(&*x - &old), &(&grad - &gold));
                 }
-                self.istep = next_istep(lsstep, &self.control);
             }
             Inner::Sr1 { h } => {
                 let direction = -h.dot(&grad);
                 let old = x.clone();
                 let gold = grad.clone();
-                let (npos, _, lsstep, moved) = take_step(
+                let (npos, nval, ngrad, moved) = accept_step(
                     obj,
                     x,
                     value,
-                    direction.view(),
-                    self.istep,
-                    self.linesearch,
+                    &gold,
+                    &direction,
                     &self.control,
+                    self.accept,
+                    &mut self.e_hist,
+                    self.atom_maxmove,
+                    self.manifold,
                 );
                 *x = npos;
-                let ev = obj.value_and_gradient(x.view());
-                value = ev.0;
-                grad = ev.1;
+                value = nval;
+                grad = ngrad;
                 if moved {
                     sr1_inverse_update(h, &(&*x - &old), &(&grad - &gold));
                 }
-                self.istep = next_istep(lsstep, &self.control);
             }
             Inner::Sr2 { b } => {
                 let rhs = grad.mapv(|g| -g);
                 let direction = solve_dense(b, &rhs).unwrap_or_else(|| rhs);
                 let old = x.clone();
                 let gold = grad.clone();
-                let (npos, _, lsstep, moved) = take_step(
+                let (npos, nval, ngrad, moved) = accept_step(
                     obj,
                     x,
                     value,
-                    direction.view(),
-                    self.istep,
-                    self.linesearch,
+                    &gold,
+                    &direction,
                     &self.control,
+                    self.accept,
+                    &mut self.e_hist,
+                    self.atom_maxmove,
+                    self.manifold,
                 );
                 *x = npos;
-                let ev = obj.value_and_gradient(x.view());
-                value = ev.0;
-                grad = ev.1;
+                value = nval;
+                grad = ngrad;
                 if moved {
                     sr2_hessian_update(b, &(&*x - &old), &(&grad - &gold));
                 }
-                self.istep = next_istep(lsstep, &self.control);
             }
             Inner::Adam {
                 m,
@@ -803,22 +806,24 @@ impl Solver {
                 eps,
             } => {
                 let dir = adam_direction(m, v, &grad, *beta1, *beta2, *b1p, *b2p, *eps);
-                let (npos, _, lsstep, _) = take_step(
+                let dir = dir.mapv(|d| d * self.istep);
+                let (npos, nval, ngrad, _) = accept_step(
                     obj,
                     x,
                     value,
-                    dir.view(),
-                    self.istep,
-                    self.linesearch,
+                    &grad,
+                    &dir,
                     &self.control,
+                    self.accept,
+                    &mut self.e_hist,
+                    self.atom_maxmove,
+                    self.manifold,
                 );
                 *x = npos;
-                let ev = obj.value_and_gradient(x.view());
-                value = ev.0;
-                grad = ev.1;
+                value = nval;
+                grad = ngrad;
                 *b1p *= *beta1;
                 *b2p *= *beta2;
-                self.istep = next_istep(lsstep, &self.control);
             }
             Inner::Fire(state) => {
                 let force = grad.mapv(|g| -g);

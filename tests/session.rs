@@ -82,6 +82,55 @@ fn lbfgs_accept_none_moves_when_energy_is_flat() {
 }
 
 #[test]
+fn first_order_accept_none_moves_a_nonconservative_force() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::Accept;
+    use std::sync::OnceLock;
+
+    struct ConstantForce;
+    impl Objective<f64> for ConstantForce {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| Bounds::new(array![-1e6, -1e6], array![1e6, 1e6], 0.0))
+        }
+        fn eval(&self, _: ArrayView1<f64>) -> f64 {
+            1.0
+        }
+    }
+    impl Gradient<f64> for ConstantForce {
+        fn dim(&self) -> usize {
+            2
+        }
+        fn grad(&self, _: ArrayView1<f64>) -> Array1<f64> {
+            array![0.4, 0.0]
+        }
+    }
+    impl DifferentiableObjective<f64> for ConstantForce {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (1.0, self.grad(x))
+        }
+    }
+
+    for method in [Method::Steepest, Method::Bfgs] {
+        let obj = ConstantForce;
+        let mut x = array![0.0, 0.0];
+        let mut ctrl = control();
+        ctrl.maxmove = Some(0.2);
+        let mut solver = Solver::new(method, ctrl, 2);
+        solver.set_accept(Accept::None);
+        solver.step(&obj, &mut x).unwrap();
+        assert!(
+            x[0].abs() > 1e-9,
+            "{method:?} Accept::None froze on a non-conservative force {x:?}"
+        );
+    }
+}
+
+#[test]
 fn retained_pairs_beat_a_cold_start() {
     let obj = Rosenbrock::<2>::new();
     let mut warm = Solver::new(Method::lbfgs(), control(), 2).with_gtol(1e-8);
