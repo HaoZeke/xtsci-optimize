@@ -4,7 +4,7 @@
 //! contract the API promises and fails when the contract does.
 
 use ndarray::{array, Array1, ArrayView1};
-use rgmin::manifold::{Manifold, MwRigid, Sphere, Stiefel};
+use rgmin::manifold::{minkowski, pack, Hyperbolic, Manifold, MwRigid, Sphere, Stiefel};
 use rgmin::{
     minimize_scg_exact, Conjugacy, Control, DirectionalCurvature, Restart, ScgParams,
 };
@@ -24,6 +24,19 @@ fn stiefel_p1_is_the_sphere_in_all_three_operations() {
         Stiefel.transport(&x, &y, &v),
         Sphere.transport(&x, &y, &v)
     );
+}
+
+/// A hyperbolic retraction stays on the Lorentz sheet. This is not the
+/// sphere: the quadratic form is Minkowski, and the first coordinate
+/// stays positive.
+#[test]
+fn hyperbolic_retract_stays_on_the_sheet() {
+    let x = pack(2.0_f64.sqrt(), array![1.0, 0.0].view());
+    let v = Hyperbolic.project(&x, &array![0.2, -0.1, 0.4]);
+    let y = Hyperbolic.retract(&x, &v);
+    assert!((minkowski(y.view(), y.view()) + 1.0).abs() < 1e-12);
+    assert!(y[0] > 0.0);
+    assert_eq!(y.len(), 3);
 }
 
 /// The Eckart quotient's projection removes every rigid-body component:

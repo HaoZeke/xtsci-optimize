@@ -496,6 +496,67 @@ fn rigid_quotient_drops_translation_and_keeps_3n() {
 }
 
 #[test]
+fn hyperbolic_session_stays_on_the_hyperboloid() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::manifold::{minkowski, pack as pack_h};
+    use rgmin::ManifoldKind;
+
+    // Spatial-radius squared on H^2. The origin (1, 0, 0) is the min.
+    struct SpatialRadius;
+    impl Objective<f64> for SpatialRadius {
+        fn dim(&self) -> usize {
+            3
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| Bounds::new(array![-8.0, -8.0, -8.0], array![8.0, 8.0, 8.0], 0.0))
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            0.5 * (x[1] * x[1] + x[2] * x[2])
+        }
+    }
+    impl Gradient<f64> for SpatialRadius {
+        fn dim(&self) -> usize {
+            3
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            array![0.0, x[1], x[2]]
+        }
+    }
+    impl DifferentiableObjective<f64> for SpatialRadius {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = SpatialRadius;
+    let mut x = pack_h((2.0_f64).sqrt(), array![1.0, 0.0].view());
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 40,
+            gtol: 1e-8,
+            istep: 0.2,
+            maxmove: None,
+        },
+        3,
+    );
+    solver.set_manifold(ManifoldKind::Hyperbolic);
+    solver.set_accept(rgmin::Accept::None);
+    for _ in 0..40 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        let q = minkowski(x.view(), x.view());
+        assert!(
+            (q + 1.0).abs() < 1e-10,
+            "left the hyperboloid minkowski={q} x={x:?}"
+        );
+        assert!(x[0] > 0.0, "left the positive sheet {x:?}");
+    }
+}
+
+#[test]
 fn nlcg_second_step_is_not_steepest() {
     let obj = Rosenbrock::<2>::new();
     let mut a = array![-1.2, 1.0];

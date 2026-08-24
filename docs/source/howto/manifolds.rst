@@ -44,6 +44,8 @@ Tokens
     +-------------------+---------------------------------------+-------------------------------------------+
     | ``Se3``           | row-major ``R`` then ``t``, length 12 | SO(3) on the rotation, Euclidean on ``t`` |
     +-------------------+---------------------------------------+-------------------------------------------+
+    | ``Hyperbolic``    | Minkowski vector, length ``n`` >= 2   | hyperboloid exp (``cosh`` / ``sinh``)     |
+    +-------------------+---------------------------------------+-------------------------------------------+
 
 An isolated molecule or cluster lives on ``RigidQuotient``
 (``R^{3N}/SE(3)``): Sella Cartesian ``fix_translation`` plus
@@ -54,10 +56,12 @@ gpr\ :sub:`optim`\ ``IRCDriver`` (https://doi.org/10.1063/1.454172,
 https://doi.org/10.1063/1.434152). Call ``set_masses`` with N atomic masses;
 unit mass makes ``MwRigid`` identical to ``RigidQuotient``.
 
-``Sphere``, ``So3``, ``Stiefel``, and ``Se3`` are matrix-manifold
-embeddings. ``So3`` rejects any length other than 9. ``Se3`` rejects
-any length other than 12. They do not pack or prefix-interpret a
-3N cluster.
+``Sphere``, ``So3``, ``Stiefel``, ``Se3``, and ``Hyperbolic`` are
+matrix-manifold embeddings. ``So3`` rejects any length other than 9.
+``Se3`` rejects any length other than 12. ``Hyperbolic`` is the Lorentz
+hyperboloid (manopt ``hyperbolicfactory``, ``m = 1``): length ``n``
+(``n >= 2``), Minkowski square ``-1``. They do not pack or
+prefix-interpret a 3N cluster.
 
 Euclidean is the default. Existing eOn / rgpot / eindir paths do
 not change until a host calls the setter.
@@ -92,6 +96,7 @@ C
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SO3);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_STIEFEL);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SE3);
+    rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_HYPERBOLIC);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_EUCLIDEAN);
 
 Changing the manifold drops method memory (``forget``).
@@ -117,6 +122,11 @@ Packing notes
 
 - ``Stiefel`` is ``St(n,1)``. A frame with ``p > 1`` is not a length
   token: ``n p`` does not name ``p``.
+
+- ``Hyperbolic`` is a length-``n`` Minkowski vector
+  (``-x0^2 + ||x_sp||^2 = -1``, ``n >= 2``). Pack with ``pack`` /
+  ``unpack`` (time-like then spatial). It is not the sphere and
+  not a 3N cluster.
 
 - ``set_project_rigid`` is the same horizontal projection as
   ``RigidQuotient`` and stays available on Euclidean.

@@ -257,7 +257,10 @@ impl Solver {
     }
 
     fn horizontal_grad(&self, x: &Array1<f64>, grad: &Array1<f64>) -> Array1<f64> {
-        let mut g = self.project_vec(x, grad);
+        let mut g = match self.manifold {
+            ManifoldKind::MwRigid | ManifoldKind::RigidQuotient => self.project_vec(x, grad),
+            other => other.egrad2rgrad(x, grad),
+        };
         if self.project_rigid
             && !matches!(
                 self.manifold,

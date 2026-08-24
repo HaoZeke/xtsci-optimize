@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ManifoldKind::Hyperbolic`: manopt `hyperbolicfactory` (\(m = 1\))
+  as a length-\(n\) Minkowski vector (\(H^{n-1}\), \(n \ge 2\)).
+  Projection, exponential retraction, and arrival-point transport
+  go through `vecops`; `egrad2rgrad` flips the time-like coordinate.
+  Pack/unpack split \(x_0\) from the spatial slice.
 - Matrix-free Newton: the `HessianVector` trait, a finite-difference
   action wrapper, Steihaug-Toint CG inside a Nocedal-Wright trust
   region (`minimize_newton_cg`), and preconditioned CG with the

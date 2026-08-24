@@ -11,10 +11,13 @@
 //! \(R^{3N}/\mathrm{SE}(3)\)) or [`ManifoldKind::MwRigid`] (Page–McIver
 //! mass-weighted Eckart, the IRC metric). Sphere / SO(3)-9 / SE(3)-12
 //! are matrix-manifold embeddings, not a 3N cluster.
+//! [`ManifoldKind::Hyperbolic`] is the Lorentz hyperboloid
+//! (manopt `hyperbolicfactory`), not the sphere.
 
 use ndarray::Array1;
 
 mod euclidean;
+mod hyperbolic;
 mod mw_rigid;
 mod rigid_quotient;
 mod se3;
@@ -23,6 +26,7 @@ mod sphere;
 mod stiefel;
 
 pub use euclidean::Euclidean;
+pub use hyperbolic::{minkowski, pack, unpack, Hyperbolic};
 pub use mw_rigid::MwRigid;
 pub use rigid_quotient::RigidQuotient;
 pub use se3::Se3;
@@ -50,6 +54,9 @@ pub enum ManifoldKind {
     /// Mass-weighted Eckart: Sella IRC / Page–McIver metric on
     /// the same quotient. Masses from [`crate::Solver::set_masses`].
     MwRigid,
+    /// Hyperboloid \(H^{n-1}\) as a length-\(n\) Minkowski vector
+    /// (`n >= 2`). manopt `hyperbolicfactory(n-1)` with \(m = 1\).
+    Hyperbolic,
 }
 
 impl ManifoldKind {
@@ -68,6 +75,7 @@ impl ManifoldKind {
             Self::Se3 => "se3",
             Self::RigidQuotient => "rigid_quotient",
             Self::MwRigid => "mw_rigid",
+            Self::Hyperbolic => "hyperbolic",
         }
     }
 }
@@ -85,6 +93,13 @@ pub trait Manifold {
     fn retract(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64>;
     /// Vector transport of `v` from `x_from` to `x_to`.
     fn transport(&self, x_from: &Array1<f64>, x_to: &Array1<f64>, v: &Array1<f64>) -> Array1<f64>;
+    /// Euclidean gradient to Riemannian gradient at `x`.
+    ///
+    /// Riemannian submanifolds of Euclidean space: this is [`Self::project`].
+    /// The hyperboloid uses the Minkowski metric, so it is not that case.
+    fn egrad2rgrad(&self, x: &Array1<f64>, egrad: &Array1<f64>) -> Array1<f64> {
+        self.project(x, egrad)
+    }
 }
 
 impl Manifold for ManifoldKind {
@@ -97,6 +112,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.required_dim(n),
             Self::RigidQuotient => RigidQuotient.required_dim(n),
             Self::MwRigid => MwRigid.required_dim(n),
+            Self::Hyperbolic => Hyperbolic.required_dim(n),
         }
     }
 
@@ -109,6 +125,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.project(x, v),
             Self::RigidQuotient => RigidQuotient.project(x, v),
             Self::MwRigid => MwRigid.project(x, v),
+            Self::Hyperbolic => Hyperbolic.project(x, v),
         }
     }
 
@@ -121,6 +138,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.retract(x, v),
             Self::RigidQuotient => RigidQuotient.retract(x, v),
             Self::MwRigid => MwRigid.retract(x, v),
+            Self::Hyperbolic => Hyperbolic.retract(x, v),
         }
     }
 
@@ -133,6 +151,14 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.transport(x_from, x_to, v),
             Self::RigidQuotient => RigidQuotient.transport(x_from, x_to, v),
             Self::MwRigid => MwRigid.transport(x_from, x_to, v),
+            Self::Hyperbolic => Hyperbolic.transport(x_from, x_to, v),
+        }
+    }
+
+    fn egrad2rgrad(&self, x: &Array1<f64>, egrad: &Array1<f64>) -> Array1<f64> {
+        match self {
+            Self::Hyperbolic => Hyperbolic.egrad2rgrad(x, egrad),
+            other => other.project(x, egrad),
         }
     }
 }
