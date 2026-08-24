@@ -120,7 +120,7 @@ fn first_order_accept_none_moves_a_nonconservative_force() {
         let mut x = array![0.0, 0.0];
         let mut ctrl = control();
         ctrl.maxmove = Some(0.2);
-        let mut solver = Solver::new(method, ctrl, 2);
+        let mut solver = Solver::new(method.clone(), ctrl, 2);
         solver.set_accept(Accept::None);
         solver.step(&obj, &mut x).unwrap();
         assert!(

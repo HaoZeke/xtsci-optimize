@@ -148,6 +148,18 @@ impl Solver {
         self.accept = accept;
     }
 
+    /// Line search stored on the session. First-order `step` uses
+    /// [`Accept`]; Riemannian solvers that need a Wolfe/Armijo search
+    /// read this.
+    pub fn set_linesearch(&mut self, linesearch: LineSearch) {
+        self.linesearch = linesearch;
+    }
+
+    /// Current line-search policy.
+    pub fn linesearch(&self) -> LineSearch {
+        self.linesearch
+    }
+
     /// Euclidean cap applied on the next [`Self::step`].
     pub fn set_maxmove(&mut self, maxmove: f64) {
         self.control.maxmove = if maxmove > 0.0 { Some(maxmove) } else { None };
