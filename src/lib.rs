@@ -64,6 +64,8 @@ mod step;
 mod trust;
 /// Sella IRCTrustRegion / Gonzalez--Schlegel mass-weighted sphere.
 pub mod irc_trust;
+/// Sella QuasiNewton / QuasiNewtonIRC restricted step.
+pub mod qn_irc;
 
 pub use accept::Accept;
 pub use adam::minimize_adam;
@@ -71,6 +73,10 @@ pub use control::Control;
 pub use error::{Error, Result};
 pub use fire::FireKind;
 pub use irc_trust::{sqrt_masses_3n, IrcTrust};
+pub use qn_irc::{
+    bfgs_hessian_update, mw_pair, qn_get_s, qn_irc_get_s, qn_irc_restricted,
+    qn_irc_restricted_identity, to_mw, BfgsModel,
+};
 pub use lowest_mode::{
     lowest_eigenpair, lowest_mode, ApplyHessian, EigenParams, EigensolverKind, LowestMode,
     DENSE_EIGEN_CUTOFF,
