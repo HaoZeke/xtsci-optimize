@@ -4,7 +4,8 @@
 //! contract the API promises and fails when the contract does.
 
 use ndarray::{array, Array1, ArrayView1};
-use rgmin::manifold::{Manifold, MwRigid, Sphere, Stiefel};
+use rgmin::manifold::{is_spd, Manifold, MwRigid, Spd, Sphere, Stiefel};
+use rgmin::IrcTrust;
 use rgmin::{
     minimize_scg_exact, Conjugacy, Control, DirectionalCurvature, Restart, ScgParams,
 };
@@ -58,6 +59,38 @@ fn mw_rigid_projects_out_translations_and_rotations() {
     let projected = MwRigid.project(&x, &breathe);
     let norm = projected.iter().map(|v| v * v).sum::<f64>().sqrt();
     assert!(norm > 1e-4, "an internal mode must survive, |p| = {norm}");
+}
+
+/// Gonzalez--Schlegel / Sella IRC is a sphere of radius dx about the
+/// last point in the mass-weighted metric. Unit Sphere about the
+/// origin is a different geometry.
+#[test]
+fn irc_trust_is_not_the_unit_sphere() {
+    let masses = [1.0, 4.0];
+    let d1 = array![0.05, 0.0, 0.0, 0.0, 0.0, 0.0];
+    let tr = IrcTrust::from_atom_masses(d1.clone(), &masses, 0.1);
+    let s = array![1.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    let p = tr.project(&s);
+    assert!(tr.on_bound(&p, 1e-12));
+    let eucl = p.iter().map(|v| v * v).sum::<f64>().sqrt();
+    assert!((eucl - 1.0).abs() > 1e-3, "must not be unit-sphere projection");
+    let sphere = Sphere.project(&Array1::from(vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0]), &s);
+    assert!((sphere[0] - p[0]).abs() > 1e-6 || (tr.cons(&p) - 0.1).abs() < 1e-12);
+}
+
+/// Affine-invariant SPD retraction lands on a symmetric positive-definite
+/// matrix: the whole content of the factory is that the point stays on
+/// the set.
+#[test]
+fn spd_retract_stays_on_the_set() {
+    let x = array![2.0, 0.2, 0.2, 3.0];
+    let v = array![0.0, 0.15, 0.15, -0.1];
+    let y = Spd.retract(&x, &v);
+    assert!(is_spd(&y), "left the SPD set {y:?}");
+    let t = Spd.project(&x, &v);
+    assert!((t[1] - t[2]).abs() < 1e-15);
+    let w = Spd.transport(&x, &y, &v);
+    assert!((w[1] - w[2]).abs() < 1e-15);
 }
 
 /// A quadratic bowl carrying its exact directional curvature. SCG with
