@@ -15,6 +15,7 @@
 use ndarray::Array1;
 
 mod euclidean;
+mod grassmann;
 mod mw_rigid;
 mod rigid_quotient;
 mod se3;
@@ -23,6 +24,7 @@ mod sphere;
 mod stiefel;
 
 pub use euclidean::Euclidean;
+pub use grassmann::Grassmann;
 pub use mw_rigid::MwRigid;
 pub use rigid_quotient::RigidQuotient;
 pub use se3::Se3;
@@ -50,6 +52,9 @@ pub enum ManifoldKind {
     /// Mass-weighted Eckart: Sella IRC / Page–McIver metric on
     /// the same quotient. Masses from [`crate::Solver::set_masses`].
     MwRigid,
+    /// Real Grassmann \(\mathrm{Gr}(n,p)\). Default pack is
+    /// \(\mathrm{Gr}(n,1)\). Session `set_factor_shape` sets `p`.
+    Grassmann,
 }
 
 impl ManifoldKind {
@@ -68,6 +73,14 @@ impl ManifoldKind {
             Self::Se3 => "se3",
             Self::RigidQuotient => "rigid_quotient",
             Self::MwRigid => "mw_rigid",
+            Self::Grassmann => "grassmann",
+        }
+    }
+
+    fn grassmann_of(x: &Array1<f64>) -> Grassmann {
+        Grassmann {
+            n: x.len().max(1),
+            p: 1,
         }
     }
 }
@@ -97,6 +110,13 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.required_dim(n),
             Self::RigidQuotient => RigidQuotient.required_dim(n),
             Self::MwRigid => MwRigid.required_dim(n),
+            Self::Grassmann => {
+                if n >= 2 {
+                    Ok(())
+                } else {
+                    Err(n)
+                }
+            }
         }
     }
 
@@ -109,6 +129,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.project(x, v),
             Self::RigidQuotient => RigidQuotient.project(x, v),
             Self::MwRigid => MwRigid.project(x, v),
+            Self::Grassmann => Self::grassmann_of(x).project(x, v),
         }
     }
 
@@ -121,6 +142,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.retract(x, v),
             Self::RigidQuotient => RigidQuotient.retract(x, v),
             Self::MwRigid => MwRigid.retract(x, v),
+            Self::Grassmann => Self::grassmann_of(x).retract(x, v),
         }
     }
 
@@ -133,6 +155,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.transport(x_from, x_to, v),
             Self::RigidQuotient => RigidQuotient.transport(x_from, x_to, v),
             Self::MwRigid => MwRigid.transport(x_from, x_to, v),
+            Self::Grassmann => Self::grassmann_of(x_to).transport(x_from, x_to, v),
         }
     }
 }

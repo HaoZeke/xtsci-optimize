@@ -46,6 +46,8 @@ pub struct Solver {
     manifold: ManifoldKind,
     /// Per-atom masses for [`ManifoldKind::MwRigid`]. Length N, not 3N.
     masses: Option<Array1<f64>>,
+    /// `(n, p)` for [`ManifoldKind::Grassmann`]. None means \(\mathrm{Gr}(n,1)\).
+    factor_shape: Option<(usize, usize)>,
     #[cfg(feature = "highs")]
     highs: bool,
     last_pos: Option<Array1<f64>>,
@@ -129,6 +131,7 @@ impl Solver {
             periodic: false,
             manifold: ManifoldKind::Euclidean,
             masses: None,
+            factor_shape: None,
             #[cfg(feature = "highs")]
             highs: false,
             last_pos: None,
@@ -174,6 +177,15 @@ impl Solver {
             self.forget();
         }
         self.manifold = kind;
+    }
+
+    /// `(n, p)` for [`ManifoldKind::Grassmann`]. `(0, 0)` clears to \(\mathrm{Gr}(n,1)\).
+    pub fn set_factor_shape(&mut self, n: usize, p: usize) {
+        if n == 0 || p == 0 {
+            self.factor_shape = None;
+        } else {
+            self.factor_shape = Some((n, p));
+        }
     }
 
     /// Per-atom masses for [`ManifoldKind::MwRigid`] (Page–McIver / Eckart).
@@ -251,6 +263,10 @@ impl Solver {
                 let mut w = v.clone();
                 project_horizontal(&mut w, x.view(), None, !self.periodic);
                 w
+            }
+            ManifoldKind::Grassmann => {
+                let (n, p) = self.factor_shape.unwrap_or((x.len(), 1));
+                crate::manifold::Grassmann { n, p }.project(x, v)
             }
             other => other.project(x, v),
         }
@@ -848,7 +864,13 @@ impl Solver {
         }
 
         let delta = &*x - &start;
-        let y = self.manifold.retract(&start, &delta);
+        let y = match self.manifold {
+            ManifoldKind::Grassmann => {
+                let (n, p) = self.factor_shape.unwrap_or((start.len(), 1));
+                crate::manifold::Grassmann { n, p }.retract(&start, &delta)
+            }
+            other => other.retract(&start, &delta),
+        };
         if y.iter().zip(x.iter()).any(|(a, b)| (*a - *b).abs() > 1e-15) {
             *x = y;
             let ev = obj.value_and_gradient(x.view());

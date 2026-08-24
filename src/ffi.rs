@@ -1219,6 +1219,8 @@ pub enum rgmin_manifold_t {
     RGMIN_MANIFOLD_RIGID_QUOTIENT = 5,
     /// Mass-weighted Eckart (Sella IRC / Page–McIver). 3N, N >= 2.
     RGMIN_MANIFOLD_MW_RIGID = 6,
+    /// Real Grassmann Gr(n,p). Shape from rgmin_solver_set_factor_shape.
+    RGMIN_MANIFOLD_GRASSMANN = 7,
 }
 
 #[unsafe(no_mangle)]
@@ -1236,6 +1238,7 @@ pub unsafe extern "C" fn rgmin_solver_set_manifold(
         rgmin_manifold_t::RGMIN_MANIFOLD_SE3 => ManifoldKind::Se3,
         rgmin_manifold_t::RGMIN_MANIFOLD_RIGID_QUOTIENT => ManifoldKind::RigidQuotient,
         rgmin_manifold_t::RGMIN_MANIFOLD_MW_RIGID => ManifoldKind::MwRigid,
+        rgmin_manifold_t::RGMIN_MANIFOLD_GRASSMANN => ManifoldKind::Grassmann,
         rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN => ManifoldKind::Euclidean,
     };
     unsafe { (*solver).solver.set_manifold(kind) };
@@ -1258,6 +1261,19 @@ pub unsafe extern "C" fn rgmin_solver_set_masses(
     }
     let slice = unsafe { slice::from_raw_parts(masses, n_atoms) };
     unsafe { (*solver).solver.set_masses(Array1::from(slice.to_vec())) };
+}
+
+/// `(n, p)` for `RGMIN_MANIFOLD_GRASSMANN`. `n == 0` or `p == 0` clears to Gr(n,1).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rgmin_solver_set_factor_shape(
+    solver: *mut rgmin_solver_t,
+    n: usize,
+    p: usize,
+) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_factor_shape(n, p) };
 }
 
 /// Periodic cell. Nonzero: Sella `proj_rot = false`, quotient is \(R^{3N}/T(3)\).
