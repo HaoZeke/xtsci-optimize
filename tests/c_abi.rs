@@ -758,9 +758,9 @@ fn c_abi_respects_maxmove_when_initial_step_is_larger() {
 fn c_abi_every_setter_survives_live_and_null_sessions() {
     use rgmin::ffi::{
         rgmin_manifold_t, rgmin_qn_step_t, rgmin_solver_forget, rgmin_solver_set_atom_maxmove,
-        rgmin_solver_set_cautious, rgmin_solver_set_extra_updates, rgmin_solver_set_manifold,
-        rgmin_solver_set_masses, rgmin_solver_set_maxmove, rgmin_solver_set_periodic,
-        rgmin_solver_set_project_rigid, rgmin_solver_set_qn_step,
+        rgmin_solver_set_cautious, rgmin_solver_set_extra_updates, rgmin_solver_set_factor_shape,
+        rgmin_solver_set_manifold, rgmin_solver_set_masses, rgmin_solver_set_maxmove,
+        rgmin_solver_set_periodic, rgmin_solver_set_project_rigid, rgmin_solver_set_qn_step,
     };
     let ctrl = rgmin_control_t {
         maxiter: 20,
@@ -783,6 +783,9 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_MW_RIGID);
         rgmin_solver_set_masses(session, masses.as_ptr(), masses.len());
         rgmin_solver_set_masses(session, std::ptr::null(), 0);
+        rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_GRASSMANN);
+        rgmin_solver_set_factor_shape(session, 4, 2);
+        rgmin_solver_set_factor_shape(session, 0, 0);
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN);
         rgmin_solver_forget(session);
     }
@@ -821,6 +824,7 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
         rgmin_solver_set_project_rigid(null, 1);
         rgmin_solver_set_periodic(null, 0);
         rgmin_solver_set_manifold(null, rgmin_manifold_t::RGMIN_MANIFOLD_SPHERE);
+        rgmin_solver_set_factor_shape(null, 4, 2);
         rgmin_solver_set_masses(null, masses.as_ptr(), masses.len());
         rgmin_solver_forget(null);
     }

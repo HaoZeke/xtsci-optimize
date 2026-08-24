@@ -42,6 +42,8 @@ Tokens
     +-------------------+---------------------------------------+-------------------------------------------+
     | ``Stiefel``       | ``St(n,1)``: same as the sphere       | same as the sphere                        |
     +-------------------+---------------------------------------+-------------------------------------------+
+    | ``Grassmann``     | column-major ``n x p``, length ``n p`` | polar factor of ``X+U``                  |
+    +-------------------+---------------------------------------+-------------------------------------------+
     | ``Se3``           | row-major ``R`` then ``t``, length 12 | SO(3) on the rotation, Euclidean on ``t`` |
     +-------------------+---------------------------------------+-------------------------------------------+
 
@@ -54,10 +56,12 @@ gpr\ :sub:`optim`\ ``IRCDriver`` (https://doi.org/10.1063/1.454172,
 https://doi.org/10.1063/1.434152). Call ``set_masses`` with N atomic masses;
 unit mass makes ``MwRigid`` identical to ``RigidQuotient``.
 
-``Sphere``, ``So3``, ``Stiefel``, and ``Se3`` are matrix-manifold
-embeddings. ``So3`` rejects any length other than 9. ``Se3`` rejects
-any length other than 12. They do not pack or prefix-interpret a
-3N cluster.
+``Sphere``, ``So3``, ``Stiefel``, ``Grassmann``, and ``Se3`` are
+matrix-manifold embeddings. ``So3`` rejects any length other than
+9. ``Se3`` rejects any length other than 12. ``Grassmann`` is
+``Gr(n,p)``: packed column-major, length ``n p``. Call
+``set_factor_shape(n, p)``; length alone does not name ``p``.
+They do not pack or prefix-interpret a 3N cluster.
 
 Euclidean is the default. Existing eOn / rgpot / eindir paths do
 not change until a host calls the setter.
@@ -91,6 +95,8 @@ C
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SPHERE);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SO3);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_STIEFEL);
+    rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_GRASSMANN);
+    rgmin_solver_set_factor_shape(s, n, p);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SE3);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_EUCLIDEAN);
 
@@ -117,6 +123,10 @@ Packing notes
 
 - ``Stiefel`` is ``St(n,1)``. A frame with ``p > 1`` is not a length
   token: ``n p`` does not name ``p``.
+
+- ``Grassmann`` is ``Gr(n,p)``. Packed column-major (manopt ``X(:)``).
+  ``set_factor_shape(n, p)`` names ``p``. Default ``p = 1`` is
+  ``RP^{n-1}``. A 3N cluster is still ``RigidQuotient``.
 
 - ``set_project_rigid`` is the same horizontal projection as
   ``RigidQuotient`` and stays available on Euclidean.

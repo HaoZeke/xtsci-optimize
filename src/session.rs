@@ -241,6 +241,20 @@ impl Solver {
     }
 
     fn check_manifold(&self, n: usize) -> Result<()> {
+        if self.manifold == ManifoldKind::Grassmann {
+            match self.factor_shape {
+                Some((gn, gp)) if gn >= gp && gp >= 1 && n == gn.saturating_mul(gp) => {
+                    return Ok(());
+                }
+                None if n >= 2 => return Ok(()),
+                _ => {
+                    return Err(Error::ManifoldDim {
+                        kind: "grassmann",
+                        got: n,
+                    });
+                }
+            }
+        }
         if self.manifold.required_dim(n).is_ok() {
             return Ok(());
         }
@@ -265,8 +279,8 @@ impl Solver {
                 w
             }
             ManifoldKind::Grassmann => {
-                let (n, p) = self.factor_shape.unwrap_or((x.len(), 1));
-                crate::manifold::Grassmann { n, p }.project(x, v)
+                self.manifold
+                    .project_shaped(self.factor_shape, x, v)
             }
             other => other.project(x, v),
         }
@@ -293,7 +307,9 @@ impl Solver {
         v: &Array1<f64>,
     ) -> Array1<f64> {
         match self.manifold {
-            ManifoldKind::RigidQuotient | ManifoldKind::MwRigid => self.project_vec(x_to, v),
+            ManifoldKind::RigidQuotient | ManifoldKind::MwRigid | ManifoldKind::Grassmann => {
+                self.project_vec(x_to, v)
+            }
             other => other.transport(x_from, x_to, v),
         }
     }
@@ -450,6 +466,7 @@ impl Solver {
                     &mut self.e_hist,
                     None,
                     self.manifold,
+                    self.factor_shape,
                 );
                 if moved {
                     *x = npos;
@@ -503,6 +520,7 @@ impl Solver {
             &mut self.e_hist,
             self.atom_maxmove,
             self.manifold,
+            self.factor_shape,
         );
         if moved {
             *x = npos;
@@ -628,44 +646,50 @@ impl Solver {
 
         let start = x.clone();
         let gold = grad.clone();
-        match &mut self.inner {
+        if matches!(&self.inner, Inner::Lbfgs(_)) && self.accept == Accept::None {
+            let dir = match &self.inner {
+                Inner::Lbfgs(solver) => solver.direction(grad.view()),
+                _ => unreachable!(),
+            };
+            let dir = self.project_vec(x, &dir);
+            let old = x.clone();
+            let gold = grad.clone();
+            let (npos, nval, ngrad, moved) = accept_step(
+                obj,
+                x,
+                value,
+                &gold,
+                &dir,
+                &self.control,
+                self.accept,
+                &mut self.e_hist,
+                self.atom_maxmove,
+                self.manifold,
+                self.factor_shape,
+            );
+            if !moved {
+                return Err(Error::Oracle {
+                    what: "non-finite value or gradient",
+                });
+            }
+            *x = npos;
+            value = nval;
+            grad = ngrad;
+            if let Inner::Lbfgs(solver) = &mut self.inner {
+                solver.push(&*x - &old, &grad - &gold);
+            }
+        } else {
+            match &mut self.inner {
             Inner::Lbfgs(solver) => {
-                if self.accept == Accept::None {
-                    let dir = solver.direction(grad.view());
-                    let old = x.clone();
-                    let gold = grad.clone();
-                    let (npos, nval, ngrad, moved) = accept_step(
-                        obj,
-                        x,
-                        value,
-                        &gold,
-                        &dir,
-                        &self.control,
-                        self.accept,
-                        &mut self.e_hist,
-                        self.atom_maxmove,
-                        self.manifold,
-                    );
-                    if !moved {
-                        return Err(Error::Oracle {
-                            what: "non-finite value or gradient",
-                        });
-                    }
-                    *x = npos;
-                    value = nval;
-                    grad = ngrad;
-                    solver.push(&*x - &old, &grad - &gold);
-                } else {
-                    solver.step_objective(
-                        obj,
-                        x,
-                        &mut value,
-                        &mut grad,
-                        &mut self.istep,
-                        self.linesearch,
-                        &self.control,
-                    );
-                }
+                solver.step_objective(
+                    obj,
+                    x,
+                    &mut value,
+                    &mut grad,
+                    &mut self.istep,
+                    self.linesearch,
+                    &self.control,
+                );
             }
             Inner::Steepest => {
                 let dir = grad.mapv(|g| -g);
@@ -851,6 +875,7 @@ impl Solver {
                     &mut self.e_hist,
                     self.atom_maxmove,
                     self.manifold,
+                    self.factor_shape,
                 );
                 *x = npos;
                 value = nval;
@@ -862,15 +887,12 @@ impl Solver {
             }
             Inner::Pso { .. } | Inner::Newton { .. } | Inner::Dogleg { .. } => unreachable!(),
         }
+        }
 
         let delta = &*x - &start;
-        let y = match self.manifold {
-            ManifoldKind::Grassmann => {
-                let (n, p) = self.factor_shape.unwrap_or((start.len(), 1));
-                crate::manifold::Grassmann { n, p }.retract(&start, &delta)
-            }
-            other => other.retract(&start, &delta),
-        };
+        let y = self
+            .manifold
+            .retract_shaped(self.factor_shape, &start, &delta);
         if y.iter().zip(x.iter()).any(|(a, b)| (*a - *b).abs() > 1e-15) {
             *x = y;
             let ev = obj.value_and_gradient(x.view());

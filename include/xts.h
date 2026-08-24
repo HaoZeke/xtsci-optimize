@@ -193,6 +193,7 @@ typedef struct xts_solver_t xts_solver_t;
 #define xts_solver_set_highs rgmin_solver_set_highs
 #define xts_solver_set_manifold rgmin_solver_set_manifold
 #define xts_solver_set_masses rgmin_solver_set_masses
+#define xts_solver_set_factor_shape rgmin_solver_set_factor_shape
 #define xts_solver_set_periodic rgmin_solver_set_periodic
 #define xts_solver_step rgmin_solver_step
 #define xts_solver_step_hess rgmin_solver_step_hess
@@ -242,13 +243,17 @@ typedef enum xts_manifold_t {
     XTS_MANIFOLD_STIEFEL = 3,
     XTS_MANIFOLD_SE3 = 4,
     XTS_MANIFOLD_RIGID_QUOTIENT = 5,
-    XTS_MANIFOLD_MW_RIGID = 6
+    XTS_MANIFOLD_MW_RIGID = 6,
+    /** Real Grassmann Gr(n,p). Shape from xts_solver_set_factor_shape. */
+    XTS_MANIFOLD_GRASSMANN = 7
 } xts_manifold_t;
 void xts_solver_set_manifold(xts_solver_t *solver, xts_manifold_t manifold);
 /** Per-atom masses for MW_RIGID. n_atoms == 0 or masses == NULL
  *  restores unit mass. */
 void xts_solver_set_masses(xts_solver_t *solver, const double *masses,
                            size_t n_atoms);
+/** (n, p) for GRASSMANN. n == 0 or p == 0 clears to Gr(len, 1). */
+void xts_solver_set_factor_shape(xts_solver_t *solver, size_t n, size_t p);
 /** Periodic cell. Nonzero drops rotation (Sella proj_rot): R^{3N}/T(3). */
 void xts_solver_set_periodic(xts_solver_t *solver, int32_t enabled);
 /**

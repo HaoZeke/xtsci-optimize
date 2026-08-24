@@ -54,6 +54,7 @@ pub enum ManifoldKind {
     MwRigid,
     /// Real Grassmann \(\mathrm{Gr}(n,p)\). Default pack is
     /// \(\mathrm{Gr}(n,1)\). Session `set_factor_shape` sets `p`.
+    /// Length alone does not name `p`.
     Grassmann,
 }
 
@@ -77,10 +78,57 @@ impl ManifoldKind {
         }
     }
 
-    fn grassmann_of(x: &Array1<f64>) -> Grassmann {
-        Grassmann {
-            n: x.len().max(1),
-            p: 1,
+    /// Bind a packed frame to \(\mathrm{Gr}(n,p)\).
+    ///
+    /// `None` is \(\mathrm{Gr}(\mathrm{len}(x), 1)\). A 3N cluster is
+    /// still not a Stiefel frame: `p` has to be named.
+    pub fn grassmann(shape: Option<(usize, usize)>, len: usize) -> Grassmann {
+        match shape {
+            Some((n, p)) => Grassmann { n, p },
+            None => Grassmann {
+                n: len.max(1),
+                p: 1,
+            },
+        }
+    }
+
+    /// Retract with an optional Grassmann factor shape.
+    pub fn retract_shaped(
+        self,
+        shape: Option<(usize, usize)>,
+        x: &Array1<f64>,
+        v: &Array1<f64>,
+    ) -> Array1<f64> {
+        match self {
+            Self::Grassmann => Self::grassmann(shape, x.len()).retract(x, v),
+            other => other.retract(x, v),
+        }
+    }
+
+    /// Project with an optional Grassmann factor shape.
+    pub fn project_shaped(
+        self,
+        shape: Option<(usize, usize)>,
+        x: &Array1<f64>,
+        v: &Array1<f64>,
+    ) -> Array1<f64> {
+        match self {
+            Self::Grassmann => Self::grassmann(shape, x.len()).project(x, v),
+            other => other.project(x, v),
+        }
+    }
+
+    /// Transport with an optional Grassmann factor shape.
+    pub fn transport_shaped(
+        self,
+        shape: Option<(usize, usize)>,
+        x_from: &Array1<f64>,
+        x_to: &Array1<f64>,
+        v: &Array1<f64>,
+    ) -> Array1<f64> {
+        match self {
+            Self::Grassmann => Self::grassmann(shape, x_to.len()).transport(x_from, x_to, v),
+            other => other.transport(x_from, x_to, v),
         }
     }
 }
@@ -129,7 +177,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.project(x, v),
             Self::RigidQuotient => RigidQuotient.project(x, v),
             Self::MwRigid => MwRigid.project(x, v),
-            Self::Grassmann => Self::grassmann_of(x).project(x, v),
+            Self::Grassmann => Self::grassmann(None, x.len()).project(x, v),
         }
     }
 
@@ -142,7 +190,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.retract(x, v),
             Self::RigidQuotient => RigidQuotient.retract(x, v),
             Self::MwRigid => MwRigid.retract(x, v),
-            Self::Grassmann => Self::grassmann_of(x).retract(x, v),
+            Self::Grassmann => Self::grassmann(None, x.len()).retract(x, v),
         }
     }
 
@@ -155,7 +203,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.transport(x_from, x_to, v),
             Self::RigidQuotient => RigidQuotient.transport(x_from, x_to, v),
             Self::MwRigid => MwRigid.transport(x_from, x_to, v),
-            Self::Grassmann => Self::grassmann_of(x_to).transport(x_from, x_to, v),
+            Self::Grassmann => Self::grassmann(None, x_to.len()).transport(x_from, x_to, v),
         }
     }
 }

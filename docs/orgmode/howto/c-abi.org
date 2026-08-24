@@ -81,6 +81,7 @@ rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SPHERE);
 Tokens: ~RGMIN_MANIFOLD_EUCLIDEAN~ (default), ~RIGID_QUOTIENT~
 (~R^{3N}/SE(3)~, Sella Cartesian), ~MW_RIGID~ (Page–McIver /
 Sella IRC Eckart), ~SPHERE~, ~SO3~ (length 9), ~STIEFEL~
-(~St(n,1)~), ~SE3~ (length 12). See
+(~St(n,1)~), ~GRASSMANN~ (~Gr(n,p)~, ~set_factor_shape~),
+~SE3~ (length 12). See
 [[file:manifolds.org][retract onto an embedded manifold]].
 ~rgmin_solver_set_masses~ supplies N atomic masses for ~MW_RIGID~.

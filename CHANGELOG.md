@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Real Grassmann \(\mathrm{Gr}(n,p)\) (`ManifoldKind::Grassmann`,
+  manopt `grassmannfactory`): column-major pack, horizontal
+  projection, polar retraction, transport at the arrival point.
+  `Solver::set_factor_shape` names `p`; length `n p` does not.
 - Matrix-free Newton: the `HessianVector` trait, a finite-difference
   action wrapper, Steihaug-Toint CG inside a Nocedal-Wright trust
   region (`minimize_newton_cg`), and preconditioned CG with the
@@ -42,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An L-BFGS `Accept::None` direction is projected into the tangent
+  before the retract, so a Grassmann two-loop step stays Riemannian.
 - A non-finite gradient can no longer satisfy the convergence test
   under either gradient norm.
 - The energy-accept fallback faces the same test as the step it

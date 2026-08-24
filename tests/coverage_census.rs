@@ -4,7 +4,7 @@
 //! contract the API promises and fails when the contract does.
 
 use ndarray::{array, Array1, ArrayView1};
-use rgmin::manifold::{Manifold, MwRigid, Sphere, Stiefel};
+use rgmin::manifold::{Grassmann, Manifold, MwRigid, Sphere, Stiefel};
 use rgmin::{
     minimize_scg_exact, Conjugacy, Control, DirectionalCurvature, Restart, ScgParams,
 };
@@ -24,6 +24,25 @@ fn stiefel_p1_is_the_sphere_in_all_three_operations() {
         Stiefel.transport(&x, &y, &v),
         Sphere.transport(&x, &y, &v)
     );
+}
+
+/// Gr(n,1) is RP^{n-1}: the polar retract and horizontal project
+/// match the sphere on a length-n unit vector. Gr(4,2) is a
+/// different geometry; a 3N length is not a frame.
+#[test]
+fn grassmann_p1_is_the_sphere_and_p2_rejects_3n() {
+    let x = array![0.6, 0.8, 0.0];
+    let v = array![0.1, -0.2, 0.5];
+    let g = Grassmann { n: 3, p: 1 };
+    assert!((g.project(&x, &v) - Sphere.project(&x, &v))
+        .mapv(f64::abs)
+        .sum()
+        < 1e-14);
+    assert!((g.retract(&x, &v) - Sphere.retract(&x, &v))
+        .mapv(f64::abs)
+        .sum()
+        < 1e-14);
+    assert_eq!(Grassmann { n: 4, p: 2 }.required_dim(114), Err(8));
 }
 
 /// The Eckart quotient's projection removes every rigid-body component:

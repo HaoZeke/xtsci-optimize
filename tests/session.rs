@@ -688,3 +688,210 @@ fn an_uphill_everywhere_oracle_is_refused_not_moved() {
         "a refused step must leave the position where it stood"
     );
 }
+
+#[test]
+fn grassmann_session_stays_on_gr_4_2() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::{Grassmann, Manifold, ManifoldKind};
+
+    struct Brockett;
+    impl Objective<f64> for Brockett {
+        fn dim(&self) -> usize {
+            8
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(8, -4.0), Array1::from_elem(8, 4.0), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            // f(X) = 1*||col0||^2 + 2*||col1||^2 on the first two
+            // coordinates of each column: a linear-in-X^T A X stand-in
+            // whose Euclidean gradient is not already horizontal.
+            0.5 * (1.0 * x[0] * x[0] + 2.0 * x[1] * x[1] + 3.0 * x[4] * x[4] + 4.0 * x[5] * x[5])
+        }
+    }
+    impl Gradient<f64> for Brockett {
+        fn dim(&self) -> usize {
+            8
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            let mut g = Array1::zeros(8);
+            g[0] = x[0];
+            g[1] = 2.0 * x[1];
+            g[4] = 3.0 * x[4];
+            g[5] = 4.0 * x[5];
+            g
+        }
+    }
+    impl DifferentiableObjective<f64> for Brockett {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let g = Grassmann { n: 4, p: 2 };
+    let mut x = array![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 25,
+            gtol: 1e-10,
+            istep: 0.15,
+            maxmove: None,
+        },
+        8,
+    );
+    solver.set_manifold(ManifoldKind::Grassmann);
+    solver.set_factor_shape(4, 2);
+    solver.set_accept(rgmin::Accept::None);
+    for _ in 0..25 {
+        let _ = solver.step(&Brockett, &mut x).unwrap();
+        let yty = {
+            let cols = g.unpack(&x).unwrap();
+            [
+                cols[0].dot(&cols[0]),
+                cols[0].dot(&cols[1]),
+                cols[1].dot(&cols[1]),
+            ]
+        };
+        assert!((yty[0] - 1.0).abs() < 1e-10, "col0 {yty:?} x={x:?}");
+        assert!(yty[1].abs() < 1e-10, "not orthogonal {yty:?} x={x:?}");
+        assert!((yty[2] - 1.0).abs() < 1e-10, "col1 {yty:?} x={x:?}");
+        let t = g.project(&x, &Array1::from_elem(8, 0.3));
+        let xtt0 = g.unpack(&x).unwrap()[0].dot(&g.unpack(&t).unwrap()[0]);
+        let xtt1 = g.unpack(&x).unwrap()[1].dot(&g.unpack(&t).unwrap()[1]);
+        assert!(xtt0.abs() < 1e-10 && xtt1.abs() < 1e-10);
+    }
+}
+
+#[test]
+fn lbfgs_first_step_is_the_riemannian_retract() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::{Accept, Grassmann, Manifold, ManifoldKind};
+
+    struct Brockett;
+    impl Objective<f64> for Brockett {
+        fn dim(&self) -> usize {
+            8
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(8, -8.0), Array1::from_elem(8, 8.0), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            // 1/2 tr(X^T A X N), A = diag(1,2,3,4), N = diag(1,2).
+            let a = [1.0, 2.0, 3.0, 4.0];
+            let nmu = [1.0, 2.0];
+            let mut f = 0.0;
+            for j in 0..2 {
+                let mut q = 0.0;
+                for i in 0..4 {
+                    let xi = x[j * 4 + i];
+                    q += a[i] * xi * xi;
+                }
+                f += 0.5 * nmu[j] * q;
+            }
+            f
+        }
+    }
+    impl Gradient<f64> for Brockett {
+        fn dim(&self) -> usize {
+            8
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            let a = [1.0, 2.0, 3.0, 4.0];
+            let nmu = [1.0, 2.0];
+            let mut g = Array1::zeros(8);
+            for j in 0..2 {
+                for i in 0..4 {
+                    g[j * 4 + i] = a[i] * nmu[j] * x[j * 4 + i];
+                }
+            }
+            g
+        }
+    }
+    impl DifferentiableObjective<f64> for Brockett {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let gman = Grassmann { n: 4, p: 2 };
+    let s2 = 0.5_f64.sqrt();
+    let mut x = array![s2, s2, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    {
+        let cols = gman.unpack(&x).unwrap();
+        assert!((cols[0].dot(&cols[0]) - 1.0).abs() < 1e-14);
+        assert!(cols[0].dot(&cols[1]).abs() < 1e-14);
+        assert!((cols[1].dot(&cols[1]) - 1.0).abs() < 1e-14);
+    }
+    let egrad = Brockett.grad(x.view());
+    let rgrad = gman.project(&x, &egrad);
+    let xtg = {
+        let cols = gman.unpack(&x).unwrap();
+        let gs = gman.unpack(&rgrad).unwrap();
+        cols[0].dot(&gs[0]).abs() + cols[0].dot(&gs[1]).abs() + cols[1].dot(&gs[0]).abs()
+            + cols[1].dot(&gs[1]).abs()
+    };
+    assert!(xtg < 1e-12, "Riemannian gradient must be horizontal {xtg}");
+    assert!(rgrad.iter().map(|v| v * v).sum::<f64>().sqrt() > 1e-6, "need a non-critical start");
+    let want = gman.retract(&x, &rgrad.mapv(|v| -v));
+
+    let mut solver = Solver::new(
+        Method::lbfgs(),
+        Control {
+            maxiter: 20,
+            gtol: 1e-14,
+            istep: 0.1,
+            maxmove: None,
+        },
+        8,
+    );
+    solver.set_manifold(ManifoldKind::Grassmann);
+    solver.set_factor_shape(4, 2);
+    solver.set_accept(Accept::None);
+    let f0 = Brockett.eval(x.view());
+    let _ = solver.step(&Brockett, &mut x).unwrap();
+    let cols = gman.unpack(&x).unwrap();
+    assert!((cols[0].dot(&cols[0]) - 1.0).abs() < 1e-10, "left Gr(4,2) {x:?}");
+    assert!(cols[0].dot(&cols[1]).abs() < 1e-10, "not orthogonal {x:?}");
+    assert!((cols[1].dot(&cols[1]) - 1.0).abs() < 1e-10, "left Gr(4,2) {x:?}");
+    assert!(
+        (&x - &want).mapv(f64::abs).sum() < 1e-10,
+        "first L-BFGS step must be Retr_x(-grad_R), got {x:?} want {want:?}"
+    );
+    let f1 = Brockett.eval(x.view());
+    assert!(f1 < f0, "Riemannian step must decrease Brockett, {f1} vs {f0}");
+    for _ in 0..12 {
+        let _ = solver.step(&Brockett, &mut x).unwrap();
+        let cols = gman.unpack(&x).unwrap();
+        assert!((cols[0].dot(&cols[0]) - 1.0).abs() < 1e-8, "left Gr(4,2) {x:?}");
+        assert!(cols[0].dot(&cols[1]).abs() < 1e-8, "not orthogonal {x:?}");
+        assert!((cols[1].dot(&cols[1]) - 1.0).abs() < 1e-8, "left Gr(4,2) {x:?}");
+    }
+}
+
+#[test]
+fn grassmann_shape_rejects_a_3n_cluster() {
+    let obj = Rosenbrock::<114>::new();
+    let mut x = Array1::from_elem(114, 0.1);
+    let mut solver = Solver::new(Method::Steepest, control(), 114);
+    solver.set_manifold(rgmin::ManifoldKind::Grassmann);
+    solver.set_factor_shape(4, 2);
+    let err = solver.step(&obj, &mut x).unwrap_err();
+    match err {
+        rgmin::Error::ManifoldDim { kind, got } => {
+            assert_eq!(kind, "grassmann");
+            assert_eq!(got, 114);
+        }
+        other => panic!("expected ManifoldDim, got {other:?}"),
+    }
+}
