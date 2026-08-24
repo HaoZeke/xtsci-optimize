@@ -18,6 +18,7 @@ fn lbfgs_session_reaches_rosenbrock() {
     let obj = Rosenbrock::<2>::new();
     let mut x = array![-1.2, 1.0];
     let mut solver = Solver::new(Method::lbfgs(), control(), 2).with_gtol(1e-8);
+    solver.set_accept(rgmin::Accept::Energy);
     let mut last = None;
     for _ in 0..80 {
         let rep = solver.step(&obj, &mut x).unwrap();
@@ -134,6 +135,7 @@ fn first_order_accept_none_moves_a_nonconservative_force() {
 fn retained_pairs_beat_a_cold_start() {
     let obj = Rosenbrock::<2>::new();
     let mut warm = Solver::new(Method::lbfgs(), control(), 2).with_gtol(1e-8);
+    warm.set_accept(rgmin::Accept::Energy);
     let mut x = array![-1.2, 1.0];
     for _ in 0..80 {
         let rep = warm.step(&obj, &mut x).unwrap();
