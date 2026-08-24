@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ManifoldKind::Multinomial`: the simplex `{x > 0, sum x = 1}`
+  with the Fisher information metric (manopt `multinomialfactory`,
+  `m = 1`). Packing is a length-`n` probability vector, `n >= 2`.
 - Matrix-free Newton: the `HessianVector` trait, a finite-difference
   action wrapper, Steihaug-Toint CG inside a Nocedal-Wright trust
   region (`minimize_newton_cg`), and preconditioned CG with the

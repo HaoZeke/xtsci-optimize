@@ -84,6 +84,7 @@ Manifold
 Tokens: ``RGMIN_MANIFOLD_EUCLIDEAN`` (default), ``RIGID_QUOTIENT``
 (``R^{3N}/SE(3)``, Sella Cartesian), ``MW_RIGID`` (Page–McIver /
 Sella IRC Eckart), ``SPHERE``, ``SO3`` (length 9), ``STIEFEL``
-(``St(n,1)``), ``SE3`` (length 12). See
+(``St(n,1)``), ``SE3`` (length 12), ``MULTINOMIAL`` (simplex,
+``n >= 2``). See
 `retract onto an embedded manifold <manifolds.rst>`_.
 ``rgmin_solver_set_masses`` supplies N atomic masses for ``MW_RIGID``.

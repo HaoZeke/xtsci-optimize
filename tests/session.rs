@@ -433,6 +433,78 @@ fn se3_rejects_a_3n_cluster() {
 }
 
 #[test]
+fn multinomial_session_stays_on_the_simplex() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::ManifoldKind;
+
+    struct Entropy;
+    impl Objective<f64> for Entropy {
+        fn dim(&self) -> usize {
+            3
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| Bounds::new(array![0.0, 0.0, 0.0], array![1.0, 1.0, 1.0], 0.0))
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            x.iter().map(|xi| xi * xi).sum()
+        }
+    }
+    impl Gradient<f64> for Entropy {
+        fn dim(&self) -> usize {
+            3
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            Array1::from_iter(x.iter().map(|xi| 2.0 * xi))
+        }
+    }
+    impl DifferentiableObjective<f64> for Entropy {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = Entropy;
+    let mut x = array![0.2, 0.3, 0.5];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 20,
+            gtol: 1e-10,
+            istep: 0.1,
+            maxmove: None,
+        },
+        3,
+    );
+    solver.set_manifold(ManifoldKind::Multinomial);
+    solver.set_accept(rgmin::Accept::None);
+    for _ in 0..20 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        assert!(x.iter().all(|&xi| xi > 0.0), "left the interior {x:?}");
+        let s = x.iter().copied().sum::<f64>();
+        assert!((s - 1.0).abs() < 1e-12, "left the simplex sum={s} x={x:?}");
+    }
+}
+
+#[test]
+fn multinomial_rejects_a_point() {
+    let obj = Rosenbrock::<1>::new();
+    let mut x = array![1.0];
+    let mut solver = Solver::new(Method::Steepest, control(), 1);
+    solver.set_manifold(rgmin::ManifoldKind::Multinomial);
+    let err = solver.step(&obj, &mut x).unwrap_err();
+    match err {
+        rgmin::Error::ManifoldDim { kind, got } => {
+            assert_eq!(kind, "multinomial");
+            assert_eq!(got, 1);
+        }
+        other => panic!("expected ManifoldDim, got {other:?}"),
+    }
+}
+
+#[test]
 fn rigid_quotient_drops_translation_and_keeps_3n() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::ArrayView1;

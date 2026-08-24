@@ -44,6 +44,8 @@ Tokens
     +-------------------+---------------------------------------+-------------------------------------------+
     | ``Se3``           | row-major ``R`` then ``t``, length 12 | SO(3) on the rotation, Euclidean on ``t`` |
     +-------------------+---------------------------------------+-------------------------------------------+
+    | ``Multinomial``   | simplex, length ``n >= 2``            | ``x .* exp(v ./ x)``, renormalized        |
+    +-------------------+---------------------------------------+-------------------------------------------+
 
 An isolated molecule or cluster lives on ``RigidQuotient``
 (``R^{3N}/SE(3)``): Sella Cartesian ``fix_translation`` plus
@@ -92,6 +94,7 @@ C
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SO3);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_STIEFEL);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SE3);
+    rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_MULTINOMIAL);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_EUCLIDEAN);
 
 Changing the manifold drops method memory (``forget``).
@@ -117,6 +120,11 @@ Packing notes
 
 - ``Stiefel`` is ``St(n,1)``. A frame with ``p > 1`` is not a length
   token: ``n p`` does not name ``p``.
+
+- ``Multinomial`` is the simplex ``{x > 0, sum x = 1}`` with the
+  Fisher metric (manopt ``multinomialfactory``, ``m = 1``). The pack
+  is a length-``n`` probability vector, ``n >= 2``. Column-stochastic
+  ``m > 1`` and doubly-stochastic factories are different tokens.
 
 - ``set_project_rigid`` is the same horizontal projection as
   ``RigidQuotient`` and stays available on Euclidean.

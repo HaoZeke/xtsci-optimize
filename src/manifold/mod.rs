@@ -11,10 +11,12 @@
 //! \(R^{3N}/\mathrm{SE}(3)\)) or [`ManifoldKind::MwRigid`] (Page–McIver
 //! mass-weighted Eckart, the IRC metric). Sphere / SO(3)-9 / SE(3)-12
 //! are matrix-manifold embeddings, not a 3N cluster.
+//! [`ManifoldKind::Multinomial`] is the simplex with the Fisher metric.
 
 use ndarray::Array1;
 
 mod euclidean;
+mod multinomial;
 mod mw_rigid;
 mod rigid_quotient;
 mod se3;
@@ -23,6 +25,7 @@ mod sphere;
 mod stiefel;
 
 pub use euclidean::Euclidean;
+pub use multinomial::Multinomial;
 pub use mw_rigid::MwRigid;
 pub use rigid_quotient::RigidQuotient;
 pub use se3::Se3;
@@ -50,6 +53,9 @@ pub enum ManifoldKind {
     /// Mass-weighted Eckart: Sella IRC / Page–McIver metric on
     /// the same quotient. Masses from [`crate::Solver::set_masses`].
     MwRigid,
+    /// Simplex \(\{x > 0,\ \sum x = 1\}\) with the Fisher metric.
+    /// manopt `multinomialfactory` at \(m = 1\). Length \(n \ge 2\).
+    Multinomial,
 }
 
 impl ManifoldKind {
@@ -68,6 +74,7 @@ impl ManifoldKind {
             Self::Se3 => "se3",
             Self::RigidQuotient => "rigid_quotient",
             Self::MwRigid => "mw_rigid",
+            Self::Multinomial => "multinomial",
         }
     }
 }
@@ -97,6 +104,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.required_dim(n),
             Self::RigidQuotient => RigidQuotient.required_dim(n),
             Self::MwRigid => MwRigid.required_dim(n),
+            Self::Multinomial => Multinomial.required_dim(n),
         }
     }
 
@@ -109,6 +117,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.project(x, v),
             Self::RigidQuotient => RigidQuotient.project(x, v),
             Self::MwRigid => MwRigid.project(x, v),
+            Self::Multinomial => Multinomial.project(x, v),
         }
     }
 
@@ -121,6 +130,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.retract(x, v),
             Self::RigidQuotient => RigidQuotient.retract(x, v),
             Self::MwRigid => MwRigid.retract(x, v),
+            Self::Multinomial => Multinomial.retract(x, v),
         }
     }
 
@@ -133,6 +143,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.transport(x_from, x_to, v),
             Self::RigidQuotient => RigidQuotient.transport(x_from, x_to, v),
             Self::MwRigid => MwRigid.transport(x_from, x_to, v),
+            Self::Multinomial => Multinomial.transport(x_from, x_to, v),
         }
     }
 }

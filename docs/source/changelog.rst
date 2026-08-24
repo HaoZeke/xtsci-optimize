@@ -19,6 +19,11 @@ Stamp 1.12.3. Hybrid and Restart stay Rust-only. The gpr_optim
 consumer that writes ``RGMIN_CONJUGACY_LIU_STOREY`` is
 ``RgminScg.inl``, not in-tree ``SCG.inl``.
 
+Multinomial simplex: ``multinomial`` is manopt
+``multinomialfactory`` at ``m = 1``, the set ``{x > 0, sum x = 1}``
+with the Fisher information metric. Packing is a length-``n``
+probability vector, ``n >= 2``.
+
 Molecular manifolds: ``rigid_quotient`` is Sella Cartesian
 ``R^{3N}/SE(3)`` (``fix_translation`` + ``fix_rotation``);
 ``mw_rigid`` is the Page–McIver / Sella IRC Eckart metric on the
