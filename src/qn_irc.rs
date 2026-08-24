@@ -284,9 +284,11 @@ mod tests {
         let evecs = Array2::<f64>::eye(2);
         let g = array![8.0, 2.0];
         let (s, _) = qn_get_s(&evals, &evecs, &g, 1, 0.0);
-        // L = (|4|, -|-2|) = (4, -2); s = -g/L = (-2, 1)
-        assert!((s[0] + 2.0).abs() < 1e-12);
-        assert!((s[1] - 1.0).abs() < 1e-12);
+        // Sella flips the first `order` slots, not the negative
+        // eigenvalues by value: L = (-|4|, |-2|) = (-4, 2);
+        // s = -g/L = (2, -1).
+        assert!((s[0] - 2.0).abs() < 1e-12);
+        assert!((s[1] + 1.0).abs() < 1e-12);
     }
 
     #[test]
