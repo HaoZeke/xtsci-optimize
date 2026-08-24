@@ -156,6 +156,57 @@ pub fn qn_get_s(
     (s, dsda)
 }
 
+/// Sella `TrustRegion` + `QuasiNewton.get_s`: \(\|s\| \le \delta\).
+pub fn qn_restricted(
+    evals: &Array1<f64>,
+    evecs: &Array2<f64>,
+    g: &Array1<f64>,
+    order: usize,
+    delta: f64,
+) -> Array1<f64> {
+    let (s0, _) = qn_get_s(evals, evecs, g, order, 0.0);
+    let n0 = nrm2(s0.view());
+    if n0 <= delta + 1e-14 {
+        return s0;
+    }
+    let mut alpha: f64 = 0.0;
+    let mut lower: f64 = 0.0;
+    let mut upper: f64 = f64::INFINITY;
+    let mut best = s0;
+    for _ in 0..ALPHA_MAXITER {
+        let (s, ds) = qn_get_s(evals, evecs, g, order, alpha);
+        let val = nrm2(s.view());
+        let err = val - delta;
+        best = s.clone();
+        if err.abs() <= 1e-10 {
+            return s;
+        }
+        if lower.is_finite() && upper.is_finite() && (upper - lower) < 1e-14 * (1.0 + upper) {
+            return s;
+        }
+        if err < 0.0 {
+            upper = alpha;
+        } else {
+            lower = alpha;
+        }
+        let dval = if val > 1e-16 {
+            dot(s.view(), ds.view()) / val
+        } else {
+            0.0
+        };
+        let mut a1 = alpha - err / dval;
+        if !a1.is_finite() || a1 <= lower || a1 >= upper {
+            if upper.is_infinite() {
+                a1 = alpha + (1.0 + 0.5 * alpha);
+            } else {
+                a1 = 0.5 * (lower + upper);
+            }
+        }
+        alpha = a1;
+    }
+    best
+}
+
 /// Sella `QuasiNewtonIRC.get_s` in the same coordinates as `g` and `d1`.
 pub fn qn_irc_get_s(
     evals: &Array1<f64>,
@@ -324,6 +375,26 @@ mod tests {
         let (s, _) = qn_irc_get_s(&evals, &evecs, &g, &d1, 1.0e12);
         assert!((s[0] + d1[0]).abs() < 1e-8, "{}", s[0]);
         assert!((s[1] + d1[1]).abs() < 1e-8, "{}", s[1]);
+    }
+
+    #[test]
+    fn qn_restricted_clips_a_long_newton_step() {
+        let evals = array![1.0, 1.0];
+        let evecs = Array2::<f64>::eye(2);
+        let g = array![4.0, 0.0];
+        let s = qn_restricted(&evals, &evecs, &g, 0, 0.5);
+        let n = nrm2(s.view());
+        assert!((n - 0.5).abs() < 1e-9, "||s||={n}");
+    }
+
+    #[test]
+    fn qn_restricted_keeps_a_short_newton_step() {
+        let evals = array![4.0, 4.0];
+        let evecs = Array2::<f64>::eye(2);
+        let g = array![0.4, 0.0];
+        let s = qn_restricted(&evals, &evecs, &g, 0, 0.5);
+        assert!((s[0] + 0.1).abs() < 1e-12);
+        assert!(nrm2(s.view()) < 0.5);
     }
 
     #[test]

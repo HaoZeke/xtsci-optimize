@@ -75,7 +75,7 @@ pub use fire::FireKind;
 pub use irc_trust::{sqrt_masses_3n, IrcTrust};
 pub use qn_irc::{
     bfgs_hessian_update, mw_pair, qn_get_s, qn_irc_get_s, qn_irc_restricted,
-    qn_irc_restricted_identity, to_mw, BfgsModel,
+    qn_irc_restricted_identity, qn_restricted, to_mw, BfgsModel,
 };
 pub use lowest_mode::{
     lowest_eigenpair, lowest_mode, ApplyHessian, EigenParams, EigensolverKind, LowestMode,
