@@ -19,6 +19,7 @@ mod mw_rigid;
 mod rigid_quotient;
 mod se3;
 mod so3;
+mod spd;
 mod sphere;
 mod stiefel;
 
@@ -27,6 +28,7 @@ pub use mw_rigid::MwRigid;
 pub use rigid_quotient::RigidQuotient;
 pub use se3::Se3;
 pub use so3::So3;
+pub use spd::{is_spd, pack as pack_spd, side as spd_side, unpack as unpack_spd, Spd};
 pub use sphere::Sphere;
 pub use stiefel::Stiefel;
 
@@ -50,6 +52,9 @@ pub enum ManifoldKind {
     /// Mass-weighted Eckart: Sella IRC / Page–McIver metric on
     /// the same quotient. Masses from [`crate::Solver::set_masses`].
     MwRigid,
+    /// Affine-invariant SPD cone. Row-major `n x n`, length `n^2`.
+    /// manopt `sympositivedefinitefactory`.
+    Spd,
 }
 
 impl ManifoldKind {
@@ -68,6 +73,7 @@ impl ManifoldKind {
             Self::Se3 => "se3",
             Self::RigidQuotient => "rigid_quotient",
             Self::MwRigid => "mw_rigid",
+            Self::Spd => "spd",
         }
     }
 }
@@ -97,6 +103,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.required_dim(n),
             Self::RigidQuotient => RigidQuotient.required_dim(n),
             Self::MwRigid => MwRigid.required_dim(n),
+            Self::Spd => Spd.required_dim(n),
         }
     }
 
@@ -109,6 +116,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.project(x, v),
             Self::RigidQuotient => RigidQuotient.project(x, v),
             Self::MwRigid => MwRigid.project(x, v),
+            Self::Spd => Spd.project(x, v),
         }
     }
 
@@ -121,6 +129,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.retract(x, v),
             Self::RigidQuotient => RigidQuotient.retract(x, v),
             Self::MwRigid => MwRigid.retract(x, v),
+            Self::Spd => Spd.retract(x, v),
         }
     }
 
@@ -133,6 +142,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.transport(x_from, x_to, v),
             Self::RigidQuotient => RigidQuotient.transport(x_from, x_to, v),
             Self::MwRigid => MwRigid.transport(x_from, x_to, v),
+            Self::Spd => Spd.transport(x_from, x_to, v),
         }
     }
 }

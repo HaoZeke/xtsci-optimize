@@ -4,7 +4,7 @@
 //! contract the API promises and fails when the contract does.
 
 use ndarray::{array, Array1, ArrayView1};
-use rgmin::manifold::{Manifold, MwRigid, Sphere, Stiefel};
+use rgmin::manifold::{is_spd, Manifold, MwRigid, Spd, Sphere, Stiefel};
 use rgmin::{
     minimize_scg_exact, Conjugacy, Control, DirectionalCurvature, Restart, ScgParams,
 };
@@ -24,6 +24,18 @@ fn stiefel_p1_is_the_sphere_in_all_three_operations() {
         Stiefel.transport(&x, &y, &v),
         Sphere.transport(&x, &y, &v)
     );
+}
+
+/// Affine-invariant SPD is not SO(3): a 3x3 point stays positive
+/// definite and is not a rotation.
+#[test]
+fn spd_retract_stays_positive_definite_and_is_not_so3() {
+    let x = array![2.0, 0.1, 0.0, 0.1, 3.0, 0.2, 0.0, 0.2, 4.0];
+    let v = array![0.0, 0.05, 0.0, 0.05, 0.0, 0.1, 0.0, 0.1, 0.0];
+    let y = Spd.retract(&x, &v);
+    assert!(is_spd(&y), "left the SPD set {y:?}");
+    let fro2: f64 = y.iter().map(|a| a * a).sum();
+    assert!((fro2 - 3.0).abs() > 1.0);
 }
 
 /// The Eckart quotient's projection removes every rigid-body component:
