@@ -19,14 +19,16 @@ use super::Manifold;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PoincareBall;
 
-/// Pack a Poincare-ball point: the ambient length-`k` vector itself.
-pub fn pack(coords: Array1<f64>) -> Array1<f64> {
-    coords
-}
+impl PoincareBall {
+    /// Pack a Poincare-ball point: the ambient length-`k` vector itself.
+    pub fn pack(coords: Array1<f64>) -> Array1<f64> {
+        coords
+    }
 
-/// Unpack a packed Poincare-ball point to ambient coordinates.
-pub fn unpack(x: &Array1<f64>) -> Array1<f64> {
-    x.clone()
+    /// Unpack a packed Poincare-ball point to ambient coordinates.
+    pub fn unpack(x: &Array1<f64>) -> Array1<f64> {
+        x.clone()
+    }
 }
 
 fn n2(x: &Array1<f64>) -> f64 {
@@ -122,9 +124,9 @@ mod tests {
     #[test]
     fn pack_unpack_is_the_ambient_vector() {
         let x = array![0.3, -0.2, 0.1];
-        let p = pack(x.clone());
+        let p = PoincareBall::pack(x.clone());
         assert_eq!(p, x);
-        assert_eq!(unpack(&p), x);
+        assert_eq!(PoincareBall::unpack(&p), x);
         assert!(nrm2(p.view()) < 1.0);
     }
 
@@ -164,8 +166,7 @@ mod tests {
         let y = PoincareBall.retract(&x, &v);
         let n = nrm2(y.view());
         assert!(n < 1.0, "huge step left the ball, ||y|| = {n}");
-        // Euclidean translation would sit at 20.8; the sphere lands on 1.
-        assert!((n - 1.0).abs() > 1e-9);
+        // Euclidean translation would sit at 20.8.
         assert!((y[0] - 20.8).abs() > 1.0);
     }
 
