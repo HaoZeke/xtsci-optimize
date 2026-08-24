@@ -79,7 +79,7 @@ pub use qn_irc::{
     bfgs_hessian_update, mw_pair, qn_get_s, qn_irc_get_s, qn_irc_restricted,
     qn_irc_restricted_identity, qn_restricted, to_mw, BfgsModel,
 };
-pub use sella_step::{prfo_restricted, ras_clip, rfo_get_s, rfo_restricted};
+pub use sella_step::{prfo_restricted, ras_clip, rfo_get_s, rfo_restricted, ts_bfgs_update};
 pub use lowest_mode::{
     lowest_eigenpair, lowest_mode, ApplyHessian, EigenParams, EigensolverKind, LowestMode,
     DENSE_EIGEN_CUTOFF,

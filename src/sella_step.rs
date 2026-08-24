@@ -9,7 +9,7 @@
 use ndarray::{Array1, Array2};
 
 use crate::hvp::sym_eig_jacobi;
-use crate::vecops::{axpy, nrm2};
+use crate::vecops::{axpy, dot, nrm2};
 
 const DENOM_FLOOR: f64 = 1e-12;
 const ALPHA_MAXITER: usize = 64;
@@ -170,6 +170,62 @@ pub fn ras_clip(s: &Array1<f64>, delta: f64) -> Array1<f64> {
     s * (delta / maxn)
 }
 
+/// Sella `TS-BFGS` for a single pair (`hessian_update._MS_TS_BFGS`).
+///
+/// Uses \(|B|\) in the secant weight so a negative mode is not
+/// forced positive. `B` is overwritten in place and symmetrized.
+pub fn ts_bfgs_update(b: &mut Array2<f64>, s: &Array1<f64>, y: &Array1<f64>) {
+    let n = s.len();
+    if n == 0 || b.nrows() != n || b.ncols() != n {
+        return;
+    }
+    if nrm2(s.view()) < 1e-8 {
+        return;
+    }
+    let (lams, vecs) = sym_eig_jacobi(b.clone());
+    let bs = b.dot(s);
+    let j = y - &bs;
+    let mut vts = Array1::zeros(n);
+    for i in 0..n {
+        let mut acc = 0.0;
+        for k in 0..n {
+            acc += vecs[(k, i)] * s[k];
+        }
+        vts[i] = lams[i].abs() * acc;
+    }
+    let mut absbs = Array1::zeros(n);
+    for i in 0..n {
+        let mut acc = 0.0;
+        for k in 0..n {
+            acc += vecs[(i, k)] * vts[k];
+        }
+        absbs[i] = acc;
+    }
+    let sy = dot(s.view(), y.view());
+    let sa = dot(s.view(), absbs.view());
+    let denom = sy * sy + sa * sa;
+    if denom.abs() < 1e-16 {
+        return;
+    }
+    let mut u = Array1::zeros(n);
+    for i in 0..n {
+        u[i] = (sy * y[i] + sa * absbs[i]) / denom;
+    }
+    let js = dot(j.view(), s.view());
+    for i in 0..n {
+        for k in 0..n {
+            b[(i, k)] += u[i] * j[k] + j[i] * u[k] - js * u[i] * u[k];
+        }
+    }
+    for i in 0..n {
+        for k in i + 1..n {
+            let v = 0.5 * (b[(i, k)] + b[(k, i)]);
+            b[(i, k)] = v;
+            b[(k, i)] = v;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,6 +258,21 @@ mod tests {
         let s = prfo_restricted(&evals, &evecs, &g, 1, 0.5);
         assert!(s[0].abs() > 1e-8, "no uphill component: {s:?}");
         assert!(nrm2(s.view()) <= 0.5 + 1e-8);
+    }
+
+    #[test]
+    fn ts_bfgs_keeps_a_negative_mode() {
+        let mut b = Array2::<f64>::zeros((2, 2));
+        b[(0, 0)] = -1.0;
+        b[(1, 1)] = 4.0;
+        let s = array![0.0, 0.1];
+        let y = array![0.0, 0.4];
+        ts_bfgs_update(&mut b, &s, &y);
+        let (evals, _) = crate::hvp::sym_eig_jacobi(b);
+        assert!(
+            evals.iter().any(|&e| e < 0.0),
+            "TS-BFGS must keep the saddle mode: {evals:?}"
+        );
     }
 
     #[test]
