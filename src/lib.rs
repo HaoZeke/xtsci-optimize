@@ -47,6 +47,8 @@ pub mod vecops;
 mod minimize;
 /// Matrix-free Newton: Hessian actions and Steihaug-Toint CG.
 pub mod hvp;
+/// Matrix-free lowest Hessian eigenpair (IRC kick / lambda_min).
+pub mod lowest_mode;
 /// Shifted Newton and Banerjee RFO on a dense Hessian.
 pub mod newton;
 mod oracle;
@@ -69,6 +71,7 @@ pub use control::Control;
 pub use error::{Error, Result};
 pub use fire::FireKind;
 pub use irc_trust::{sqrt_masses_3n, IrcTrust};
+pub use lowest_mode::{lowest_eigenpair, LowestMode};
 pub use hvp::{
     FdHvp, HessianVector, HvpOracle, IdentityPrecond, NystromPrecond, Preconditioner,
     minimize_newton_cg, steihaug_cg, steihaug_pcg,
