@@ -66,6 +66,8 @@ mod trust;
 pub mod irc_trust;
 /// Sella QuasiNewton / QuasiNewtonIRC restricted step.
 pub mod qn_irc;
+/// Sella RFO, P-RFO, and restricted atomic step.
+pub mod sella_step;
 
 pub use accept::Accept;
 pub use adam::minimize_adam;
@@ -77,6 +79,7 @@ pub use qn_irc::{
     bfgs_hessian_update, mw_pair, qn_get_s, qn_irc_get_s, qn_irc_restricted,
     qn_irc_restricted_identity, qn_restricted, to_mw, BfgsModel,
 };
+pub use sella_step::{prfo_restricted, ras_clip, rfo_get_s, rfo_restricted};
 pub use lowest_mode::{
     lowest_eigenpair, lowest_mode, ApplyHessian, EigenParams, EigensolverKind, LowestMode,
     DENSE_EIGEN_CUTOFF,
