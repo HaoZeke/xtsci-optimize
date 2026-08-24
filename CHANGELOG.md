@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ManifoldKind::Symmetric`: manopt `symmetricfactory`. Packed
+  row-major `n^2`. Projection is symmetrization, retraction is
+  `X + U`, transport is the identity. C token 14.
+- `ManifoldKind::ComplexCircle`: manopt `complexcirclefactory(n)`,
+  interleaved `(re, im)` pairs of length `2 n`. Projection and
+  retraction keep each pair on `S^1`. C token 13.
 - Typed lowest-mode waist: closed `EigensolverKind` (Lanczos through
   EigenExa, `schema/eigen.capnp`) and `EigenParams` (`nev`, `krylov`,
   `max_iter`, `tol`). Lanczos, Rayleigh-Ritz, Jacobi-Davidson, and

@@ -433,6 +433,158 @@ fn se3_rejects_a_3n_cluster() {
 }
 
 #[test]
+fn complex_circle_session_stays_on_the_set() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::ManifoldKind;
+
+    /// Minus the sum of real parts. Minimizer is every z_k = 1.
+    struct MinusReal;
+    impl Objective<f64> for MinusReal {
+        fn dim(&self) -> usize {
+            4
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(4, -2.0), Array1::from_elem(4, 2.0), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            -(x[0] + x[2])
+        }
+    }
+    impl Gradient<f64> for MinusReal {
+        fn dim(&self) -> usize {
+            4
+        }
+        fn grad(&self, _x: ArrayView1<f64>) -> Array1<f64> {
+            array![-1.0, 0.0, -1.0, 0.0]
+        }
+    }
+    impl DifferentiableObjective<f64> for MinusReal {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = MinusReal;
+    let mut x = array![0.0, 1.0, -1.0, 0.0];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 20,
+            gtol: 1e-8,
+            istep: 0.2,
+            maxmove: None,
+        },
+        4,
+    );
+    solver.set_manifold(ManifoldKind::complex_circle(2));
+    solver.set_accept(rgmin::Accept::None);
+    for _ in 0..20 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        let n0 = (x[0] * x[0] + x[1] * x[1]).sqrt();
+        let n1 = (x[2] * x[2] + x[3] * x[3]).sqrt();
+        assert!((n0 - 1.0).abs() < 1e-10, "left circle 0 {x:?}");
+        assert!((n1 - 1.0).abs() < 1e-10, "left circle 1 {x:?}");
+    }
+}
+
+#[test]
+fn complex_circle_rejects_a_3n_cluster() {
+    let obj = Rosenbrock::<114>::new();
+    let mut x = Array1::from_elem(114, 0.1);
+    let mut solver = Solver::new(Method::Steepest, control(), 114);
+    solver.set_manifold(rgmin::ManifoldKind::complex_circle(2));
+    let err = solver.step(&obj, &mut x).unwrap_err();
+    match err {
+        rgmin::Error::ManifoldDim { kind, got } => {
+            assert_eq!(kind, "complex_circle");
+            assert_eq!(got, 114);
+        }
+        other => panic!("expected ManifoldDim, got {other:?}"),
+    }
+}
+
+#[test]
+fn symmetric_session_stays_on_the_set() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::manifold::is_symmetric;
+    use rgmin::ManifoldKind;
+
+    struct FrobeniusI;
+    impl Objective<f64> for FrobeniusI {
+        fn dim(&self) -> usize {
+            4
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(4, -4.0), Array1::from_elem(4, 4.0), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            let i = [1.0, 0.0, 0.0, 1.0];
+            0.5 * x.iter().zip(i).map(|(a, b)| (a - b) * (a - b)).sum::<f64>()
+        }
+    }
+    impl Gradient<f64> for FrobeniusI {
+        fn dim(&self) -> usize {
+            4
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            let i = [1.0, 0.0, 0.0, 1.0];
+            Array1::from_iter(x.iter().zip(i).map(|(a, b)| a - b))
+        }
+    }
+    impl DifferentiableObjective<f64> for FrobeniusI {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = FrobeniusI;
+    let mut x = array![2.0, 0.4, -0.1, -1.5];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 20,
+            gtol: 1e-8,
+            istep: 0.1,
+            maxmove: None,
+        },
+        4,
+    );
+    solver.set_manifold(ManifoldKind::Symmetric);
+    solver.set_accept(rgmin::Accept::None);
+    for _ in 0..20 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        assert!(is_symmetric(&x), "left the symmetric set {x:?}");
+        assert!((x[1] - x[2]).abs() < 1e-12, "not symmetric {x:?}");
+    }
+}
+
+#[test]
+fn symmetric_rejects_a_3n_cluster() {
+    let obj = Rosenbrock::<114>::new();
+    let mut x = Array1::from_elem(114, 0.1);
+    let mut solver = Solver::new(Method::Steepest, control(), 114);
+    solver.set_manifold(rgmin::ManifoldKind::Symmetric);
+    let err = solver.step(&obj, &mut x).unwrap_err();
+    match err {
+        rgmin::Error::ManifoldDim { kind, got } => {
+            assert_eq!(kind, "symmetric");
+            assert_eq!(got, 114);
+        }
+        other => panic!("expected ManifoldDim, got {other:?}"),
+    }
+}
+
+#[test]
 fn rigid_quotient_drops_translation_and_keeps_3n() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::ArrayView1;

@@ -6,6 +6,11 @@ Changelog
 Unreleased
 ~~~~~~~~~~
 
+Symmetric matrices (``symmetric`` / ``RGMIN_MANIFOLD_SYMMETRIC`` = 14):
+manopt ``symmetricfactory``. Packed row-major ``n^2``. Projection is
+symmetrization, retraction is ``X + U``, transport is the identity.
+A 3N cluster is rejected. Stamp layout 4.
+
 ``xts.h`` declares the exported ``rgmin_minimize`` / ``rgmin_solver_*``
 symbols; ``xts_minimize`` and ``xts_solver_*`` are macro aliases.
 
@@ -37,7 +42,10 @@ or prefix-interpreted. Periodic bulk sets
 ``R^{3N}/T(3)``. Isolated stays ``R^{3N}/SE(3)``. ``abi_minor`` 10.
 
 Embedded manopt tokens: Euclidean (default), sphere, SO(3),
-Stiefel ``St(n,1)``, SE(3). Hourglass mark and the Diataxis book
+Stiefel ``St(n,1)`` and ``St(n,p)`` (``rgmin_solver_set_stiefel``),
+SE(3), Oblique token 11, Multinomial token 12, complex circle
+``(S^1)^n``. Reserved: 7 SPD, 8 Grassmann, 9 Hyperbolic, 10
+Poincare. Hourglass mark and the Diataxis book
 under ``docs/orgmode/``.
 
 0.2.0

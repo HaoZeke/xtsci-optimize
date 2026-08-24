@@ -194,6 +194,7 @@ typedef struct xts_solver_t xts_solver_t;
 #define xts_solver_set_cautious rgmin_solver_set_cautious
 #define xts_solver_set_highs rgmin_solver_set_highs
 #define xts_solver_set_manifold rgmin_solver_set_manifold
+#define xts_solver_set_complex_circle rgmin_solver_set_complex_circle
 #define xts_solver_set_masses rgmin_solver_set_masses
 #define xts_solver_set_periodic rgmin_solver_set_periodic
 #define xts_solver_step rgmin_solver_step
@@ -244,9 +245,12 @@ typedef enum xts_manifold_t {
     XTS_MANIFOLD_STIEFEL = 3,
     XTS_MANIFOLD_SE3 = 4,
     XTS_MANIFOLD_RIGID_QUOTIENT = 5,
-    XTS_MANIFOLD_MW_RIGID = 6
+    XTS_MANIFOLD_MW_RIGID = 6,
+    XTS_MANIFOLD_COMPLEX_CIRCLE = 13
 } xts_manifold_t;
 void xts_solver_set_manifold(xts_solver_t *solver, xts_manifold_t manifold);
+/** n unit-modulus complex numbers. Packed interleaved, length 2n. */
+void xts_solver_set_complex_circle(xts_solver_t *solver, size_t n);
 /** Per-atom masses for MW_RIGID. n_atoms == 0 or masses == NULL
  *  restores unit mass. */
 void xts_solver_set_masses(xts_solver_t *solver, const double *masses,

@@ -204,6 +204,9 @@ public:
     }
     int set_highs(bool on) { return rgmin_solver_set_highs(ptr_, on ? 1 : 0); }
     void set_manifold(rgmin_manifold_t m) { rgmin_solver_set_manifold(ptr_, m); }
+    void set_complex_circle(std::size_t n) {
+        rgmin_solver_set_complex_circle(ptr_, n);
+    }
 
     Report step(rgmin_eval_fn eval, rgmin_grad_fn grad, void* user,
                 DLManagedTensorVersioned* x) {

@@ -176,6 +176,11 @@ impl Solver {
         self.manifold = kind;
     }
 
+    /// Product of `n` unit-modulus complex numbers. Packed length `2 n`.
+    pub fn set_complex_circle(&mut self, n: usize) {
+        self.set_manifold(ManifoldKind::ComplexCircle { n });
+    }
+
     /// Per-atom masses for [`ManifoldKind::MwRigid`] (Page–McIver / Eckart).
     /// Empty clears them (unit mass).
     pub fn set_masses(&mut self, masses: Array1<f64>) {

@@ -1387,6 +1387,9 @@ pub enum rgmin_manifold_t {
     RGMIN_MANIFOLD_RIGID_QUOTIENT = 5,
     /// Mass-weighted Eckart (Sella IRC / Page–McIver). 3N, N >= 2.
     RGMIN_MANIFOLD_MW_RIGID = 6,
+    /// Product of unit circles (S^1)^n. Packed length 2n.
+    /// Token defaults to n = 1; use rgmin_solver_set_complex_circle.
+    RGMIN_MANIFOLD_COMPLEX_CIRCLE = 13,
 }
 
 #[unsafe(no_mangle)]
@@ -1404,9 +1407,19 @@ pub unsafe extern "C" fn rgmin_solver_set_manifold(
         rgmin_manifold_t::RGMIN_MANIFOLD_SE3 => ManifoldKind::Se3,
         rgmin_manifold_t::RGMIN_MANIFOLD_RIGID_QUOTIENT => ManifoldKind::RigidQuotient,
         rgmin_manifold_t::RGMIN_MANIFOLD_MW_RIGID => ManifoldKind::MwRigid,
+        rgmin_manifold_t::RGMIN_MANIFOLD_COMPLEX_CIRCLE => ManifoldKind::ComplexCircle { n: 1 },
         rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN => ManifoldKind::Euclidean,
     };
     unsafe { (*solver).solver.set_manifold(kind) };
+}
+
+/// `n` unit-modulus complex numbers. Packed interleaved, length `2 n`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rgmin_solver_set_complex_circle(solver: *mut rgmin_solver_t, n: usize) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_complex_circle(n) };
 }
 
 /// Per-atom masses for `RGMIN_MANIFOLD_MW_RIGID`. `n_atoms == 0` or a

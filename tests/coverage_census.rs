@@ -4,7 +4,7 @@
 //! contract the API promises and fails when the contract does.
 
 use ndarray::{array, Array1, ArrayView1};
-use rgmin::manifold::{is_spd, Manifold, MwRigid, Spd, Sphere, Stiefel};
+use rgmin::manifold::{is_spd, ComplexCircle, Manifold, MwRigid, Spd, Sphere, Stiefel};
 use rgmin::IrcTrust;
 use rgmin::{
     minimize_scg_exact, Conjugacy, Control, DirectionalCurvature, Restart, ScgParams,
@@ -91,6 +91,23 @@ fn spd_retract_stays_on_the_set() {
     assert!((t[1] - t[2]).abs() < 1e-15);
     let w = Spd.transport(&x, &y, &v);
     assert!((w[1] - w[2]).abs() < 1e-15);
+}
+
+
+/// manopt complexcirclefactory: each (re, im) pair stays on S^1.
+/// The product is not the sphere in the ambient even dimension.
+#[test]
+fn complex_circle_retract_stays_on_the_set() {
+    let m = ComplexCircle::new(2);
+    let x = array![1.0, 0.0, 0.0, 1.0];
+    let v = m.project(&x, &array![0.2, -0.1, 0.3, 0.4]);
+    let y = m.retract(&x, &v);
+    let n0 = (y[0] * y[0] + y[1] * y[1]).sqrt();
+    let n1 = (y[2] * y[2] + y[3] * y[3]).sqrt();
+    assert!((n0 - 1.0).abs() < 1e-14, "left circle 0 {y:?}");
+    assert!((n1 - 1.0).abs() < 1e-14, "left circle 1 {y:?}");
+    let fro = y.iter().map(|a| a * a).sum::<f64>().sqrt();
+    assert!((fro - 1.0).abs() > 0.3, "must not be the sphere {y:?}");
 }
 
 /// A quadratic bowl carrying its exact directional curvature. SCG with

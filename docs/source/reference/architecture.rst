@@ -25,7 +25,7 @@ Layer diagram
     |  Rust core                                    |
     |  Solver / Lbfgs / NLCG / BFGS / Newton        |
     |  Manifold (Euclidean, RigidQuotient, MwRigid) |
-    |  Sphere / SO3 / Stiefel / SE3 embeddings      |
+    |  Sphere / SO3 / Stiefel / SE3 / Symmetric / S^1 |
     |  LineSearch (Brent, Armijo, Goldstein, Wolfe) |
     |  eindir DifferentiableObjective               |
     +-----------------------------------------------+
@@ -59,7 +59,8 @@ Objects
 
 ``ManifoldKind``
     Embedded geometry. Euclidean is the identity.
-    Sphere, SO(3), Stiefel ``St(n,1)``, and SE(3) implement
+    Sphere, SO(3), Stiefel ``St(n,1)``, SE(3), Symmetric, and
+    ComplexCircle ``(S^1)^n`` implement
     ``project`` / ``retract`` / ``transport``.
 
 ``rgmin_minimize``
