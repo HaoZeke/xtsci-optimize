@@ -47,6 +47,29 @@ impl BfgsModel {
         self.pairs = 0;
     }
 
+    /// Rank-1 seed \(B = I + (\lambda-1)uu^\top\) for a unit MW mode.
+    ///
+    /// IRC plants \(\lambda < 0\) along the imaginary mode so
+    /// [`Self::is_posdef`] stays false until the path leaves the
+    /// saddle. `pairs` stays 0; only [`Self::update`] counts.
+    pub fn seed_mode(&mut self, u: &Array1<f64>, lam: f64) {
+        let n = self.b.nrows().min(u.len());
+        let mut nrm = 0.0;
+        for i in 0..n {
+            nrm += u[i] * u[i];
+        }
+        nrm = nrm.sqrt();
+        if nrm <= 1e-16 {
+            return;
+        }
+        let scale = (lam - 1.0) / (nrm * nrm);
+        for i in 0..n {
+            for j in 0..n {
+                self.b[(i, j)] += scale * u[i] * u[j];
+            }
+        }
+    }
+
     /// True after at least one accepted pair and every MW eigenvalue
     /// is positive. A fresh identity is not a well.
     pub fn is_posdef(&self) -> bool {
@@ -355,6 +378,22 @@ mod tests {
     #[test]
     fn fresh_identity_is_not_posdef() {
         assert!(!BfgsModel::identity(4).is_posdef());
+    }
+
+    #[test]
+    fn seeded_imaginary_mode_stays_indefinite_after_an_orthogonal_pair() {
+        let mut model = BfgsModel::identity(4);
+        let u = array![1.0, 0.0, 0.0, 0.0];
+        model.seed_mode(&u, -1.0);
+        let s = array![0.0, 0.1, 0.0, 0.0];
+        let y = array![0.0, 0.4, 0.0, 0.0];
+        model.update(&s, &y);
+        assert!(!model.is_posdef());
+        let (evals, _) = model.eigh();
+        assert!(
+            evals.iter().any(|&e| e < 0.0),
+            "seeded mode must survive an orthogonal pair: {evals:?}"
+        );
     }
 
     #[test]
