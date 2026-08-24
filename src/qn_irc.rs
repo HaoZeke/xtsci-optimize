@@ -185,9 +185,9 @@ fn alpha_search(
     g_mw: &Array1<f64>,
     d1_mw: &Array1<f64>,
 ) -> Array1<f64> {
-    let mut alpha = 0.0;
-    let mut lower = 0.0;
-    let mut upper = f64::INFINITY;
+    let mut alpha: f64 = 0.0;
+    let mut lower: f64 = 0.0;
+    let mut upper: f64 = f64::INFINITY;
     let mut best = to_mw(
         &qn_irc_get_s(evals, evecs, g_mw, d1_mw, 0.0).0,
         &trust.sqrtm,
