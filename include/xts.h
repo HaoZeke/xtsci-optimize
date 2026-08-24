@@ -245,7 +245,7 @@ typedef enum xts_manifold_t {
     XTS_MANIFOLD_SE3 = 4,
     XTS_MANIFOLD_RIGID_QUOTIENT = 5,
     XTS_MANIFOLD_MW_RIGID = 6,
-    XTS_MANIFOLD_OBLIQUE = 7
+    XTS_MANIFOLD_OBLIQUE = 11
 } xts_manifold_t;
 void xts_solver_set_manifold(xts_solver_t *solver, xts_manifold_t manifold);
 /** Oblique OB(n,m): product of m unit spheres in R^n, column-major. */

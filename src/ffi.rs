@@ -1220,7 +1220,8 @@ pub enum rgmin_manifold_t {
     /// Mass-weighted Eckart (Sella IRC / Page–McIver). 3N, N >= 2.
     RGMIN_MANIFOLD_MW_RIGID = 6,
     /// Product of unit spheres. Shape from `rgmin_solver_set_oblique`.
-    RGMIN_MANIFOLD_OBLIQUE = 7,
+    /// Reserved table: 7 SPD, 8 Grassmann, 9 Hyperbolic, 10 Poincare, 11 Oblique.
+    RGMIN_MANIFOLD_OBLIQUE = 11,
 }
 
 #[unsafe(no_mangle)]
