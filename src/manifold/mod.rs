@@ -51,9 +51,6 @@ pub use symmetric::{
     inner as inner_sym, is_symmetric, pack as pack_sym, side as side_sym,
     typical_dist as typical_dist_sym, unpack as unpack_sym, Symmetric,
 };
-pub use unitary::{
-    is_unitary, pack as pack_unitary, side as side_unitary, unpack as unpack_unitary, Unitary,
-};
 
 /// Which embedded geometry a session retracts onto.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -111,14 +108,6 @@ pub enum ManifoldKind {
         /// Number of unit-modulus complex entries.
         n: usize,
     },
-    /// Unitary group \(\mathrm{U}(n)\) for `n >= 1`. Packed
-    /// interleaved `(re, im)` row-major, length `2 n^2`.
-    /// manopt `unitaryfactory(n)` at `k = 1`. Construct with
-    /// [`ManifoldKind::unitary`].
-    Unitary {
-        /// Matrix side. Must be `>= 1`.
-        n: usize,
-    },
 }
 
 impl ManifoldKind {
@@ -147,11 +136,6 @@ impl ManifoldKind {
     /// Product of `n` unit circles. Packed length `2 n`.
     pub fn complex_circle(n: usize) -> Self {
         Self::ComplexCircle { n }
-    }
-
-    /// \(\mathrm{U}(n)\), packed interleaved row-major length `2 n^2`.
-    pub fn unitary(n: usize) -> Self {
-        Self::Unitary { n }
     }
 
     /// C ABI / INI token.
