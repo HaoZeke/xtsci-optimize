@@ -41,6 +41,7 @@ pub enum ManifoldKind {
     /// Rotation matrices SO(3), 9-vector row-major.
     So3,
     /// Stiefel \(\mathrm{St}(n,1)\). A single orthonormal column.
+    /// `p > 1` is [`Self::StiefelP`]; a 3N cluster is [`Self::RigidQuotient`].
     Stiefel,
     /// Rigid motions SE(3): 3x3 row-major then translation (12).
     Se3,
@@ -50,12 +51,30 @@ pub enum ManifoldKind {
     /// Mass-weighted Eckart: Sella IRC / Page–McIver metric on
     /// the same quotient. Masses from [`crate::Solver::set_masses`].
     MwRigid,
+    /// Stiefel \(\mathrm{St}(n,p)\) for `p > 1`, packed column-major
+    /// length `n*p`. Construct with [`ManifoldKind::stiefel`].
+    StiefelP {
+        /// Orthonormal columns. Must be `> 1`.
+        p: usize,
+    },
 }
 
 impl ManifoldKind {
+    /// Stiefel \(\mathrm{St}(n,p)\). `p = 1` is the sphere packing.
+    pub fn stiefel(p: usize) -> Self {
+        if p <= 1 {
+            Self::Stiefel
+        } else {
+            Self::StiefelP { p }
+        }
+    }
+
     /// Stiefel column count. `p = 1` is the sphere.
     pub fn stiefel_p(self) -> usize {
-        1
+        match self {
+            Self::StiefelP { p } => p,
+            _ => 1,
+        }
     }
 
     /// C ABI / INI token.
@@ -64,7 +83,7 @@ impl ManifoldKind {
             Self::Euclidean => "euclidean",
             Self::Sphere => "sphere",
             Self::So3 => "so3",
-            Self::Stiefel => "stiefel",
+            Self::Stiefel | Self::StiefelP { .. } => "stiefel",
             Self::Se3 => "se3",
             Self::RigidQuotient => "rigid_quotient",
             Self::MwRigid => "mw_rigid",
@@ -93,10 +112,11 @@ impl Manifold for ManifoldKind {
             Self::Euclidean => Euclidean.required_dim(n),
             Self::Sphere => Sphere.required_dim(n),
             Self::So3 => So3.required_dim(n),
-            Self::Stiefel => Stiefel.required_dim(n),
+            Self::Stiefel => Stiefel::p1().required_dim(n),
             Self::Se3 => Se3.required_dim(n),
             Self::RigidQuotient => RigidQuotient.required_dim(n),
             Self::MwRigid => MwRigid.required_dim(n),
+            Self::StiefelP { p } => stiefel::stiefel_from_len(n, *p).required_dim(n),
         }
     }
 
@@ -105,10 +125,11 @@ impl Manifold for ManifoldKind {
             Self::Euclidean => Euclidean.project(x, v),
             Self::Sphere => Sphere.project(x, v),
             Self::So3 => So3.project(x, v),
-            Self::Stiefel => Stiefel.project(x, v),
+            Self::Stiefel => Stiefel::p1().project(x, v),
             Self::Se3 => Se3.project(x, v),
             Self::RigidQuotient => RigidQuotient.project(x, v),
             Self::MwRigid => MwRigid.project(x, v),
+            Self::StiefelP { p } => stiefel::stiefel_from_len(x.len(), *p).project(x, v),
         }
     }
 
@@ -117,10 +138,11 @@ impl Manifold for ManifoldKind {
             Self::Euclidean => Euclidean.retract(x, v),
             Self::Sphere => Sphere.retract(x, v),
             Self::So3 => So3.retract(x, v),
-            Self::Stiefel => Stiefel.retract(x, v),
+            Self::Stiefel => Stiefel::p1().retract(x, v),
             Self::Se3 => Se3.retract(x, v),
             Self::RigidQuotient => RigidQuotient.retract(x, v),
             Self::MwRigid => MwRigid.retract(x, v),
+            Self::StiefelP { p } => stiefel::stiefel_from_len(x.len(), *p).retract(x, v),
         }
     }
 
@@ -129,10 +151,13 @@ impl Manifold for ManifoldKind {
             Self::Euclidean => Euclidean.transport(x_from, x_to, v),
             Self::Sphere => Sphere.transport(x_from, x_to, v),
             Self::So3 => So3.transport(x_from, x_to, v),
-            Self::Stiefel => Stiefel.transport(x_from, x_to, v),
+            Self::Stiefel => Stiefel::p1().transport(x_from, x_to, v),
             Self::Se3 => Se3.transport(x_from, x_to, v),
             Self::RigidQuotient => RigidQuotient.transport(x_from, x_to, v),
             Self::MwRigid => MwRigid.transport(x_from, x_to, v),
+            Self::StiefelP { p } => {
+                stiefel::stiefel_from_len(x_to.len(), *p).transport(x_from, x_to, v)
+            }
         }
     }
 }

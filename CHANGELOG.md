@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Stiefel `St(n,p)` for `p > 1`: column-major length `n*p`, QR
+  retraction, horizontal projection. `ManifoldKind::Stiefel` stays
+  `p = 1` (the sphere). `ManifoldKind::stiefel(p)` stores `p`.
 - Matrix-free Newton: the `HessianVector` trait, a finite-difference
   action wrapper, Steihaug-Toint CG inside a Nocedal-Wright trust
   region (`minimize_newton_cg`), and preconditioned CG with the

@@ -1,7 +1,7 @@
 //! Persistent Session: one step is one outer iteration.
 
 use eindir_core::objectives::Rosenbrock;
-use ndarray::{array, Array1};
+use ndarray::{Array1, array};
 use rgmin::{Control, Method, Solver};
 
 fn control() -> Control {
@@ -243,6 +243,44 @@ fn stiefel_p1_matches_sphere_retract() {
     let ys = ManifoldKind::Sphere.retract(&x, &v);
     let yv = ManifoldKind::Stiefel.retract(&x, &v);
     assert!((&ys - &yv).mapv(f64::abs).sum() < 1e-15);
+    assert_eq!(ManifoldKind::Stiefel.stiefel_p(), 1);
+    assert_eq!(ManifoldKind::stiefel(1), ManifoldKind::Stiefel);
+}
+
+#[test]
+fn stiefel_p2_retract_stays_orthonormal() {
+    use rgmin::{Manifold, ManifoldKind};
+    let kind = ManifoldKind::stiefel(2);
+    assert_eq!(kind.stiefel_p(), 2);
+    assert!(kind.required_dim(8).is_ok());
+    assert!(kind.required_dim(7).is_err());
+    assert!(kind.required_dim(2).is_err());
+    // Columns (1,0,0,0) and (0,1,0,0), column-major St(4,2).
+    let x = array![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+    let raw = array![0.1, 0.0, 0.2, 0.0, 0.0, 0.1, 0.0, -0.2];
+    let v = kind.project(&x, &raw);
+    let xtz00 = v[0] + 0.0;
+    let xtz01 = v[4];
+    let xtz10 = v[1];
+    let xtz11 = v[5];
+    assert!((xtz00 + xtz00).abs() < 1e-12);
+    assert!((xtz01 + xtz10).abs() < 1e-12);
+    assert!((xtz11 + xtz11).abs() < 1e-12);
+    let y = kind.retract(&x, &v);
+    let mut yty = [0.0; 4];
+    for a in 0..2 {
+        for b in 0..2 {
+            let mut acc = 0.0;
+            for i in 0..4 {
+                acc += y[i + 4 * a] * y[i + 4 * b];
+            }
+            yty[a + 2 * b] = acc;
+        }
+    }
+    assert!((yty[0] - 1.0).abs() < 1e-12);
+    assert!(yty[1].abs() < 1e-12);
+    assert!(yty[2].abs() < 1e-12);
+    assert!((yty[3] - 1.0).abs() < 1e-12);
 }
 
 #[test]
@@ -670,11 +708,7 @@ fn an_uphill_everywhere_oracle_is_refused_not_moved() {
         };
         (r, g)
     });
-    let mut solver = rgmin::Solver::new(
-        rgmin::Method::Steepest,
-        rgmin::Control::default(),
-        6,
-    );
+    let mut solver = rgmin::Solver::new(rgmin::Method::Steepest, rgmin::Control::default(), 6);
     solver.set_accept(rgmin::Accept::Energy);
     let mut x = Array1::from(vec![0.0; 6]);
     let rep = solver.step(&obj, &mut x).expect("step runs");

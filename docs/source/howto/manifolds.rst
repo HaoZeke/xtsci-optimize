@@ -42,6 +42,8 @@ Tokens
     +-------------------+---------------------------------------+-------------------------------------------+
     | ``Stiefel``       | ``St(n,1)``: same as the sphere       | same as the sphere                        |
     +-------------------+---------------------------------------+-------------------------------------------+
+    | ``StiefelP``      | ``St(n,p)``, ``p>1``, column-major ``n p`` | thin QR, positive diagonal           |
+    +-------------------+---------------------------------------+-------------------------------------------+
     | ``Se3``           | row-major ``R`` then ``t``, length 12 | SO(3) on the rotation, Euclidean on ``t`` |
     +-------------------+---------------------------------------+-------------------------------------------+
 
@@ -115,8 +117,10 @@ Packing notes
 - ``Se3`` is twelve numbers: the same 9-vector, then a translation.
   It is one rigid body, not N atoms.
 
-- ``Stiefel`` is ``St(n,1)``. A frame with ``p > 1`` is not a length
-  token: ``n p`` does not name ``p``.
+- ``Stiefel`` is ``St(n,1)`` (the sphere). ``ManifoldKind::stiefel(p)``
+  with ``p > 1`` is ``StiefelP``: column-major length ``n p``, and ``p``
+  is stored on the kind because ``n p`` does not name ``p``. A 3N
+  cluster is ``RigidQuotient``, not ``St(3N, 1)``.
 
 - ``set_project_rigid`` is the same horizontal projection as
   ``RigidQuotient`` and stays available on Euclidean.

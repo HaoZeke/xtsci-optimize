@@ -206,7 +206,7 @@ tokens do not converge on these cluster / bulk geometries.
     +----------------+-----------------------+--------------------------------------+-------------------------------------------------------------+
     | sphere         | 12/12 misuse          | impl correct, ``S^{3N-1}``           | ``sphere.rs:22-39``; cluster not on the unit sphere         |
     +----------------+-----------------------+--------------------------------------+-------------------------------------------------------------+
-    | Stiefel        | 12/12 alias           | ``St(n,1)`` = sphere                 | ``stiefel.rs:11-23``; ``stiefel_p`` is always 1             |
+    | Stiefel        | 12/12 alias           | ``St(n,1)`` = sphere                 | ``stiefel.rs`` ``p1``; ``stiefel_p`` is 1 on the unit token |
     +----------------+-----------------------+--------------------------------------+-------------------------------------------------------------+
     | HiGHS          | 9/12 wrong QP         | ``step_hess`` solves dense Newton QP | ``session.rs:322-336``; Morse ``n=768`` times out           |
     +----------------+-----------------------+--------------------------------------+-------------------------------------------------------------+
@@ -284,7 +284,7 @@ Euclidean is the default. An isolated molecule uses
 ``fix_translation`` / ``fix_rotation``,
 https://doi.org/10.1021/acs.jctc.2c00395) or ``MwRigid`` (Page–McIver
 mass-weighted Eckart, https://doi.org/10.1063/1.454172). Sphere, SO(3) as a
-9-vector, Stiefel ``St(n,1)``, and SE(3) as a 12-vector are
+9-vector, Stiefel ``St(n,1)`` (and ``St(n,p)`` via ``stiefel(p)``), and SE(3) as a 12-vector are
 matrix-manifold embeddings and reject a 3N cluster.
 
 Defaults in this crate

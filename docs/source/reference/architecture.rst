@@ -59,7 +59,7 @@ Objects
 
 ``ManifoldKind``
     Embedded geometry. Euclidean is the identity.
-    Sphere, SO(3), Stiefel ``St(n,1)``, and SE(3) implement
+    Sphere, SO(3), Stiefel ``St(n,p)``, and SE(3) implement
     ``project`` / ``retract`` / ``transport``.
 
 ``rgmin_minimize``
