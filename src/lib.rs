@@ -59,7 +59,8 @@ mod rigid;
 pub mod scg;
 mod session;
 mod step;
-mod trust;
+/// Dogleg (Nocedal–Wright) and Sella `TrustRegion` (`cons(s) = ||s||`).
+pub mod trust;
 
 pub use accept::Accept;
 pub use adam::minimize_adam;
@@ -86,3 +87,4 @@ pub use qn_step::QnStep;
 pub use report::Report;
 pub use scg::{DirectionalCurvature, ScgParams, minimize_scg, minimize_scg_exact};
 pub use session::Solver;
+pub use trust::{RestrictedStep, TrustRegion};

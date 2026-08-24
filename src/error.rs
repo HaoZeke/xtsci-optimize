@@ -42,6 +42,9 @@ pub enum Error {
         /// Outer iterations completed when the radius hit its floor.
         steps: usize,
     },
+    /// Sella restricted-step search did not hit `cons(s) = delta`.
+    #[error("restricted step failed to converge")]
+    RestrictedStep,
 }
 
 /// Result alias for this crate.

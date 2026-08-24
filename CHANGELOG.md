@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Sella `TrustRegion` restricted step (`cons(s) = ||s||`, target
+  `delta`) on the quasi-Newton family `s(α)`. Distinct from
+  IRCTrustRegion (`||(s+d1)*sqrt(m)||`) and from the Powell dogleg.
 - Matrix-free Newton: the `HessianVector` trait, a finite-difference
   action wrapper, Steihaug-Toint CG inside a Nocedal-Wright trust
   region (`minimize_newton_cg`), and preconditioned CG with the
