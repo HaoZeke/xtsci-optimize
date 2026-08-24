@@ -48,6 +48,13 @@ pub enum Error {
         /// What the host callback failed to produce.
         what: &'static str,
     },
+    /// Named eigensolver is not linked in this build. Fail closed:
+    /// the waist does not silently fall back to Lanczos.
+    #[error("eigensolver {kind} is not linked in this build")]
+    EigenUnavailable {
+        /// Closed-enum name (`elpa`, `primme`, ...).
+        kind: &'static str,
+    },
 }
 
 /// Result alias for this crate.

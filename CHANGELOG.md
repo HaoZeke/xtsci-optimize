@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Typed lowest-mode waist: closed `EigensolverKind` (Lanczos through
+  EigenExa, `schema/eigen.capnp`) and `EigenParams` (`nev`, `krylov`,
+  `max_iter`, `tol`). Lanczos, Rayleigh-Ritz, Jacobi-Davidson, and
+  LOBPCG run matrix-free. Other named backends return
+  `Error::EigenUnavailable` / `RGMIN_UNAVAILABLE`. No string keys.
 - Matrix-free Newton: the `HessianVector` trait, a finite-difference
   action wrapper, Steihaug-Toint CG inside a Nocedal-Wright trust
   region (`minimize_newton_cg`), and preconditioned CG with the

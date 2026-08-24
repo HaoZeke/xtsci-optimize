@@ -71,7 +71,10 @@ pub use control::Control;
 pub use error::{Error, Result};
 pub use fire::FireKind;
 pub use irc_trust::{sqrt_masses_3n, IrcTrust};
-pub use lowest_mode::{lowest_eigenpair, LowestMode};
+pub use lowest_mode::{
+    lowest_eigenpair, lowest_mode, ApplyHessian, EigenParams, EigensolverKind, LowestMode,
+    DENSE_EIGEN_CUTOFF,
+};
 pub use hvp::{
     FdHvp, HessianVector, HvpOracle, IdentityPrecond, NystromPrecond, Preconditioner,
     minimize_newton_cg, steihaug_cg, steihaug_pcg,

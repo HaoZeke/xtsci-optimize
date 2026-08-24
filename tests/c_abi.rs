@@ -12,10 +12,11 @@ use rgpot_core::status::rgpot_status_t;
 use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 use rgmin::ffi::{
     rgmin_abi_compatible, rgmin_abi_stamp, rgmin_accept_t, rgmin_conjugacy_t, rgmin_control_t,
-    rgmin_curv_fn, rgmin_last_error, rgmin_method_t, rgmin_minimize, rgmin_minimize_eindir,
-    rgmin_minimize_scg, rgmin_report_t, rgmin_scg_params_t, rgmin_solver_create, rgmin_solver_free,
-    rgmin_solver_set_accept, rgmin_solver_step, rgmin_solver_step_fg, rgmin_status_t,
-    rgmin_tensor_borrow_cpu_f64, rgmin_tensor_free,
+    rgmin_curv_fn, rgmin_eigen_kind_t, rgmin_eigen_params_t, rgmin_last_error,
+    rgmin_lowest_eigenpair, rgmin_lowest_mode_t, rgmin_method_t, rgmin_minimize,
+    rgmin_minimize_eindir, rgmin_minimize_scg, rgmin_report_t, rgmin_scg_params_t,
+    rgmin_solver_create, rgmin_solver_free, rgmin_solver_set_accept, rgmin_solver_step,
+    rgmin_solver_step_fg, rgmin_status_t, rgmin_tensor_borrow_cpu_f64, rgmin_tensor_free,
 };
 
 unsafe extern "C" fn quadratic_eval(
@@ -694,11 +695,92 @@ fn fused_evalgrad_is_one_callback_per_oracle() {
     assert!(calls >= 1, "fused oracle never ran");
 }
 
+unsafe extern "C" fn gapped_hvp(
+    _user: *mut c_void,
+    _x: *const DLManagedTensorVersioned,
+    v: *const DLManagedTensorVersioned,
+    hv_out: *mut DLManagedTensorVersioned,
+) -> rgmin_status_t {
+    let (vp, n) = unsafe { cpu_f64(v) };
+    let (hp, hn) = unsafe { cpu_f64(hv_out) };
+    assert_eq!(n, hn);
+    unsafe {
+        *hp = -8.0 * *vp;
+        for i in 1..n {
+            *hp.add(i) = 4.0 * *vp.add(i);
+        }
+    }
+    rgmin_status_t::RGMIN_SUCCESS
+}
+
+#[test]
+fn lowest_eigenpair_lanczos_recovers_gapped_mode() {
+    let mut x = [0.0_f64; 6];
+    let mut seed = [0.2, 0.7, 0.1, 0.0, 0.0, 0.0];
+    let mut mode = [0.0_f64; 6];
+    let xt = unsafe { rgmin_tensor_borrow_cpu_f64(x.as_mut_ptr(), 6) };
+    let st = unsafe { rgmin_tensor_borrow_cpu_f64(seed.as_mut_ptr(), 6) };
+    let mt = unsafe { rgmin_tensor_borrow_cpu_f64(mode.as_mut_ptr(), 6) };
+    let params = rgmin_eigen_params_t {
+        kind: rgmin_eigen_kind_t::RGMIN_EIGEN_LANCZOS as i32,
+        nev: 1,
+        krylov: 6,
+        max_iter: 0,
+        tol: 0.0,
+    };
+    let mut out = rgmin_lowest_mode_t {
+        value: 0.0,
+        actions: 0,
+    };
+    let status = unsafe {
+        rgmin_lowest_eigenpair(Some(gapped_hvp), std::ptr::null_mut(), xt, st, mt, &params, &mut out)
+    };
+    unsafe {
+        rgmin_tensor_free(xt);
+        rgmin_tensor_free(st);
+        rgmin_tensor_free(mt);
+    }
+    assert_eq!(status, rgmin_status_t::RGMIN_SUCCESS);
+    assert!(out.value < 0.0, "curvature {}", out.value);
+    assert!(mode[0].abs() > 0.9, "mode {mode:?}");
+    assert!(out.actions <= 6);
+}
+
+#[test]
+fn lowest_eigenpair_elpa_is_unavailable() {
+    let mut x = [0.0_f64; 4];
+    let mut seed = [1.0, 0.0, 0.0, 0.0];
+    let mut mode = [0.0_f64; 4];
+    let xt = unsafe { rgmin_tensor_borrow_cpu_f64(x.as_mut_ptr(), 4) };
+    let st = unsafe { rgmin_tensor_borrow_cpu_f64(seed.as_mut_ptr(), 4) };
+    let mt = unsafe { rgmin_tensor_borrow_cpu_f64(mode.as_mut_ptr(), 4) };
+    let params = rgmin_eigen_params_t {
+        kind: rgmin_eigen_kind_t::RGMIN_EIGEN_ELPA as i32,
+        nev: 1,
+        krylov: 0,
+        max_iter: 0,
+        tol: 0.0,
+    };
+    let mut out = rgmin_lowest_mode_t {
+        value: 0.0,
+        actions: 0,
+    };
+    let status = unsafe {
+        rgmin_lowest_eigenpair(Some(gapped_hvp), std::ptr::null_mut(), xt, st, mt, &params, &mut out)
+    };
+    unsafe {
+        rgmin_tensor_free(xt);
+        rgmin_tensor_free(st);
+        rgmin_tensor_free(mt);
+    }
+    assert_eq!(status, rgmin_status_t::RGMIN_UNAVAILABLE);
+}
+
 #[test]
 fn abi_stamp_identifies_this_optimizer_layout() {
     let stamp = rgmin_abi_stamp();
     assert_eq!(stamp.abi_major, 1);
-    assert_eq!(stamp.abi_minor, 12);
+    assert_eq!(stamp.abi_minor, 13);
     assert_eq!(stamp.layout_revision, 3);
     assert_eq!(unsafe { rgmin_abi_compatible(&stamp) }, 1);
 }

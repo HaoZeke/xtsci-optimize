@@ -16,12 +16,13 @@ use eindir_core::ffi::{
     eindir_objective_has_grad, eindir_objective_t, eindir_status_t,
 };
 use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, ArrayView1};
 
 use crate::{
-    minimize_method, minimize_method_hess, minimize_scg, minimize_scg_exact, Accept, Conjugacy,
-    Control, DirectionalCurvature, Error, HessianOracle, LineSearch, ManifoldKind, Method,
-    NewtonKind, Oracle, QnStep, Restart, ScgParams, Solver,
+    lowest_mode, minimize_method, minimize_method_hess, minimize_scg, minimize_scg_exact, Accept,
+    ApplyHessian, Conjugacy, Control, DirectionalCurvature, EigenParams, EigensolverKind, Error,
+    HessianOracle, LineSearch, ManifoldKind, Method, NewtonKind, Oracle, QnStep, Restart,
+    ScgParams, Solver,
 };
 
 /// Status codes. 0 is success, matching metatensor / eindir.
@@ -36,12 +37,15 @@ pub enum rgmin_status_t {
     RGMIN_INTERNAL_ERROR = 2,
     /// Tensor is not on a device this build can evaluate (GPU later).
     RGMIN_UNSUPPORTED_DEVICE = 3,
+    /// Named eigensolver is not linked in this build.
+    RGMIN_UNAVAILABLE = 4,
 }
 
 fn status_from_error(e: &Error) -> rgmin_status_t {
     set_last_error(&e.to_string());
     match e {
         Error::Oracle { .. } => rgmin_status_t::RGMIN_INTERNAL_ERROR,
+        Error::EigenUnavailable { .. } => rgmin_status_t::RGMIN_UNAVAILABLE,
         _ => rgmin_status_t::RGMIN_INVALID_PARAMETER,
     }
 }
@@ -59,7 +63,7 @@ pub struct rgmin_abi_stamp_t {
 }
 
 pub const RGMIN_ABI_VERSION_MAJOR: u16 = 1;
-pub const RGMIN_ABI_VERSION_MINOR: u16 = 12;
+pub const RGMIN_ABI_VERSION_MINOR: u16 = 13;
 pub const RGMIN_ABI_LAYOUT_REVISION: u16 = 3;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -211,6 +215,63 @@ pub struct rgmin_scg_params_t {
     pub conjugacy: i32,
 }
 
+/// Closed eigensolver tag. Integers match `schema/eigen.capnp`.
+#[repr(i32)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum rgmin_eigen_kind_t {
+    RGMIN_EIGEN_LANCZOS = 0,
+    RGMIN_EIGEN_RAYLEIGH_RITZ = 1,
+    RGMIN_EIGEN_JACOBI_DAVIDSON = 2,
+    RGMIN_EIGEN_LOBPCG = 3,
+    RGMIN_EIGEN_PRIMME = 4,
+    RGMIN_EIGEN_SLEPC = 5,
+    RGMIN_EIGEN_CHASE = 6,
+    RGMIN_EIGEN_ELPA = 7,
+    RGMIN_EIGEN_ELPA2 = 8,
+    RGMIN_EIGEN_SLATE = 9,
+    RGMIN_EIGEN_MAGMA = 10,
+    RGMIN_EIGEN_CUSOLVER = 11,
+    RGMIN_EIGEN_DLA_FUTURE = 12,
+    RGMIN_EIGEN_EIGENEXA = 13,
+}
+
+/// Typed lowest-mode parameters. No string fields. Null at the C
+/// entry selects Lanczos defaults (`nev = 1`, `krylov = 0`).
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct rgmin_eigen_params_t {
+    /// [`rgmin_eigen_kind_t`] stored as `i32` so an unknown enumerant
+    /// is not UB on the closed Rust enum.
+    pub kind: i32,
+    /// Extremal pairs. IRC kick uses 1.
+    pub nev: u32,
+    /// Krylov / subspace cap. 0 selects `min(n, 12)`.
+    pub krylov: u32,
+    /// Outer iterations. 0 selects `n`.
+    pub max_iter: u32,
+    /// Residual tolerance. Non-positive selects `1e-8`.
+    pub tol: f64,
+}
+
+/// Result of [`rgmin_lowest_eigenpair`]. The vector is written to
+/// the caller tensor.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct rgmin_lowest_mode_t {
+    /// Rayleigh quotient.
+    pub value: f64,
+    /// Hessian actions consumed.
+    pub actions: usize,
+}
+
+/// `H(x) v` callback. Writes into the pre-allocated `hv_out` tensor.
+pub type rgmin_hvp_fn = unsafe extern "C" fn(
+    user: *mut c_void,
+    x: *const DLManagedTensorVersioned,
+    v: *const DLManagedTensorVersioned,
+    hv_out: *mut DLManagedTensorVersioned,
+) -> rgmin_status_t;
+
 thread_local! {
     static LAST_ERROR: RefCell<CString> = RefCell::new(CString::default());
 }
@@ -340,6 +401,113 @@ pub unsafe extern "C" fn rgmin_tensor_free(tensor: *mut DLManagedTensorVersioned
     }
     if let Some(deleter) = unsafe { (*tensor).deleter } {
         unsafe { deleter(tensor) };
+    }
+}
+
+fn eigen_params_from_c(raw: *const rgmin_eigen_params_t) -> Result<EigenParams, rgmin_status_t> {
+    if raw.is_null() {
+        return Ok(EigenParams::default());
+    }
+    let p = unsafe { *raw };
+    let kind = EigensolverKind::from_ordinal(p.kind as u8).ok_or_else(|| {
+        set_last_error(&format!("rgmin_eigen_kind_t unknown ordinal {}", p.kind));
+        rgmin_status_t::RGMIN_INVALID_PARAMETER
+    })?;
+    Ok(EigenParams {
+        kind,
+        nev: p.nev as usize,
+        krylov: p.krylov as usize,
+        max_iter: p.max_iter as usize,
+        tol: p.tol,
+    })
+}
+
+struct CHvp {
+    hvp: rgmin_hvp_fn,
+    user: *mut c_void,
+}
+
+impl ApplyHessian for CHvp {
+    fn apply_hessian(&self, x: ArrayView1<f64>, v: ArrayView1<f64>) -> Array1<f64> {
+        let n = x.len();
+        let mut xbuf = x.to_owned();
+        let mut vbuf = v.to_owned();
+        let mut hv = Array1::zeros(n);
+        let xt = unsafe { rgmin_tensor_borrow_cpu_f64(xbuf.as_mut_ptr(), n) };
+        let vt = unsafe { rgmin_tensor_borrow_cpu_f64(vbuf.as_mut_ptr(), n) };
+        let ht = unsafe { rgmin_tensor_borrow_cpu_f64(hv.as_mut_ptr(), n) };
+        let st = unsafe { (self.hvp)(self.user, xt, vt, ht) };
+        unsafe {
+            rgmin_tensor_free(xt);
+            rgmin_tensor_free(vt);
+            rgmin_tensor_free(ht);
+        }
+        if st != rgmin_status_t::RGMIN_SUCCESS {
+            return Array1::from_elem(n, f64::NAN);
+        }
+        hv
+    }
+}
+
+/// Matrix-free lowest Hessian eigenpair. `params == NULL` is Lanczos.
+/// Unlinked kinds return [`rgmin_status_t::RGMIN_UNAVAILABLE`].
+///
+/// # Safety
+/// `hvp` is callable for the lifetime of this call. `x`, `seed`, and
+/// `mode_out` are rank-1 f64 CPU tensors of equal length.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rgmin_lowest_eigenpair(
+    hvp: Option<rgmin_hvp_fn>,
+    user: *mut c_void,
+    x: *const DLManagedTensorVersioned,
+    seed: *const DLManagedTensorVersioned,
+    mode_out: *mut DLManagedTensorVersioned,
+    params: *const rgmin_eigen_params_t,
+    out: *mut rgmin_lowest_mode_t,
+) -> rgmin_status_t {
+    let Some(hvp) = hvp else {
+        set_last_error("rgmin_lowest_eigenpair: null hvp");
+        return rgmin_status_t::RGMIN_INVALID_PARAMETER;
+    };
+    if out.is_null() {
+        set_last_error("rgmin_lowest_eigenpair: null out");
+        return rgmin_status_t::RGMIN_INVALID_PARAMETER;
+    }
+    let xs = match cpu_f64_slice(x, "x") {
+        Ok(s) => s,
+        Err(st) => return st,
+    };
+    let seed_s = match cpu_f64_slice(seed, "seed") {
+        Ok(s) => s,
+        Err(st) => return st,
+    };
+    let mode_s = match cpu_f64_slice_mut(mode_out, "mode_out") {
+        Ok(s) => s,
+        Err(st) => return st,
+    };
+    if xs.len() != seed_s.len() || xs.len() != mode_s.len() {
+        set_last_error("rgmin_lowest_eigenpair: x/seed/mode length mismatch");
+        return rgmin_status_t::RGMIN_INVALID_PARAMETER;
+    }
+    let typed = match eigen_params_from_c(params) {
+        Ok(p) => p,
+        Err(st) => return st,
+    };
+    let apply = CHvp { hvp, user };
+    let x_arr = Array1::from(xs.to_vec());
+    let seed_arr = Array1::from(seed_s.to_vec());
+    match lowest_mode(&apply, x_arr.view(), seed_arr.view(), &typed) {
+        Ok(mode) => {
+            mode_s.copy_from_slice(mode.vector.as_slice().unwrap_or(&[]));
+            unsafe {
+                *out = rgmin_lowest_mode_t {
+                    value: mode.value,
+                    actions: mode.actions,
+                };
+            }
+            rgmin_status_t::RGMIN_SUCCESS
+        }
+        Err(e) => status_from_error(&e),
     }
 }
 
@@ -1694,6 +1862,19 @@ mod conjugacy_abi_tests {
         assert_eq!(offset_of!(rgmin_scg_params_t, tol_sol), 24);
         assert_eq!(offset_of!(rgmin_scg_params_t, tol_func), 32);
         assert_eq!(offset_of!(rgmin_scg_params_t, conjugacy), 40);
+    }
+
+    #[test]
+    fn eigen_params_layout_is_i32_then_three_u32_then_f64() {
+        assert_eq!(size_of::<rgmin_eigen_kind_t>(), 4);
+        assert_eq!(size_of::<rgmin_eigen_params_t>(), 24);
+        assert_eq!(offset_of!(rgmin_eigen_params_t, kind), 0);
+        assert_eq!(offset_of!(rgmin_eigen_params_t, nev), 4);
+        assert_eq!(offset_of!(rgmin_eigen_params_t, krylov), 8);
+        assert_eq!(offset_of!(rgmin_eigen_params_t, max_iter), 12);
+        assert_eq!(offset_of!(rgmin_eigen_params_t, tol), 16);
+        assert_eq!(rgmin_eigen_kind_t::RGMIN_EIGEN_LANCZOS as i32, 0);
+        assert_eq!(rgmin_eigen_kind_t::RGMIN_EIGEN_EIGENEXA as i32, 13);
     }
 
     #[test]

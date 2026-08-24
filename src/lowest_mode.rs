@@ -1,16 +1,191 @@
 //! Matrix-free lowest eigenpair of a symmetric Hessian action.
 //!
 //! IRC kick and the `lambda_min` sign check need one extremal pair,
-//! not a full ELPA / SLATE spectrum. This is Lanczos on
-//! [`HessianVector`] with a tiny Jacobi solve on the tridiagonal,
-//! the same algorithm rgsaddle uses for min-mode.
+//! not a full ELPA / SLATE spectrum. Dispatch is a closed
+//! [`EigensolverKind`]: Lanczos, Rayleigh-Ritz, Jacobi-Davidson, and
+//! LOBPCG run here; every other named backend fail-closes with
+//! [`Error::EigenUnavailable`]. Integers match `schema/eigen.capnp`.
 
 use ndarray::{Array1, ArrayView1};
 
+use crate::error::{Error, Result};
 use crate::hvp::HessianVector;
 use crate::vecops::{axpy, dot, nrm2};
 
-/// Result of [`lowest_eigenpair`].
+/// Cutoff used by gpr_optim `kMinDistributedSymmetricEigenOrder`.
+/// Dense distributed backends (ELPA, SLATE) sit at or above this.
+pub const DENSE_EIGEN_CUTOFF: usize = 512;
+
+/// Closed eigensolver tag. Ordinals match `schema/eigen.capnp`.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum EigensolverKind {
+    /// Lanczos + tiny Jacobi on the tridiagonal. Default IRC kick.
+    Lanczos = 0,
+    /// Residual-expanded Rayleigh-Ritz (gpr_optim `lowestEigenpairRayleighRitz`).
+    RayleighRitz = 1,
+    /// Jacobi-Davidson correction, matrix-free inner CG
+    /// (Davidson 1975, Sleijpen-Van der Vorst 1996).
+    JacobiDavidson = 2,
+    /// LOBPCG, nev = 1 (Knyazev 2001).
+    Lobpcg = 3,
+    /// PRIMME. Not linked.
+    Primme = 4,
+    /// SLEPc EPS. Not linked.
+    Slepc = 5,
+    /// ChASE Chebyshev filter. Not linked.
+    Chase = 6,
+    /// ELPA dense distributed. Not linked.
+    Elpa = 7,
+    /// ELPA2 GPU. Not linked.
+    Elpa2 = 8,
+    /// SLATE heev. Not linked.
+    Slate = 9,
+    /// MAGMA syev. Not linked.
+    Magma = 10,
+    /// cuSOLVER dense / batched. Not linked.
+    Cusolver = 11,
+    /// DLA-Future. Not linked.
+    DlaFuture = 12,
+    /// EigenExa. Not linked.
+    EigenExa = 13,
+}
+
+impl EigensolverKind {
+    /// Schema / C ABI name. Never a free-form string key.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Lanczos => "lanczos",
+            Self::RayleighRitz => "rayleighRitz",
+            Self::JacobiDavidson => "jacobiDavidson",
+            Self::Lobpcg => "lobpcg",
+            Self::Primme => "primme",
+            Self::Slepc => "slepc",
+            Self::Chase => "chase",
+            Self::Elpa => "elpa",
+            Self::Elpa2 => "elpa2",
+            Self::Slate => "slate",
+            Self::Magma => "magma",
+            Self::Cusolver => "cusolver",
+            Self::DlaFuture => "dlaFuture",
+            Self::EigenExa => "eigenExa",
+        }
+    }
+
+    /// Built into this crate. Unlinked kinds return [`Error::EigenUnavailable`].
+    pub const fn is_linked(self) -> bool {
+        matches!(
+            self,
+            Self::Lanczos | Self::RayleighRitz | Self::JacobiDavidson | Self::Lobpcg
+        )
+    }
+
+    /// Works from Hessian actions, no assembled matrix.
+    pub const fn is_matrix_free(self) -> bool {
+        matches!(
+            self,
+            Self::Lanczos
+                | Self::RayleighRitz
+                | Self::JacobiDavidson
+                | Self::Lobpcg
+                | Self::Primme
+                | Self::Slepc
+        )
+    }
+
+    /// Decode a schema / C ordinal. Unknown integers are `None`.
+    pub const fn from_ordinal(raw: u8) -> Option<Self> {
+        match raw {
+            0 => Some(Self::Lanczos),
+            1 => Some(Self::RayleighRitz),
+            2 => Some(Self::JacobiDavidson),
+            3 => Some(Self::Lobpcg),
+            4 => Some(Self::Primme),
+            5 => Some(Self::Slepc),
+            6 => Some(Self::Chase),
+            7 => Some(Self::Elpa),
+            8 => Some(Self::Elpa2),
+            9 => Some(Self::Slate),
+            10 => Some(Self::Magma),
+            11 => Some(Self::Cusolver),
+            12 => Some(Self::DlaFuture),
+            13 => Some(Self::EigenExa),
+            _ => None,
+        }
+    }
+}
+
+/// Typed parameters for [`lowest_mode`]. No string fields.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct EigenParams {
+    /// Which backend.
+    pub kind: EigensolverKind,
+    /// Extremal pairs requested. The IRC kick uses 1.
+    pub nev: usize,
+    /// Krylov / subspace cap. 0 selects `min(n, 12)`.
+    pub krylov: usize,
+    /// Outer iterations. 0 selects `n`.
+    pub max_iter: usize,
+    /// Residual tolerance. Non-positive selects `1e-8`.
+    pub tol: f64,
+}
+
+impl Default for EigenParams {
+    fn default() -> Self {
+        Self {
+            kind: EigensolverKind::Lanczos,
+            nev: 1,
+            krylov: 0,
+            max_iter: 0,
+            tol: 0.0,
+        }
+    }
+}
+
+impl EigenParams {
+    fn krylov_dim(self, n: usize) -> usize {
+        let k = if self.krylov == 0 { 12.min(n) } else { self.krylov };
+        k.clamp(1, n.max(1))
+    }
+
+    fn tolerance(self) -> f64 {
+        if self.tol > 0.0 { self.tol } else { 1e-8 }
+    }
+
+    fn iterations(self, n: usize) -> usize {
+        if self.max_iter == 0 {
+            n.max(8)
+        } else {
+            self.max_iter
+        }
+    }
+}
+
+/// Hessian action used by the lowest-mode waist.
+///
+/// [`HessianVector`] implements this. Closures `Fn(x, v) -> H v` do too,
+/// so the C ABI does not have to fake a full objective.
+pub trait ApplyHessian {
+    /// `H(x) v` without forming `H`.
+    fn apply_hessian(&self, x: ArrayView1<f64>, v: ArrayView1<f64>) -> Array1<f64>;
+}
+
+impl<T: HessianVector + ?Sized> ApplyHessian for T {
+    fn apply_hessian(&self, x: ArrayView1<f64>, v: ArrayView1<f64>) -> Array1<f64> {
+        self.hessian_vector(x, v)
+    }
+}
+
+impl<F> ApplyHessian for F
+where
+    F: Fn(ArrayView1<f64>, ArrayView1<f64>) -> Array1<f64>,
+{
+    fn apply_hessian(&self, x: ArrayView1<f64>, v: ArrayView1<f64>) -> Array1<f64> {
+        self(x, v)
+    }
+}
+
+/// Result of [`lowest_eigenpair`] / [`lowest_mode`].
 #[derive(Clone, Debug)]
 pub struct LowestMode {
     /// Approximate eigenvector, Euclidean-normalized.
@@ -22,7 +197,44 @@ pub struct LowestMode {
 }
 
 /// Lanczos for the lowest eigenpair of `H(x)`.
-pub fn lowest_eigenpair<H: HessianVector + ?Sized>(
+///
+/// Convenience wrapper around [`lowest_mode`] with
+/// [`EigensolverKind::Lanczos`].
+pub fn lowest_eigenpair<H: ApplyHessian + ?Sized>(
+    h: &H,
+    x: ArrayView1<f64>,
+    seed: ArrayView1<f64>,
+    krylov: usize,
+) -> LowestMode {
+    let params = EigenParams {
+        kind: EigensolverKind::Lanczos,
+        krylov,
+        ..EigenParams::default()
+    };
+    lowest_mode(h, x, seed, &params).expect("Lanczos is linked")
+}
+
+/// Dispatch on [`EigenParams::kind`]. Unlinked backends return
+/// [`Error::EigenUnavailable`].
+pub fn lowest_mode<H: ApplyHessian + ?Sized>(
+    h: &H,
+    x: ArrayView1<f64>,
+    seed: ArrayView1<f64>,
+    params: &EigenParams,
+) -> Result<LowestMode> {
+    if seed.is_empty() {
+        return Err(Error::Dim { got: 0, dim: 0 });
+    }
+    match params.kind {
+        EigensolverKind::Lanczos => Ok(lanczos(h, x, seed, params.krylov_dim(seed.len()))),
+        EigensolverKind::RayleighRitz => Ok(rayleigh_ritz(h, x, seed, params)),
+        EigensolverKind::JacobiDavidson => Ok(jacobi_davidson(h, x, seed, params)),
+        EigensolverKind::Lobpcg => Ok(lobpcg(h, x, seed, params)),
+        other => Err(Error::EigenUnavailable { kind: other.name() }),
+    }
+}
+
+fn lanczos<H: ApplyHessian + ?Sized>(
     h: &H,
     x: ArrayView1<f64>,
     seed: ArrayView1<f64>,
@@ -37,7 +249,7 @@ pub fn lowest_eigenpair<H: HessianVector + ?Sized>(
 
     let mut actions = 0;
     for j in 0..m {
-        let hv = h.hessian_vector(x, q[j].view());
+        let hv = h.apply_hessian(x, q[j].view());
         actions += 1;
         let a = dot(hv.view(), q[j].view());
         alpha.push(a);
@@ -71,12 +283,7 @@ pub fn lowest_eigenpair<H: HessianVector + ?Sized>(
         }
     }
     let (evals, evecs) = jacobi_eigen(&mut t);
-    let mut lowest = 0;
-    for i in 1..k {
-        if evals[i] < evals[lowest] {
-            lowest = i;
-        }
-    }
+    let lowest = argmin(&evals);
     let mut mode = Array1::zeros(n);
     for (i, qi) in q.iter().enumerate().take(k) {
         axpy(evecs[i][lowest], qi.view(), &mut mode);
@@ -86,6 +293,309 @@ pub fn lowest_eigenpair<H: HessianVector + ?Sized>(
         value: evals[lowest],
         actions,
     }
+}
+
+struct Subspace {
+    q: Vec<Array1<f64>>,
+    aq: Vec<Array1<f64>>,
+    actions: usize,
+}
+
+impl Subspace {
+    fn with_capacity(m: usize) -> Self {
+        Self {
+            q: Vec::with_capacity(m),
+            aq: Vec::with_capacity(m),
+            actions: 0,
+        }
+    }
+
+    fn try_append<H: ApplyHessian + ?Sized>(
+        &mut self,
+        h: &H,
+        x: ArrayView1<f64>,
+        mut v: Array1<f64>,
+    ) -> bool {
+        for qi in &self.q {
+            let overlap = dot(v.view(), qi.view());
+            axpy(-overlap, qi.view(), &mut v);
+        }
+        let b = nrm2(v.view());
+        if b <= 1e-12 {
+            return false;
+        }
+        v.mapv_inplace(|c| c / b);
+        let av = h.apply_hessian(x, v.view());
+        self.actions += 1;
+        self.q.push(v);
+        self.aq.push(av);
+        true
+    }
+
+    fn ritz(&self, n: usize) -> Option<(f64, Array1<f64>, Array1<f64>, Array1<f64>)> {
+        let k = self.q.len();
+        if k == 0 {
+            return None;
+        }
+        let mut t = vec![vec![0.0; k]; k];
+        for i in 0..k {
+            for j in 0..=i {
+                let value = dot(self.q[i].view(), self.aq[j].view());
+                t[i][j] = value;
+                t[j][i] = value;
+            }
+        }
+        let (evals, evecs) = jacobi_eigen(&mut t);
+        let lowest = argmin(&evals);
+        let mut mode = Array1::zeros(n);
+        let mut amode = Array1::zeros(n);
+        for i in 0..k {
+            axpy(evecs[i][lowest], self.q[i].view(), &mut mode);
+            axpy(evecs[i][lowest], self.aq[i].view(), &mut amode);
+        }
+        let nrm = nrm2(mode.view());
+        if nrm <= 1e-14 {
+            return None;
+        }
+        mode.mapv_inplace(|c| c / nrm);
+        amode.mapv_inplace(|c| c / nrm);
+        let theta = evals[lowest];
+        let mut residual = amode;
+        axpy(-theta, mode.view(), &mut residual);
+        for qi in &self.q {
+            let overlap = dot(residual.view(), qi.view());
+            axpy(-overlap, qi.view(), &mut residual);
+        }
+        Some((theta, mode, residual, amode))
+    }
+}
+
+fn rayleigh_ritz<H: ApplyHessian + ?Sized>(
+    h: &H,
+    x: ArrayView1<f64>,
+    seed: ArrayView1<f64>,
+    params: &EigenParams,
+) -> LowestMode {
+    let n = seed.len();
+    let m = params.krylov_dim(n);
+    let tol = params.tolerance();
+    let mut space = Subspace::with_capacity(m);
+    if !space.try_append(h, x, seed.to_owned()) {
+        let mut unit = Array1::zeros(n);
+        unit[0] = 1.0;
+        space.try_append(h, x, unit);
+    }
+    let mut last = LowestMode {
+        vector: normalize(seed.to_owned()),
+        value: 0.0,
+        actions: space.actions,
+    };
+    while space.q.len() <= m {
+        let Some((theta, mode, residual, _)) = space.ritz(n) else {
+            break;
+        };
+        last = LowestMode {
+            vector: mode,
+            value: theta,
+            actions: space.actions,
+        };
+        let rnorm = nrm2(residual.view());
+        if rnorm <= tol * (1.0 + theta.abs()) {
+            break;
+        }
+        if space.q.len() >= m {
+            break;
+        }
+        if !space.try_append(h, x, residual) {
+            break;
+        }
+    }
+    last
+}
+
+fn project_against(u: ArrayView1<f64>, v: &mut Array1<f64>) {
+    let overlap = dot(v.view(), u);
+    axpy(-overlap, u, v);
+}
+
+fn apply_jd<H: ApplyHessian + ?Sized>(
+    h: &H,
+    x: ArrayView1<f64>,
+    u: ArrayView1<f64>,
+    theta: f64,
+    p: ArrayView1<f64>,
+) -> Array1<f64> {
+    let mut w = p.to_owned();
+    project_against(u, &mut w);
+    let mut hw = h.apply_hessian(x, w.view());
+    axpy(-theta, w.view(), &mut hw);
+    project_against(u, &mut hw);
+    hw
+}
+
+/// Matrix-free Jacobi-Davidson correction: CG on
+/// `(I-uu^T)(H-θI)(I-uu^T) t = -r`, `t ⊥ u`.
+fn jd_correction<H: ApplyHessian + ?Sized>(
+    h: &H,
+    x: ArrayView1<f64>,
+    u: ArrayView1<f64>,
+    theta: f64,
+    residual: ArrayView1<f64>,
+    max_inner: usize,
+    actions: &mut usize,
+) -> Option<Array1<f64>> {
+    let n = residual.len();
+    let mut b = residual.to_owned();
+    b.mapv_inplace(|c| -c);
+    project_against(u, &mut b);
+    let mut sol = Array1::zeros(n);
+    let mut r = b;
+    let mut p = r.clone();
+    let mut rsold = dot(r.view(), r.view());
+    if rsold <= 1e-30 {
+        return None;
+    }
+    for _ in 0..max_inner {
+        let ap = apply_jd(h, x, u, theta, p.view());
+        *actions += 1;
+        let pap = dot(p.view(), ap.view());
+        if pap.abs() <= 1e-30 {
+            break;
+        }
+        let alpha = rsold / pap;
+        axpy(alpha, p.view(), &mut sol);
+        axpy(-alpha, ap.view(), &mut r);
+        let rsnew = dot(r.view(), r.view());
+        if rsnew.sqrt() <= 1e-10 {
+            break;
+        }
+        let beta = rsnew / rsold;
+        let mut p_new = r.clone();
+        axpy(beta, p.view(), &mut p_new);
+        p = p_new;
+        rsold = rsnew;
+    }
+    project_against(u, &mut sol);
+    if nrm2(sol.view()) <= 1e-14 {
+        None
+    } else {
+        Some(sol)
+    }
+}
+
+fn jacobi_davidson<H: ApplyHessian + ?Sized>(
+    h: &H,
+    x: ArrayView1<f64>,
+    seed: ArrayView1<f64>,
+    params: &EigenParams,
+) -> LowestMode {
+    let n = seed.len();
+    let m = params.krylov_dim(n);
+    let tol = params.tolerance();
+    let inner = (n / 4).clamp(4, 16);
+    let mut space = Subspace::with_capacity(m);
+    if !space.try_append(h, x, seed.to_owned()) {
+        let mut unit = Array1::zeros(n);
+        unit[0] = 1.0;
+        space.try_append(h, x, unit);
+    }
+    let mut last = LowestMode {
+        vector: normalize(seed.to_owned()),
+        value: 0.0,
+        actions: space.actions,
+    };
+    let mut extra_actions = 0;
+    while space.q.len() <= m {
+        let Some((theta, mode, residual, _)) = space.ritz(n) else {
+            break;
+        };
+        last = LowestMode {
+            vector: mode.clone(),
+            value: theta,
+            actions: space.actions + extra_actions,
+        };
+        let rnorm = nrm2(residual.view());
+        if rnorm <= tol * (1.0 + theta.abs()) {
+            break;
+        }
+        if space.q.len() >= m {
+            break;
+        }
+        let next = jd_correction(
+            h,
+            x,
+            mode.view(),
+            theta,
+            residual.view(),
+            inner,
+            &mut extra_actions,
+        )
+        .unwrap_or(residual);
+        if !space.try_append(h, x, next) {
+            break;
+        }
+    }
+    last.actions = space.actions + extra_actions;
+    last
+}
+
+fn lobpcg<H: ApplyHessian + ?Sized>(
+    h: &H,
+    x: ArrayView1<f64>,
+    seed: ArrayView1<f64>,
+    params: &EigenParams,
+) -> LowestMode {
+    let n = seed.len();
+    let tol = params.tolerance();
+    let max_iter = params.iterations(n);
+    let mut vec = normalize(seed.to_owned());
+    let mut avec = h.apply_hessian(x, vec.view());
+    let mut actions = 1;
+    let mut p: Option<Array1<f64>> = None;
+    let mut theta = dot(vec.view(), avec.view());
+    for _ in 0..max_iter {
+        let mut residual = avec.clone();
+        axpy(-theta, vec.view(), &mut residual);
+        if nrm2(residual.view()) <= tol * (1.0 + theta.abs()) {
+            break;
+        }
+        let mut space = Subspace::with_capacity(3);
+        space.q.push(vec.clone());
+        space.aq.push(avec.clone());
+        if !space.try_append(h, x, residual) {
+            break;
+        }
+        if let Some(dir) = p.take() {
+            space.try_append(h, x, dir);
+        }
+        actions += space.actions;
+        let Some((new_theta, new_vec, _, new_avec)) = space.ritz(n) else {
+            break;
+        };
+        let mut dir = new_vec.clone();
+        axpy(-1.0, vec.view(), &mut dir);
+        vec = new_vec;
+        avec = new_avec;
+        theta = new_theta;
+        if nrm2(dir.view()) > 1e-14 {
+            p = Some(dir);
+        }
+    }
+    LowestMode {
+        vector: vec,
+        value: theta,
+        actions,
+    }
+}
+
+fn argmin(vals: &[f64]) -> usize {
+    let mut best = 0;
+    for i in 1..vals.len() {
+        if vals[i] < vals[best] {
+            best = i;
+        }
+    }
+    best
 }
 
 fn normalize(mut v: Array1<f64>) -> Array1<f64> {
@@ -153,33 +663,62 @@ fn jacobi_eigen(a: &mut [Vec<f64>]) -> (Vec<f64>, Vec<Vec<f64>>) {
 mod tests {
     use super::*;
     use crate::hvp::HvpOracle;
+    use crate::Error;
     use ndarray::array;
 
-    #[test]
-    fn recovers_the_downhill_axis_of_a_double_well_hessian() {
-        // H = diag(-8, 4, 4, 4, 4, 4) at the origin of (x^2-1)^2 + 2 r_rest^2.
-        let h = HvpOracle::unbounded(
-            6,
-            |x| {
+    fn gapped_diag(n: usize) -> HvpOracle<impl Fn(ArrayView1<f64>) -> (f64, Array1<f64>) + Send + Sync, impl Fn(ArrayView1<f64>, ArrayView1<f64>) -> Array1<f64> + Send + Sync> {
+        HvpOracle::unbounded(
+            n,
+            move |x| {
                 let t = x[0];
-                let mut g = Array1::zeros(6);
+                let mut g = Array1::zeros(n);
                 g[0] = 4.0 * t * (t * t - 1.0);
-                for i in 1..6 {
+                for i in 1..n {
                     g[i] = 4.0 * x[i];
                 }
                 let e = (t * t - 1.0) * (t * t - 1.0)
                     + 2.0 * x.iter().skip(1).map(|c| c * c).sum::<f64>();
                 (e, g)
             },
-            |_x, v| {
-                let mut hv = Array1::zeros(6);
+            move |_x, v| {
+                let mut hv = Array1::zeros(n);
                 hv[0] = -8.0 * v[0];
-                for i in 1..6 {
+                for i in 1..n {
                     hv[i] = 4.0 * v[i];
                 }
                 hv
             },
-        );
+        )
+    }
+
+    fn dense_column_actions<H: ApplyHessian>(h: &H, x: ArrayView1<f64>, n: usize) -> LowestMode {
+        let mut mat = vec![vec![0.0; n]; n];
+        let mut actions = 0;
+        for i in 0..n {
+            let mut e = Array1::zeros(n);
+            e[i] = 1.0;
+            let he = h.apply_hessian(x, e.view());
+            actions += 1;
+            for j in 0..n {
+                mat[j][i] = he[j];
+            }
+        }
+        let (evals, evecs) = jacobi_eigen(&mut mat);
+        let lowest = argmin(&evals);
+        let mut mode = Array1::zeros(n);
+        for i in 0..n {
+            mode[i] = evecs[i][lowest];
+        }
+        LowestMode {
+            vector: normalize(mode),
+            value: evals[lowest],
+            actions,
+        }
+    }
+
+    #[test]
+    fn recovers_the_downhill_axis_of_a_double_well_hessian() {
+        let h = gapped_diag(6);
         let x = Array1::zeros(6);
         let seed = array![0.2, 0.7, 0.1, 0.0, 0.0, 0.0];
         let mode = lowest_eigenpair(&h, x.view(), seed.view(), 6);
@@ -190,5 +729,100 @@ mod tests {
             mode.vector
         );
         assert!(mode.actions <= 6);
+    }
+
+    #[test]
+    fn schema_ordinals_are_the_closed_enum() {
+        for raw in 0u8..=13 {
+            let kind = EigensolverKind::from_ordinal(raw).expect("ordinal in range");
+            assert_eq!(kind as u8, raw);
+        }
+        assert!(EigensolverKind::from_ordinal(14).is_none());
+        assert_eq!(EigensolverKind::Lanczos.name(), "lanczos");
+        assert_eq!(EigensolverKind::EigenExa.name(), "eigenExa");
+        assert_eq!(DENSE_EIGEN_CUTOFF, 512);
+    }
+
+    #[test]
+    fn matrix_free_kinds_recover_the_gapped_mode_with_fewer_actions_than_dense() {
+        let n = 32;
+        let h = gapped_diag(n);
+        let x = Array1::zeros(n);
+        let mut seed = Array1::zeros(n);
+        seed[0] = 0.3;
+        seed[3] = 0.7;
+        seed[11] = 0.2;
+        let dense = dense_column_actions(&h, x.view(), n);
+        assert_eq!(dense.actions, n);
+        assert!(dense.value < 0.0);
+        assert!(dense.vector[0].abs() > 0.9);
+
+        for kind in [
+            EigensolverKind::Lanczos,
+            EigensolverKind::RayleighRitz,
+            EigensolverKind::JacobiDavidson,
+            EigensolverKind::Lobpcg,
+        ] {
+            let params = EigenParams {
+                kind,
+                krylov: 8,
+                max_iter: 16,
+                tol: 1e-6,
+                nev: 1,
+            };
+            let mode = lowest_mode(&h, x.view(), seed.view(), &params).unwrap();
+            assert!(
+                mode.value < 0.0,
+                "{:?} curvature {}",
+                kind,
+                mode.value
+            );
+            assert!(
+                mode.vector[0].abs() > 0.9,
+                "{:?} mode {:?}",
+                kind,
+                mode.vector
+            );
+            assert!(
+                mode.actions < n,
+                "{:?} used {} actions, dense uses {}",
+                kind,
+                mode.actions,
+                n
+            );
+            let cos = mode
+                .vector
+                .iter()
+                .zip(dense.vector.iter())
+                .map(|(a, b)| a * b)
+                .sum::<f64>()
+                .abs();
+            assert!(cos > 0.9, "{:?} |cos| = {cos}", kind);
+        }
+    }
+
+    #[test]
+    fn unlinked_kinds_fail_closed() {
+        let h = gapped_diag(4);
+        let x = Array1::zeros(4);
+        let seed = array![1.0, 0.0, 0.0, 0.0];
+        for raw in 4u8..=13 {
+            let kind = EigensolverKind::from_ordinal(raw).unwrap();
+            assert!(!kind.is_linked());
+            let err = lowest_mode(
+                &h,
+                x.view(),
+                seed.view(),
+                &EigenParams {
+                    kind,
+                    ..EigenParams::default()
+                },
+            )
+            .unwrap_err();
+            match err {
+                Error::EigenUnavailable { kind: name } => assert_eq!(name, kind.name()),
+                other => panic!("expected unavailable, got {other}"),
+            }
+        }
     }
 }

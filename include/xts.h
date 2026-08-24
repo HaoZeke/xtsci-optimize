@@ -35,7 +35,9 @@ typedef enum xts_status_t {
     XTS_INVALID_PARAMETER = 1,
     XTS_INTERNAL_ERROR = 2,
     /** Tensor device is not CPU. The ABI stays stable for a later CUDA path. */
-    XTS_UNSUPPORTED_DEVICE = 3
+    XTS_UNSUPPORTED_DEVICE = 3,
+    /** Named eigensolver is not linked in this build. */
+    XTS_UNAVAILABLE = 4
 } xts_status_t;
 
 /** Compatibility identity for the xtsci-optimize C ABI. */
@@ -46,7 +48,7 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 12
+#define XTS_ABI_VERSION_MINOR 13
 #define XTS_ABI_LAYOUT_REVISION 3
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
@@ -330,6 +332,76 @@ xts_status_t rgmin_minimize_scg(xts_eval_fn eval, xts_grad_fn grad, xts_curv_fn 
 #define RGMIN_CONJUGACY_HAGER_ZHANG XTS_CONJUGACY_HAGER_ZHANG
 #define RGMIN_CONJUGACY_LIU_STOREY XTS_CONJUGACY_LIU_STOREY
 #define RGMIN_CONJUGACY_FR_PR XTS_CONJUGACY_FR_PR
+#endif
+
+/** Closed eigensolver tag. Integers match schema/eigen.capnp. */
+typedef enum xts_eigen_kind_t {
+    XTS_EIGEN_LANCZOS = 0,
+    XTS_EIGEN_RAYLEIGH_RITZ = 1,
+    XTS_EIGEN_JACOBI_DAVIDSON = 2,
+    XTS_EIGEN_LOBPCG = 3,
+    XTS_EIGEN_PRIMME = 4,
+    XTS_EIGEN_SLEPC = 5,
+    XTS_EIGEN_CHASE = 6,
+    XTS_EIGEN_ELPA = 7,
+    XTS_EIGEN_ELPA2 = 8,
+    XTS_EIGEN_SLATE = 9,
+    XTS_EIGEN_MAGMA = 10,
+    XTS_EIGEN_CUSOLVER = 11,
+    XTS_EIGEN_DLA_FUTURE = 12,
+    XTS_EIGEN_EIGENEXA = 13
+} xts_eigen_kind_t;
+
+typedef struct xts_eigen_params_t {
+    /** Literal xts_eigen_kind_t. Unknown integers are XTS_INVALID_PARAMETER. */
+    int32_t kind;
+    uint32_t nev;
+    uint32_t krylov;
+    uint32_t max_iter;
+    double tol;
+} xts_eigen_params_t;
+
+typedef struct xts_lowest_mode_t {
+    double value;
+    size_t actions;
+} xts_lowest_mode_t;
+
+typedef xts_status_t (*xts_hvp_fn)(void *user, const DLManagedTensorVersioned *x,
+                                   const DLManagedTensorVersioned *v,
+                                   DLManagedTensorVersioned *hv_out);
+
+/**
+ * Matrix-free lowest Hessian eigenpair. \a params NULL is Lanczos.
+ * Unlinked kinds return \c XTS_UNAVAILABLE. The vector is written
+ * to \a mode_out.
+ */
+xts_status_t rgmin_lowest_eigenpair(xts_hvp_fn hvp, void *user,
+                                    const DLManagedTensorVersioned *x,
+                                    const DLManagedTensorVersioned *seed,
+                                    DLManagedTensorVersioned *mode_out,
+                                    const xts_eigen_params_t *params,
+                                    xts_lowest_mode_t *out);
+
+#ifndef rgmin_eigen_kind_t
+#define rgmin_eigen_kind_t xts_eigen_kind_t
+#define rgmin_eigen_params_t xts_eigen_params_t
+#define rgmin_lowest_mode_t xts_lowest_mode_t
+#define rgmin_hvp_fn xts_hvp_fn
+#define RGMIN_EIGEN_LANCZOS XTS_EIGEN_LANCZOS
+#define RGMIN_EIGEN_RAYLEIGH_RITZ XTS_EIGEN_RAYLEIGH_RITZ
+#define RGMIN_EIGEN_JACOBI_DAVIDSON XTS_EIGEN_JACOBI_DAVIDSON
+#define RGMIN_EIGEN_LOBPCG XTS_EIGEN_LOBPCG
+#define RGMIN_EIGEN_PRIMME XTS_EIGEN_PRIMME
+#define RGMIN_EIGEN_SLEPC XTS_EIGEN_SLEPC
+#define RGMIN_EIGEN_CHASE XTS_EIGEN_CHASE
+#define RGMIN_EIGEN_ELPA XTS_EIGEN_ELPA
+#define RGMIN_EIGEN_ELPA2 XTS_EIGEN_ELPA2
+#define RGMIN_EIGEN_SLATE XTS_EIGEN_SLATE
+#define RGMIN_EIGEN_MAGMA XTS_EIGEN_MAGMA
+#define RGMIN_EIGEN_CUSOLVER XTS_EIGEN_CUSOLVER
+#define RGMIN_EIGEN_DLA_FUTURE XTS_EIGEN_DLA_FUTURE
+#define RGMIN_EIGEN_EIGENEXA XTS_EIGEN_EIGENEXA
+#define RGMIN_UNAVAILABLE XTS_UNAVAILABLE
 #endif
 
 #ifdef __cplusplus

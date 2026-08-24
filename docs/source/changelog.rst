@@ -15,7 +15,15 @@ direction. Wolfe line search stays on Energy / Nonmonotone.
 SCG C waist: closed ``xts_conjugacy_t`` on ``xts_scg_params_t``
 (FR=0 .. FrPr=7, dest leaf order). ``params==NULL`` is Netlab
 Polak-Ribiere. Unknown codes are ``RGMIN_INVALID_PARAMETER``.
-Stamp 1.12.3. Hybrid and Restart stay Rust-only. The gpr_optim
+Stamp 1.13.3. Hybrid and Restart stay Rust-only.
+
+Typed lowest-mode waist: closed ``EigensolverKind`` (Lanczos=0
+through EigenExa=13, ``schema/eigen.capnp``) and ``EigenParams``
+(``nev``, ``krylov``, ``max_iter``, ``tol``). No Text. C
+``rgmin_lowest_eigenpair`` plus ``rgmin_eigen_params_t``. Unlinked
+backends return ``RGMIN_UNAVAILABLE``.
+
+The gpr_optim
 consumer that writes ``RGMIN_CONJUGACY_LIU_STOREY`` is
 ``RgminScg.inl``, not in-tree ``SCG.inl``.
 
