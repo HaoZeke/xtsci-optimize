@@ -94,6 +94,13 @@ impl BfgsModel {
         self.pairs += 1;
     }
 
+    /// Sella TS-BFGS pair. Counts as a pair even when the mode is
+    /// negative, so [`Self::is_posdef`] sees the true spectrum.
+    pub fn update_ts(&mut self, s: &Array1<f64>, y: &Array1<f64>) {
+        crate::sella_step::ts_bfgs_update(&mut self.b, s, y);
+        self.pairs += 1;
+    }
+
     /// Jacobi spectrum of the stored MW Hessian. Columns of `evecs` are modes.
     pub fn eigh(&self) -> (Array1<f64>, Array2<f64>) {
         sym_eig_jacobi(self.b.clone())
