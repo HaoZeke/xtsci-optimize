@@ -5,7 +5,8 @@
 
 use ndarray::{array, Array1, ArrayView1};
 use rgmin::manifold::{
-    is_spd, is_symmetric, ComplexCircle, Manifold, MwRigid, Spd, Sphere, Stiefel, Symmetric,
+    is_spd, is_symmetric, ComplexCircle, Manifold, Multinomial, MwRigid, Oblique, Spd, Sphere,
+    Stiefel, StiefelNp, Symmetric,
 };
 use rgmin::IrcTrust;
 use rgmin::{
@@ -27,6 +28,63 @@ fn stiefel_p1_is_the_sphere_in_all_three_operations() {
         Stiefel.transport(&x, &y, &v),
         Sphere.transport(&x, &y, &v)
     );
+}
+
+/// Oblique OB(3,2) is a product of two spheres: each column stays unit.
+#[test]
+fn oblique_retract_stays_on_product_of_spheres() {
+    let m = Oblique::new(3, 2);
+    let x = array![1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    let v = array![0.1, 0.2, -0.3, 0.4, 0.0, -0.2];
+    let y = m.retract(&x, &v);
+    let n0 = (y[0] * y[0] + y[1] * y[1] + y[2] * y[2]).sqrt();
+    let n1 = (y[3] * y[3] + y[4] * y[4] + y[5] * y[5]).sqrt();
+    assert!((n0 - 1.0).abs() < 1e-14, "left sphere 0 {y:?}");
+    assert!((n1 - 1.0).abs() < 1e-14, "left sphere 1 {y:?}");
+    let t = m.project(&x, &v);
+    let d0 = x[0] * t[0] + x[1] * t[1] + x[2] * t[2];
+    let d1 = x[3] * t[3] + x[4] * t[4] + x[5] * t[5];
+    assert!(d0.abs() < 1e-14);
+    assert!(d1.abs() < 1e-14);
+    let w = m.transport(&x, &y, &v);
+    let p = m.project(&y, &v);
+    assert!((&w - &p).mapv(f64::abs).sum() < 1e-14);
+}
+
+/// Multinomial retraction stays in the relative interior of the simplex.
+#[test]
+fn multinomial_retract_stays_on_the_simplex() {
+    let x = array![0.2, 0.3, 0.5];
+    let v = array![0.1, -0.05, -0.05];
+    let y = Multinomial.retract(&x, &v);
+    assert!(y.iter().all(|&yi| yi > 0.0), "left the interior {y:?}");
+    let s: f64 = y.iter().copied().sum();
+    assert!((s - 1.0).abs() < 1e-14, "sum {s} y={y:?}");
+    let t = Multinomial.project(&x, &v);
+    let ts: f64 = t.iter().copied().sum();
+    assert!(ts.abs() < 1e-14, "not tangent 1^T t = {ts}");
+}
+
+/// Stiefel St(4,2) retraction stays orthonormal. This is not the sphere
+/// in R^8: the Gram matrix is I_2.
+#[test]
+fn stiefel_np_retract_stays_orthonormal() {
+    let st = StiefelNp::new(4, 2).unwrap();
+    let x = array![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+    let v = st.project(&x, &array![0.1, 0.0, 0.2, 0.0, 0.0, 0.1, 0.0, -0.2]);
+    let y = st.retract(&x, &v);
+    for a in 0..2 {
+        for b in 0..2 {
+            let mut acc = 0.0;
+            for i in 0..4 {
+                acc += y[i + 4 * a] * y[i + 4 * b];
+            }
+            let want = if a == b { 1.0 } else { 0.0 };
+            assert!((acc - want).abs() < 1e-12, "Y^T Y[{a},{b}]={acc}");
+        }
+    }
+    let nrm = y.iter().map(|a| a * a).sum::<f64>().sqrt();
+    assert!((nrm - 1.0).abs() > 1e-6);
 }
 
 /// The Eckart quotient's projection removes every rigid-body component:

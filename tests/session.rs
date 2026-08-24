@@ -243,6 +243,200 @@ fn stiefel_p1_matches_sphere_retract() {
     let ys = ManifoldKind::Sphere.retract(&x, &v);
     let yv = ManifoldKind::Stiefel.retract(&x, &v);
     assert!((&ys - &yv).mapv(f64::abs).sum() < 1e-15);
+    assert_eq!(ManifoldKind::Stiefel.stiefel_p(), 1);
+    assert_eq!(ManifoldKind::stiefel(3, 1), ManifoldKind::Stiefel);
+}
+
+#[test]
+fn stiefel_p2_retract_stays_orthonormal() {
+    use rgmin::{Manifold, ManifoldKind};
+    let kind = ManifoldKind::stiefel(4, 2);
+    assert_eq!(kind.stiefel_p(), 2);
+    assert!(kind.required_dim(8).is_ok());
+    assert!(kind.required_dim(7).is_err());
+    assert!(kind.required_dim(114).is_err());
+    let x = array![1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+    let raw = array![0.1, 0.0, 0.2, 0.0, 0.0, 0.1, 0.0, -0.2];
+    let v = kind.project(&x, &raw);
+    assert!((2.0 * v[0]).abs() < 1e-12);
+    assert!((v[4] + v[1]).abs() < 1e-12);
+    assert!((2.0 * v[5]).abs() < 1e-12);
+    let y = kind.retract(&x, &v);
+    let mut yty = [0.0; 4];
+    for a in 0..2 {
+        for b in 0..2 {
+            let mut acc = 0.0;
+            for i in 0..4 {
+                acc += y[i + 4 * a] * y[i + 4 * b];
+            }
+            yty[a + 2 * b] = acc;
+        }
+    }
+    assert!((yty[0] - 1.0).abs() < 1e-12);
+    assert!(yty[1].abs() < 1e-12);
+    assert!(yty[2].abs() < 1e-12);
+    assert!((yty[3] - 1.0).abs() < 1e-12);
+}
+
+#[test]
+fn oblique_rejects_a_3n_cluster() {
+    let obj = Rosenbrock::<114>::new();
+    let mut x = Array1::from_elem(114, 0.1);
+    let mut solver = Solver::new(Method::Steepest, control(), 114);
+    solver.set_oblique(3, 2);
+    let err = solver.step(&obj, &mut x).unwrap_err();
+    match err {
+        rgmin::Error::ManifoldDim { kind, got } => {
+            assert_eq!(kind, "oblique");
+            assert_eq!(got, 114);
+        }
+        other => panic!("expected ManifoldDim, got {other:?}"),
+    }
+}
+
+#[test]
+fn oblique_kind_is_not_sphere() {
+    assert_ne!(
+        rgmin::ManifoldKind::oblique(3, 1),
+        rgmin::ManifoldKind::Sphere
+    );
+}
+
+#[test]
+fn oblique_session_stays_on_product_of_spheres() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::ManifoldKind;
+
+    struct PairRay;
+    impl Objective<f64> for PairRay {
+        fn dim(&self) -> usize {
+            6
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(6, -2.0), Array1::from_elem(6, 2.0), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            0.5 * (x[0] * x[0]
+                + 2.0 * x[1] * x[1]
+                + 3.0 * x[2] * x[2]
+                + x[3] * x[3]
+                + 2.0 * x[4] * x[4]
+                + 3.0 * x[5] * x[5])
+        }
+    }
+    impl Gradient<f64> for PairRay {
+        fn dim(&self) -> usize {
+            6
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            array![x[0], 2.0 * x[1], 3.0 * x[2], x[3], 2.0 * x[4], 3.0 * x[5]]
+        }
+    }
+    impl DifferentiableObjective<f64> for PairRay {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = PairRay;
+    let s = (0.5_f64).sqrt();
+    let mut x = array![s, s, 0.0, 0.0, s, s];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 30,
+            gtol: 1e-8,
+            istep: 0.2,
+            maxmove: None,
+        },
+        6,
+    );
+    solver.set_manifold(ManifoldKind::oblique(3, 2));
+    solver.set_accept(rgmin::Accept::None);
+    for _ in 0..30 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        let n0 = (x[0] * x[0] + x[1] * x[1] + x[2] * x[2]).sqrt();
+        let n1 = (x[3] * x[3] + x[4] * x[4] + x[5] * x[5]).sqrt();
+        assert!((n0 - 1.0).abs() < 1e-10, "left sphere 0 {x:?}");
+        assert!((n1 - 1.0).abs() < 1e-10, "left sphere 1 {x:?}");
+    }
+}
+
+#[test]
+fn multinomial_session_stays_on_the_simplex() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::ManifoldKind;
+
+    struct Entropy;
+    impl Objective<f64> for Entropy {
+        fn dim(&self) -> usize {
+            3
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| Bounds::new(array![0.0, 0.0, 0.0], array![1.0, 1.0, 1.0], 0.0))
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            x.iter().map(|xi| xi * xi).sum()
+        }
+    }
+    impl Gradient<f64> for Entropy {
+        fn dim(&self) -> usize {
+            3
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            Array1::from_iter(x.iter().map(|xi| 2.0 * xi))
+        }
+    }
+    impl DifferentiableObjective<f64> for Entropy {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = Entropy;
+    let mut x = array![0.2, 0.3, 0.5];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 20,
+            gtol: 1e-10,
+            istep: 0.1,
+            maxmove: None,
+        },
+        3,
+    );
+    solver.set_manifold(ManifoldKind::Multinomial);
+    solver.set_accept(rgmin::Accept::None);
+    for _ in 0..20 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        assert!(x.iter().all(|&xi| xi > 0.0), "left the interior {x:?}");
+        let s = x.iter().copied().sum::<f64>();
+        assert!((s - 1.0).abs() < 1e-12, "left the simplex sum={s} x={x:?}");
+    }
+}
+
+#[test]
+fn multinomial_rejects_a_point() {
+    let obj = Rosenbrock::<1>::new();
+    let mut x = array![1.0];
+    let mut solver = Solver::new(Method::Steepest, control(), 1);
+    solver.set_manifold(rgmin::ManifoldKind::Multinomial);
+    let err = solver.step(&obj, &mut x).unwrap_err();
+    match err {
+        rgmin::Error::ManifoldDim { kind, got } => {
+            assert_eq!(kind, "multinomial");
+            assert_eq!(got, 1);
+        }
+        other => panic!("expected ManifoldDim, got {other:?}"),
+    }
 }
 
 #[test]
