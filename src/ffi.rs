@@ -1390,6 +1390,8 @@ pub enum rgmin_manifold_t {
     /// Product of unit circles (S^1)^n. Packed length 2n.
     /// Token defaults to n = 1; use rgmin_solver_set_complex_circle.
     RGMIN_MANIFOLD_COMPLEX_CIRCLE = 13,
+    /// Real symmetric n-by-n, row-major n². manopt `symmetricfactory`.
+    RGMIN_MANIFOLD_SYMMETRIC = 14,
 }
 
 #[unsafe(no_mangle)]
@@ -1408,9 +1410,38 @@ pub unsafe extern "C" fn rgmin_solver_set_manifold(
         rgmin_manifold_t::RGMIN_MANIFOLD_RIGID_QUOTIENT => ManifoldKind::RigidQuotient,
         rgmin_manifold_t::RGMIN_MANIFOLD_MW_RIGID => ManifoldKind::MwRigid,
         rgmin_manifold_t::RGMIN_MANIFOLD_COMPLEX_CIRCLE => ManifoldKind::ComplexCircle { n: 1 },
+        rgmin_manifold_t::RGMIN_MANIFOLD_SYMMETRIC => ManifoldKind::Symmetric,
         rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN => ManifoldKind::Euclidean,
     };
     unsafe { (*solver).solver.set_manifold(kind) };
+}
+
+/// Oblique \(\mathrm{OB}(n,m)\): product of `m` unit spheres in `R^n`.
+/// Packed column-major, length `n*m`. Not a 3N cluster.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rgmin_solver_set_oblique(
+    solver: *mut rgmin_solver_t,
+    n: usize,
+    m: usize,
+) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_oblique(n, m) };
+}
+
+/// Stiefel \(\mathrm{St}(n,p)\). `p = 1` is the sphere packing.
+/// `p > 1` is packed column-major, length `n*p`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rgmin_solver_set_stiefel(
+    solver: *mut rgmin_solver_t,
+    n: usize,
+    p: usize,
+) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_stiefel(n, p) };
 }
 
 /// `n` unit-modulus complex numbers. Packed interleaved, length `2 n`.

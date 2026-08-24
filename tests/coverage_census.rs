@@ -4,7 +4,9 @@
 //! contract the API promises and fails when the contract does.
 
 use ndarray::{array, Array1, ArrayView1};
-use rgmin::manifold::{is_spd, ComplexCircle, Manifold, MwRigid, Spd, Sphere, Stiefel};
+use rgmin::manifold::{
+    is_spd, is_symmetric, ComplexCircle, Manifold, MwRigid, Spd, Sphere, Stiefel, Symmetric,
+};
 use rgmin::IrcTrust;
 use rgmin::{
     minimize_scg_exact, Conjugacy, Control, DirectionalCurvature, Restart, ScgParams,
@@ -108,6 +110,24 @@ fn complex_circle_retract_stays_on_the_set() {
     assert!((n1 - 1.0).abs() < 1e-14, "left circle 1 {y:?}");
     let fro = y.iter().map(|a| a * a).sum::<f64>().sqrt();
     assert!((fro - 1.0).abs() > 0.3, "must not be the sphere {y:?}");
+}
+
+/// manopt symmetricfactory: retraction stays on the symmetric matrices
+/// and does not force the SPD cone.
+#[test]
+fn symmetric_retract_stays_on_the_set() {
+    let x = array![1.0, 0.0, 0.0, -1.0];
+    let v = array![0.0, 0.2, -0.1, 0.0];
+    let y = Symmetric.retract(&x, &v);
+    assert!(is_symmetric(&y), "left the symmetric set {y:?}");
+    assert!((y[1] - y[2]).abs() < 1e-15);
+    let t = Symmetric.project(&x, &v);
+    assert!((t[1] - t[2]).abs() < 1e-15);
+    let w = Symmetric.transport(&x, &y, &v);
+    assert!((w[1] - 0.2).abs() < 1e-15);
+    assert!((w[2] + 0.1).abs() < 1e-15);
+    let det = y[0] * y[3] - y[1] * y[2];
+    assert!(det < 0.0, "must not force SPD {y:?}");
 }
 
 /// A quadratic bowl carrying its exact directional curvature. SCG with
