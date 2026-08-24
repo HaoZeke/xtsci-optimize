@@ -234,7 +234,7 @@ int32_t xts_solver_set_highs(xts_solver_t *solver, int32_t enabled);
 /** Embedded manifold. Euclidean is the default.
  *  Molecular clusters use RIGID_QUOTIENT (Sella Cartesian T+R,
  *  R^{3N}/SE(3)) or MW_RIGID (Page-McIver / Sella IRC Eckart).
- *  SO3 is length 9; SE3 is length 12. */
+ *  SO3 is length 9; SE3 is length 12. SPD is row-major n*n. */
 typedef enum xts_manifold_t {
     XTS_MANIFOLD_EUCLIDEAN = 0,
     XTS_MANIFOLD_SPHERE = 1,

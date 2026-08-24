@@ -236,6 +236,79 @@ fn sphere_rayleigh_stays_on_the_sphere() {
 }
 
 #[test]
+fn spd_session_step_is_riemannian_and_stays_on_the_set() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::manifold::{is_spd, Manifold, ManifoldKind, Spd};
+
+    struct FrobeniusI;
+    impl Objective<f64> for FrobeniusI {
+        fn dim(&self) -> usize {
+            4
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(4, -1e12), Array1::from_elem(4, 1e12), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            let i = [1.0, 0.0, 0.0, 1.0];
+            0.5 * x.iter().zip(i).map(|(a, b)| (a - b) * (a - b)).sum::<f64>()
+        }
+    }
+    impl Gradient<f64> for FrobeniusI {
+        fn dim(&self) -> usize {
+            4
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            let i = [1.0, 0.0, 0.0, 1.0];
+            Array1::from_iter(x.iter().zip(i).map(|(a, b)| a - b))
+        }
+    }
+    impl DifferentiableObjective<f64> for FrobeniusI {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = FrobeniusI;
+    let x0 = array![2.0, 0.0, 0.0, 2.0];
+    let egrad = array![1.0, 0.0, 0.0, 1.0];
+    let rgrad = Spd.egrad2rgrad(&x0, &egrad);
+    let dir = rgrad.mapv(|v| -0.1 * v);
+    let want = Spd.retract(&x0, &dir);
+
+    let mut x = x0.clone();
+    let mut solver = Solver::new(
+        Method::Bb,
+        Control {
+            maxiter: 20,
+            gtol: 1e-12,
+            istep: 0.1,
+            maxmove: None,
+        },
+        4,
+    );
+    solver.set_manifold(ManifoldKind::Spd);
+    solver.set_accept(rgmin::Accept::None);
+    let _ = solver.step(&obj, &mut x).unwrap();
+    assert!(is_spd(&x), "left the SPD set {x:?}");
+    for i in 0..4 {
+        assert!(
+            (x[i] - want[i]).abs() < 1e-12,
+            "step is not the affine-invariant retract {x:?} want {want:?}"
+        );
+    }
+    for _ in 0..19 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        assert!(is_spd(&x), "left the SPD set {x:?}");
+        assert!((x[1] - x[2]).abs() < 1e-12, "not symmetric {x:?}");
+    }
+}
+
+#[test]
 fn stiefel_p1_matches_sphere_retract() {
     use rgmin::{Manifold, ManifoldKind};
     let x = array![0.0, 1.0, 0.0];
@@ -670,11 +743,7 @@ fn an_uphill_everywhere_oracle_is_refused_not_moved() {
         };
         (r, g)
     });
-    let mut solver = rgmin::Solver::new(
-        rgmin::Method::Steepest,
-        rgmin::Control::default(),
-        6,
-    );
+    let mut solver = rgmin::Solver::new(rgmin::Method::Steepest, rgmin::Control::default(), 6);
     solver.set_accept(rgmin::Accept::Energy);
     let mut x = Array1::from(vec![0.0; 6]);
     let rep = solver.step(&obj, &mut x).expect("step runs");

@@ -59,8 +59,8 @@ Objects
 
 ``ManifoldKind``
     Embedded geometry. Euclidean is the identity.
-    Sphere, SO(3), Stiefel ``St(n,1)``, and SE(3) implement
-    ``project`` / ``retract`` / ``transport``.
+    Sphere, SO(3), Stiefel ``St(n,1)``, SE(3), and affine-invariant
+    SPD implement ``project`` / ``retract`` / ``transport``.
 
 ``rgmin_minimize``
     First-order / quasi-Newton C entry. CPU f64

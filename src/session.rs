@@ -257,7 +257,10 @@ impl Solver {
     }
 
     fn horizontal_grad(&self, x: &Array1<f64>, grad: &Array1<f64>) -> Array1<f64> {
-        let mut g = self.project_vec(x, grad);
+        let mut g = match self.manifold {
+            ManifoldKind::MwRigid | ManifoldKind::RigidQuotient => self.project_vec(x, grad),
+            other => other.egrad2rgrad(x, grad),
+        };
         if self.project_rigid
             && !matches!(
                 self.manifold,
@@ -847,13 +850,20 @@ impl Solver {
             Inner::Pso { .. } | Inner::Newton { .. } | Inner::Dogleg { .. } => unreachable!(),
         }
 
-        let delta = &*x - &start;
-        let y = self.manifold.retract(&start, &delta);
-        if y.iter().zip(x.iter()).any(|(a, b)| (*a - *b).abs() > 1e-15) {
-            *x = y;
-            let ev = obj.value_and_gradient(x.view());
-            value = ev.0;
-            grad = ev.1;
+        // accept_step retracts L-BFGS Accept::None and BB. The
+        // second-order SPD retraction is not idempotent on the
+        // chord (x - start).
+        let already_retracted = matches!(&self.inner, Inner::Bb { .. })
+            || (matches!(&self.inner, Inner::Lbfgs(_)) && self.accept == Accept::None);
+        if !already_retracted {
+            let delta = &*x - &start;
+            let y = self.manifold.retract(&start, &delta);
+            if y.iter().zip(x.iter()).any(|(a, b)| (*a - *b).abs() > 1e-15) {
+                *x = y;
+                let ev = obj.value_and_gradient(x.view());
+                value = ev.0;
+                grad = ev.1;
+            }
         }
         grad = self.horizontal_grad(x, &grad);
 

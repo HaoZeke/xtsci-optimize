@@ -7,9 +7,6 @@ use std::os::raw::c_void;
 use dlpk::sys::{DLDeviceType, DLManagedTensorVersioned};
 use eindir_core::ffi::eindir_core_abi_stamp;
 use eindir_core::ffi::{eindir_objective_t, eindir_status_t};
-use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir};
-use rgpot_core::status::rgpot_status_t;
-use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 use rgmin::ffi::{
     rgmin_abi_compatible, rgmin_abi_stamp, rgmin_accept_t, rgmin_conjugacy_t, rgmin_control_t,
     rgmin_curv_fn, rgmin_last_error, rgmin_method_t, rgmin_minimize, rgmin_minimize_eindir,
@@ -17,6 +14,9 @@ use rgmin::ffi::{
     rgmin_solver_set_accept, rgmin_solver_step, rgmin_solver_step_fg, rgmin_status_t,
     rgmin_tensor_borrow_cpu_f64, rgmin_tensor_free,
 };
+use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir};
+use rgpot_core::status::rgpot_status_t;
+use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 
 unsafe extern "C" fn quadratic_eval(
     _user: *mut c_void,
@@ -783,6 +783,7 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_MW_RIGID);
         rgmin_solver_set_masses(session, masses.as_ptr(), masses.len());
         rgmin_solver_set_masses(session, std::ptr::null(), 0);
+        rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_SPD);
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN);
         rgmin_solver_forget(session);
     }

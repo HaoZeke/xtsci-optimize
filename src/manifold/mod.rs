@@ -91,6 +91,13 @@ pub trait Manifold {
     fn retract(&self, x: &Array1<f64>, v: &Array1<f64>) -> Array1<f64>;
     /// Vector transport of `v` from `x_from` to `x_to`.
     fn transport(&self, x_from: &Array1<f64>, x_to: &Array1<f64>, v: &Array1<f64>) -> Array1<f64>;
+    /// Euclidean gradient to Riemannian gradient at `x`.
+    ///
+    /// Riemannian submanifolds of Euclidean space: this is [`Self::project`].
+    /// Affine-invariant SPD uses `X * symm(egrad) * X`.
+    fn egrad2rgrad(&self, x: &Array1<f64>, egrad: &Array1<f64>) -> Array1<f64> {
+        self.project(x, egrad)
+    }
 }
 
 impl Manifold for ManifoldKind {
@@ -143,6 +150,13 @@ impl Manifold for ManifoldKind {
             Self::RigidQuotient => RigidQuotient.transport(x_from, x_to, v),
             Self::MwRigid => MwRigid.transport(x_from, x_to, v),
             Self::Spd => Spd.transport(x_from, x_to, v),
+        }
+    }
+
+    fn egrad2rgrad(&self, x: &Array1<f64>, egrad: &Array1<f64>) -> Array1<f64> {
+        match self {
+            Self::Spd => Spd.egrad2rgrad(x, egrad),
+            other => other.project(x, egrad),
         }
     }
 }
