@@ -4,7 +4,7 @@
 //! contract the API promises and fails when the contract does.
 
 use ndarray::{array, Array1, ArrayView1};
-use rgmin::manifold::{Manifold, MwRigid, Sphere, Stiefel};
+use rgmin::manifold::{Manifold, MwRigid, PoincareBall, Sphere, Stiefel};
 use rgmin::{
     minimize_scg_exact, Conjugacy, Control, DirectionalCurvature, Restart, ScgParams,
 };
@@ -24,6 +24,23 @@ fn stiefel_p1_is_the_sphere_in_all_three_operations() {
         Stiefel.transport(&x, &y, &v),
         Sphere.transport(&x, &y, &v)
     );
+}
+
+/// The Poincare ball is a different geometry from the sphere: a
+/// tangent step that the sphere would land on the unit sphere stays
+/// strictly inside the open ball, and the projection scales by the
+/// conformal metric rather than subtracting the radial component.
+#[test]
+fn poincare_ball_is_not_the_sphere() {
+    let x = array![0.3, 0.4, 0.0];
+    let v = array![0.1, -0.2, 0.05];
+    let yp = PoincareBall.retract(&x, &v);
+    let ys = Sphere.retract(&x, &v);
+    let n = yp.iter().map(|c| c * c).sum::<f64>().sqrt();
+    assert!(n < 1.0, "Poincare retract must stay in the open ball, |y| = {n}");
+    assert!((ys.iter().map(|c| c * c).sum::<f64>().sqrt() - 1.0).abs() < 1e-12);
+    assert_ne!(yp, ys);
+    assert_ne!(PoincareBall.project(&x, &v), Sphere.project(&x, &v));
 }
 
 /// The Eckart quotient's projection removes every rigid-body component:

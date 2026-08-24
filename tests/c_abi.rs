@@ -698,7 +698,7 @@ fn fused_evalgrad_is_one_callback_per_oracle() {
 fn abi_stamp_identifies_this_optimizer_layout() {
     let stamp = rgmin_abi_stamp();
     assert_eq!(stamp.abi_major, 1);
-    assert_eq!(stamp.abi_minor, 12);
+    assert_eq!(stamp.abi_minor, 13);
     assert_eq!(stamp.layout_revision, 3);
     assert_eq!(unsafe { rgmin_abi_compatible(&stamp) }, 1);
 }
@@ -783,6 +783,7 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_MW_RIGID);
         rgmin_solver_set_masses(session, masses.as_ptr(), masses.len());
         rgmin_solver_set_masses(session, std::ptr::null(), 0);
+        rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_POINCARE_BALL);
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN);
         rgmin_solver_forget(session);
     }

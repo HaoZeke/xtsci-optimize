@@ -70,7 +70,8 @@ Hosts that already own an outer loop hold a ``Solver`` and call
 ``set_manifold`` retracts that step. Isolated molecules use
 ``RigidQuotient`` (``R^{3N}/SE(3)``) or ``MwRigid`` (mass-weighted
 Eckart). Sphere, SO(3), Stiefel, and SE(3) are matrix-manifold
-embeddings. Euclidean is the default.
+embeddings. The Poincare ball is the open unit ball. Euclidean
+is the default.
 
 What just happened
 ~~~~~~~~~~~~~~~~~~

@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Poincare ball manifold (`ManifoldKind::PoincareBall`): open unit
+  ball with conformal-metric projection and Mobius exponential
+  retraction. C token `RGMIN_MANIFOLD_POINCARE_BALL`. ABI minor 13.
 - Matrix-free Newton: the `HessianVector` trait, a finite-difference
   action wrapper, Steihaug-Toint CG inside a Nocedal-Wright trust
   region (`minimize_newton_cg`), and preconditioned CG with the

@@ -246,6 +246,61 @@ fn stiefel_p1_matches_sphere_retract() {
 }
 
 #[test]
+fn poincare_session_stays_inside_the_open_ball() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::ManifoldKind;
+
+    struct Drift;
+    impl Objective<f64> for Drift {
+        fn dim(&self) -> usize {
+            3
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| Bounds::new(array![-2.0, -2.0, -2.0], array![2.0, 2.0, 2.0], 0.0))
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            -x[0]
+        }
+    }
+    impl Gradient<f64> for Drift {
+        fn dim(&self) -> usize {
+            3
+        }
+        fn grad(&self, _x: ArrayView1<f64>) -> Array1<f64> {
+            array![-1.0, 0.0, 0.0]
+        }
+    }
+    impl DifferentiableObjective<f64> for Drift {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = Drift;
+    let mut x = array![0.1, 0.0, 0.0];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 40,
+            gtol: 1e-12,
+            istep: 0.4,
+            maxmove: None,
+        },
+        3,
+    );
+    solver.set_manifold(ManifoldKind::PoincareBall);
+    solver.set_accept(rgmin::Accept::None);
+    for _ in 0..40 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        let nrm = (x[0] * x[0] + x[1] * x[1] + x[2] * x[2]).sqrt();
+        assert!(nrm < 1.0, "left the open ball {x:?}");
+    }
+}
+
+#[test]
 fn so3_session_stays_orthogonal() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::ArrayView1;

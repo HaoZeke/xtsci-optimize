@@ -31,7 +31,8 @@ that type so hopping does not ship a second two-loop. Feature `highs` keeps the 
 HiGHS (`Q = I`) onto a box, trust region, or equalities.
 
 A session can retract onto an embedded manifold (`set_manifold`):
-Euclidean (default), sphere, SO(3), Stiefel `St(n,1)`, SE(3).
+Euclidean (default), sphere, SO(3), Stiefel `St(n,1)`, SE(3),
+Poincare ball.
 
 Conjugacy: Fletcher-Reeves, Polak-Ribiere, Hestenes-Stiefel, Dai-Yuan,
 conjugate descent, Hager-Zhang, Liu-Storey, FR-PR, HybridizedConj.

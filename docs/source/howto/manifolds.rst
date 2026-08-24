@@ -44,6 +44,8 @@ Tokens
     +-------------------+---------------------------------------+-------------------------------------------+
     | ``Se3``           | row-major ``R`` then ``t``, length 12 | SO(3) on the rotation, Euclidean on ``t`` |
     +-------------------+---------------------------------------+-------------------------------------------+
+    | ``PoincareBall``  | open unit ball, length ``n``          | Mobius exponential                          |
+    +-------------------+---------------------------------------+-------------------------------------------+
 
 An isolated molecule or cluster lives on ``RigidQuotient``
 (``R^{3N}/SE(3)``): Sella Cartesian ``fix_translation`` plus
@@ -57,7 +59,10 @@ unit mass makes ``MwRigid`` identical to ``RigidQuotient``.
 ``Sphere``, ``So3``, ``Stiefel``, and ``Se3`` are matrix-manifold
 embeddings. ``So3`` rejects any length other than 9. ``Se3`` rejects
 any length other than 12. They do not pack or prefix-interpret a
-3N cluster.
+3N cluster. ``PoincareBall`` is the open unit ball with the
+Poincare (conformal) metric: projection is ``egrad2rgrad``,
+retraction is the Mobius exponential. It is not the sphere and
+not the hyperboloid model.
 
 Euclidean is the default. Existing eOn / rgpot / eindir paths do
 not change until a host calls the setter.
@@ -92,6 +97,7 @@ C
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SO3);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_STIEFEL);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SE3);
+    rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_POINCARE_BALL);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_EUCLIDEAN);
 
 Changing the manifold drops method memory (``forget``).
@@ -117,6 +123,11 @@ Packing notes
 
 - ``Stiefel`` is ``St(n,1)``. A frame with ``p > 1`` is not a length
   token: ``n p`` does not name ``p``.
+
+- ``PoincareBall`` is a length-``n`` vector with Euclidean 2-norm
+  strictly less than 1. Projection scales by the inverse Poincare
+  metric. Retraction is the Riemannian exponential (Mobius
+  addition). Transport is the embedding identity.
 
 - ``set_project_rigid`` is the same horizontal projection as
   ``RigidQuotient`` and stays available on Euclidean.

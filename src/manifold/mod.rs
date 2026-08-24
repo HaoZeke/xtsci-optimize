@@ -10,12 +10,15 @@
 //! (Sella Cartesian `fix_translation` / `fix_rotation`,
 //! \(R^{3N}/\mathrm{SE}(3)\)) or [`ManifoldKind::MwRigid`] (Page–McIver
 //! mass-weighted Eckart, the IRC metric). Sphere / SO(3)-9 / SE(3)-12
-//! are matrix-manifold embeddings, not a 3N cluster.
+//! are matrix-manifold embeddings, not a 3N cluster. The Poincare
+//! ball is the open unit ball with the conformal metric, not the
+//! sphere and not the hyperboloid model.
 
 use ndarray::Array1;
 
 mod euclidean;
 mod mw_rigid;
+mod poincare;
 mod rigid_quotient;
 mod se3;
 mod so3;
@@ -24,6 +27,7 @@ mod stiefel;
 
 pub use euclidean::Euclidean;
 pub use mw_rigid::MwRigid;
+pub use poincare::PoincareBall;
 pub use rigid_quotient::RigidQuotient;
 pub use se3::Se3;
 pub use so3::So3;
@@ -50,6 +54,9 @@ pub enum ManifoldKind {
     /// Mass-weighted Eckart: Sella IRC / Page–McIver metric on
     /// the same quotient. Masses from [`crate::Solver::set_masses`].
     MwRigid,
+    /// Open unit ball with the Poincare metric. Length-`k` vector,
+    /// \(\|x\| < 1\). Not the hyperboloid model and not the sphere.
+    PoincareBall,
 }
 
 impl ManifoldKind {
@@ -68,6 +75,7 @@ impl ManifoldKind {
             Self::Se3 => "se3",
             Self::RigidQuotient => "rigid_quotient",
             Self::MwRigid => "mw_rigid",
+            Self::PoincareBall => "poincare_ball",
         }
     }
 }
@@ -97,6 +105,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.required_dim(n),
             Self::RigidQuotient => RigidQuotient.required_dim(n),
             Self::MwRigid => MwRigid.required_dim(n),
+            Self::PoincareBall => PoincareBall.required_dim(n),
         }
     }
 
@@ -109,6 +118,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.project(x, v),
             Self::RigidQuotient => RigidQuotient.project(x, v),
             Self::MwRigid => MwRigid.project(x, v),
+            Self::PoincareBall => PoincareBall.project(x, v),
         }
     }
 
@@ -121,6 +131,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.retract(x, v),
             Self::RigidQuotient => RigidQuotient.retract(x, v),
             Self::MwRigid => MwRigid.retract(x, v),
+            Self::PoincareBall => PoincareBall.retract(x, v),
         }
     }
 
@@ -133,6 +144,7 @@ impl Manifold for ManifoldKind {
             Self::Se3 => Se3.transport(x_from, x_to, v),
             Self::RigidQuotient => RigidQuotient.transport(x_from, x_to, v),
             Self::MwRigid => MwRigid.transport(x_from, x_to, v),
+            Self::PoincareBall => PoincareBall.transport(x_from, x_to, v),
         }
     }
 }
