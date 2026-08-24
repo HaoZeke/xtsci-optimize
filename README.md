@@ -43,9 +43,9 @@ solver, and every derivation's exact algebra is pinned by the Lean
 C ABI HTML is Doxygen plus
 [doxyYoda](https://github.com/HaoZeke/doxyYoda):
 `scripts/get_doxyyoda.sh` then `doxygen docs/source/Doxyfile_doxyyoda.cfg`.
-Validated DOIs are in [`docs/CITATIONS.md`](docs/CITATIONS.md); the
-Sphinx bibliography is the `rgmin-docs` ookcite collection exported to
-`docs/source/references.bib`.
+The Sphinx bibliography is the `rgmin-docs` ookcite collection
+exported to `docs/source/references.bib` and cited from orgmode
+with `sphinxcontrib-bibtex` (`docs/orgmode/reference/bibliography.org`).
 The mark is documented in [`branding/logo/`](branding/logo/README.md).
 
 ```rust

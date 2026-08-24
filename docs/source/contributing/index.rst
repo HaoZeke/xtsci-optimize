@@ -13,9 +13,12 @@ pinned git dependency.
 Citations
 ~~~~~~~~~
 
-Rustdocs and the orgmode book may only cite DOIs on
-`docs/CITATIONS.md <../../CITATIONS.md>`_ after ookcite ``verify_references``. Do not invent
-DOIs.
+Narrative pages cite through ``sphinxcontrib-bibtex`` (``:cite:`key```)
+against ``docs/source/references.bib``. That file is the ``rgmin-docs``
+ookcite collection (``export_collection``). Add a DOI with
+``validate_doi`` then ``add_to_collection``; never edit the .bib, never
+invent keys, never keep a markdown citation table. The rendered
+list is `reference/bibliography <../reference/bibliography.rst>`_.
 
 Formulae
 ~~~~~~~~
@@ -53,5 +56,5 @@ then build ``docs/source`` with Sphinx. The build needs ``shibuya``,
 ``docs/source/references.bib``, which is generated from the
 ``rgmin-docs`` ookcite collection (``export_collection``), never edited by
 hand. New citations enter through ookcite (``validate_doi`` first, then
-``add_to_collection``) and land in ``docs/CITATIONS.md`` so rustdoc may
-cite them.
+``add_to_collection``). Pages cite with ``:cite:`key```; Sphinx
+renders them via ``sphinxcontrib-bibtex``.

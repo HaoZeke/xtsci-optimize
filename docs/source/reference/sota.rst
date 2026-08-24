@@ -3,7 +3,8 @@
 State of the art
 ----------------
 
-Every DOI on this page is on `docs/CITATIONS.md <../../CITATIONS.md>`_ after ookcite
+Every DOI on this page is in the ``rgmin-docs`` ookcite collection
+and on `reference/bibliography <bibliography.rst>`_ after
 ``verify_references``.
 
 Unconstrained local minimization
@@ -284,8 +285,9 @@ Euclidean is the default. An isolated molecule uses
 ``fix_translation`` / ``fix_rotation``,
 https://doi.org/10.1021/acs.jctc.2c00395) or ``MwRigid`` (Page–McIver
 mass-weighted Eckart, https://doi.org/10.1063/1.454172). Sphere, SO(3) as a
-9-vector, Stiefel ``St(n,1)``, and SE(3) as a 12-vector are
-matrix-manifold embeddings and reject a 3N cluster.
+9-vector, Stiefel ``St(n,1)``, SE(3) as a 12-vector, and SPD as
+an n² row-major matrix are matrix-manifold embeddings and
+reject a 3N cluster.
 
 Defaults in this crate
 ~~~~~~~~~~~~~~~~~~~~~~

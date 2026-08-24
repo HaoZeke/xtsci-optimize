@@ -3,9 +3,10 @@
 Constrain an IRC step to the mass-weighted sphere
 -------------------------------------------------
 
-The inner Gonzalez--Schlegel / Sella IRC step is not
-``ManifoldKind::Sphere`` (the unit sphere about the origin). It is
-an equality on ``MwRigid``:
+The inner Gonzalez--Schlegel / Sella IRC step
+:cite:`gonzalezImprovedAlgorithmReaction1989,hermesSellaOpensourceAutomationfriendly2022`
+is not ``ManifoldKind::Sphere`` (the unit sphere about the origin).
+It is an equality on ``MwRigid``:
 
 
 
@@ -15,28 +16,16 @@ an equality on ``MwRigid``:
 
 ``IrcTrust`` is that restricted step.
 ``lowest_mode`` is the matrix-free kick (one extremal Hessian
-pair from ``H v``, not a full ELPA / SLATE spectrum). Dispatch is
-the closed ``EigensolverKind`` in ``schema/eigen.capnp``: Lanczos
-(default), Rayleigh-Ritz, Jacobi-Davidson, LOBPCG. PRIMME,
+pair from ``H v``, not a full ELPA / SLATE spectrum)
+:cite:`ishidaIntrinsicReactionCoordinate1977,pageEvaluatingReactionPath1988,davidsonIterativeCalculationFew1975,sleijpenJacobidavidsonIterationMethod1996,knyazevTowardOptimalPreconditioned2001`.
+Dispatch is the closed ``EigensolverKind`` in ``schema/eigen.capnp``:
+Lanczos (default), Rayleigh-Ritz, Jacobi-Davidson, LOBPCG. PRIMME,
 SLEPc, ChASE, ELPA, ELPA2, SLATE, MAGMA, cuSOLVER, DLA-Future,
-and EigenExa return ``Error::EigenUnavailable`` until linked.
+and EigenExa return ``Error::EigenUnavailable`` until linked
+:cite:`winkelmannChase2019,marekElpaLibraryScalable2014,yuGpuaccelerationElpa2Distributed2021`.
 There is no string key. The session that owns forward and reverse
 branches lives in
 `rgsaddle <https://github.com/OmniPotentRPC/rgsaddle>`_ (``IrcSession``).
-
-Citations (validated DOIs, also in ``docs/CITATIONS.md``):
-
-- Ishida, Morokuma, Komornicki 1977
-  (`10.1063/1.434152 <https://doi.org/10.1063/1.434152>`_).
-
-- Page and McIver 1988
-  (`10.1063/1.454172 <https://doi.org/10.1063/1.454172>`_).
-
-- Gonzalez and Schlegel 1989
-  (`10.1063/1.456010 <https://doi.org/10.1063/1.456010>`_).
-
-- Hermes, Sarsfield, Zador 2022
-  (`10.1021/acs.jctc.2c00395 <https://doi.org/10.1021/acs.jctc.2c00395>`_).
 
 Rust
 ~~~~
