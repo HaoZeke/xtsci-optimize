@@ -141,6 +141,20 @@ mod tests {
     }
 
     #[test]
+    fn retract_stays_on_so3_algebra() {
+        // n=3 packing: row-major so(3). Start off the set.
+        let x = array![0.1, 0.2, 0.3, -0.2, 0.0, 0.4, -0.3, -0.4, 0.05];
+        let v = array![0.2, 0.1, -0.3, 0.4, 0.1, 0.2, 0.0, -0.1, -0.2];
+        let y = SkewSymmetric.retract(&x, &v);
+        assert_eq!(y.len(), 9);
+        assert!(is_skewsymmetric(&y), "left so(3) {y:?}");
+        assert_eq!(side(y.len()), Some(3));
+        for i in 0..3 {
+            assert!(y[i * 3 + i].abs() < 1e-15, "diag {y:?}");
+        }
+    }
+
+    #[test]
     fn retract_is_translation_then_skew() {
         let x = array![0.0, 1.0, -1.0, 0.0];
         let v = array![0.0, 0.2, -0.2, 0.0];
