@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ManifoldKind::SkewSymmetric`: manopt `skewsymmetricfactory`.
+  Packed row-major `n^2`, `n >= 2`. Projection is `multiskew`
+  (`0.5 (A - A^T)`), retraction is `X + U`, transport is the
+  identity. C token 15.
 - `ManifoldKind::Symmetric`: manopt `symmetricfactory`. Packed
   row-major `n^2`. Projection is symmetrization, retraction is
   `X + U`, transport is the identity. C token 14.

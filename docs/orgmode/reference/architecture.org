@@ -24,7 +24,7 @@ Rust, C sees a small ABI, C++ is a header wrapper.
 |  Rust core                                    |
 |  Solver / Lbfgs / NLCG / BFGS / Newton        |
 |  Manifold (Euclidean, RigidQuotient, MwRigid) |
-|  Sphere / SO3 / Stiefel / SE3 / Symmetric / S^1 |
+|  Sphere / SO3 / Stiefel / SE3 / Symmetric / Skew / S^1 |
 |  LineSearch (Brent, Armijo, Goldstein, Wolfe) |
 |  eindir DifferentiableObjective               |
 +-----------------------------------------------+
@@ -46,9 +46,9 @@ Rust, C sees a small ABI, C++ is a header wrapper.
   =abi_minor= 9, =layout_revision= 2. Compatibility checks major
   and layout only.
 - =ManifoldKind= :: Embedded geometry. Euclidean is the identity.
-  Sphere, SO(3), Stiefel ~St(n,1)~, SE(3), Symmetric, and
-  ComplexCircle ~(S^1)^n~ implement ~project~ / ~retract~ /
-  ~transport~.
+  Sphere, SO(3), Stiefel ~St(n,1)~, SE(3), Symmetric,
+  SkewSymmetric, and ComplexCircle ~(S^1)^n~ implement
+  ~project~ / ~retract~ / ~transport~.
 - =rgmin_minimize= :: First-order / quasi-Newton C entry. CPU f64
   tensors only; other devices return =RGMIN_UNSUPPORTED_DEVICE=.
 - =rgmin_minimize_hess= :: Newton / RFO C entry. Caller supplies a
