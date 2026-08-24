@@ -1397,6 +1397,9 @@ pub enum rgmin_manifold_t {
     RGMIN_MANIFOLD_COMPLEX_CIRCLE = 13,
     /// Real symmetric n-by-n, row-major n². manopt `symmetricfactory`.
     RGMIN_MANIFOLD_SYMMETRIC = 14,
+    /// Real skew-symmetric n-by-n, row-major n², n >= 2.
+    /// manopt `skewsymmetricfactory`.
+    RGMIN_MANIFOLD_SKEWSYMMETRIC = 15,
 }
 
 #[unsafe(no_mangle)]
@@ -1418,6 +1421,7 @@ pub unsafe extern "C" fn rgmin_solver_set_manifold(
         rgmin_manifold_t::RGMIN_MANIFOLD_MULTINOMIAL => ManifoldKind::Multinomial,
         rgmin_manifold_t::RGMIN_MANIFOLD_COMPLEX_CIRCLE => ManifoldKind::ComplexCircle { n: 1 },
         rgmin_manifold_t::RGMIN_MANIFOLD_SYMMETRIC => ManifoldKind::Symmetric,
+        rgmin_manifold_t::RGMIN_MANIFOLD_SKEWSYMMETRIC => ManifoldKind::SkewSymmetric,
         rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN => ManifoldKind::Euclidean,
     };
     unsafe { (*solver).solver.set_manifold(kind) };

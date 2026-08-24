@@ -868,6 +868,7 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
         rgmin_solver_set_masses(session, masses.as_ptr(), masses.len());
         rgmin_solver_set_masses(session, std::ptr::null(), 0);
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_SYMMETRIC);
+        rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_SKEWSYMMETRIC);
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_MULTINOMIAL);
         rgmin_solver_set_oblique(session, 3, 2);
         rgmin_solver_set_stiefel(session, 4, 2);

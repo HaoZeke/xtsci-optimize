@@ -241,7 +241,8 @@ int32_t xts_solver_set_highs(xts_solver_t *solver, int32_t enabled);
  *  R^{3N}/SE(3)) or MW_RIGID (Page-McIver / Sella IRC Eckart).
  *  SO3 is length 9; SE3 is length 12. Oblique is n-by-m via
  *  xts_solver_set_oblique. Stiefel p>1 is xts_solver_set_stiefel.
- *  Reserved: 7 SPD, 8 Grassmann, 9 Hyperbolic, 10 Poincare. */
+ *  Reserved: 7 SPD, 8 Grassmann, 9 Hyperbolic, 10 Poincare.
+ *  Token 15 is skew-symmetric n-by-n, n >= 2. */
 typedef enum xts_manifold_t {
     XTS_MANIFOLD_EUCLIDEAN = 0,
     XTS_MANIFOLD_SPHERE = 1,
@@ -253,7 +254,8 @@ typedef enum xts_manifold_t {
     XTS_MANIFOLD_OBLIQUE = 11,
     XTS_MANIFOLD_MULTINOMIAL = 12,
     XTS_MANIFOLD_COMPLEX_CIRCLE = 13,
-    XTS_MANIFOLD_SYMMETRIC = 14
+    XTS_MANIFOLD_SYMMETRIC = 14,
+    XTS_MANIFOLD_SKEWSYMMETRIC = 15
 } xts_manifold_t;
 void xts_solver_set_manifold(xts_solver_t *solver, xts_manifold_t manifold);
 /** Oblique OB(n,m): product of m unit spheres in R^n, column-major. */
