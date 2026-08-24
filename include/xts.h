@@ -48,8 +48,8 @@ typedef struct xts_abi_stamp_t {
 } xts_abi_stamp_t;
 
 #define XTS_ABI_VERSION_MAJOR 1
-#define XTS_ABI_VERSION_MINOR 13
-#define XTS_ABI_LAYOUT_REVISION 3
+#define XTS_ABI_VERSION_MINOR 14
+#define XTS_ABI_LAYOUT_REVISION 4
 
 /** Solver selector. \c XTS_LBFGS is the production unconstrained method. */
 typedef enum xts_method_t {

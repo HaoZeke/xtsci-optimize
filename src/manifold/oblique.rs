@@ -65,6 +65,7 @@ impl Oblique {
         mat
     }
 
+    #[cfg(test)]
     fn col<'a>(&self, x: &'a Array1<f64>, j: usize) -> ArrayView1<'a, f64> {
         x.slice(s![j * self.n..(j + 1) * self.n])
     }
