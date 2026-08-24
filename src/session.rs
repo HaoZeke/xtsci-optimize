@@ -630,12 +630,15 @@ impl Solver {
                         self.atom_maxmove,
                         self.manifold,
                     );
+                    if !moved {
+                        return Err(Error::Oracle {
+                            what: "non-finite value or gradient",
+                        });
+                    }
                     *x = npos;
                     value = nval;
                     grad = ngrad;
-                    if moved {
-                        solver.push(&*x - &old, &grad - &gold);
-                    }
+                    solver.push(&*x - &old, &grad - &gold);
                 } else {
                     solver.step_objective(
                         obj,

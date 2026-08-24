@@ -20,8 +20,8 @@ use ndarray::{Array1, Array2};
 
 use crate::{
     minimize_method, minimize_method_hess, minimize_scg, minimize_scg_exact, Accept, Conjugacy,
-    Control, DirectionalCurvature, HessianOracle, LineSearch, ManifoldKind, Method, NewtonKind,
-    Oracle, QnStep, Restart, ScgParams, Solver,
+    Control, DirectionalCurvature, Error, HessianOracle, LineSearch, ManifoldKind, Method,
+    NewtonKind, Oracle, QnStep, Restart, ScgParams, Solver,
 };
 
 /// Status codes. 0 is success, matching metatensor / eindir.
@@ -36,6 +36,14 @@ pub enum rgmin_status_t {
     RGMIN_INTERNAL_ERROR = 2,
     /// Tensor is not on a device this build can evaluate (GPU later).
     RGMIN_UNSUPPORTED_DEVICE = 3,
+}
+
+fn status_from_error(e: &Error) -> rgmin_status_t {
+    set_last_error(&e.to_string());
+    match e {
+        Error::Oracle { .. } => rgmin_status_t::RGMIN_INTERNAL_ERROR,
+        _ => rgmin_status_t::RGMIN_INVALID_PARAMETER,
+    }
 }
 
 /// Compatibility identity for the rgmin C ABI.
@@ -690,10 +698,7 @@ pub unsafe extern "C" fn rgmin_minimize(
                 }
                 rgmin_status_t::RGMIN_SUCCESS
             }
-            Err(e) => {
-                set_last_error(&e.to_string());
-                rgmin_status_t::RGMIN_INVALID_PARAMETER
-            }
+            Err(e) => status_from_error(&e),
         }
     })) {
         Ok(s) => s,
@@ -817,10 +822,7 @@ pub unsafe extern "C" fn rgmin_minimize_scg(
                 }
                 rgmin_status_t::RGMIN_SUCCESS
             }
-            Err(e) => {
-                set_last_error(&e.to_string());
-                rgmin_status_t::RGMIN_INVALID_PARAMETER
-            }
+            Err(e) => status_from_error(&e),
         }
     })) {
         Ok(s) => s,
@@ -915,10 +917,7 @@ pub unsafe extern "C" fn rgmin_minimize_hess(
                 }
                 rgmin_status_t::RGMIN_SUCCESS
             }
-            Err(e) => {
-                set_last_error(&e.to_string());
-                rgmin_status_t::RGMIN_INVALID_PARAMETER
-            }
+            Err(e) => status_from_error(&e),
         }
     })) {
         Ok(s) => s,
@@ -1028,10 +1027,7 @@ pub unsafe extern "C" fn rgmin_minimize_eindir(
                 }
                 rgmin_status_t::RGMIN_SUCCESS
             }
-            Err(e) => {
-                set_last_error(&e.to_string());
-                rgmin_status_t::RGMIN_INVALID_PARAMETER
-            }
+            Err(e) => status_from_error(&e),
         }
     })) {
         Ok(s) => s,
@@ -1315,10 +1311,7 @@ pub unsafe extern "C" fn rgmin_solver_step(
         let mut pos = Array1::from(init);
         match unsafe { (*solver).solver.step(&obj, &mut pos) } {
             Ok(rep) => write_report(x, out, &rep),
-            Err(e) => {
-                set_last_error(&e.to_string());
-                rgmin_status_t::RGMIN_INVALID_PARAMETER
-            }
+            Err(e) => status_from_error(&e),
         }
     })) {
         Ok(s) => s,
@@ -1379,10 +1372,7 @@ pub unsafe extern "C" fn rgmin_solver_step_hess(
         let mut pos = Array1::from(init);
         match unsafe { (*solver).solver.step_hess(&obj, &mut pos) } {
             Ok(rep) => write_report(x, out, &rep),
-            Err(e) => {
-                set_last_error(&e.to_string());
-                rgmin_status_t::RGMIN_INVALID_PARAMETER
-            }
+            Err(e) => status_from_error(&e),
         }
     })) {
         Ok(s) => s,
@@ -1427,10 +1417,7 @@ pub unsafe extern "C" fn rgmin_solver_step_fg(
         let mut pos = Array1::from(init);
         match unsafe { (*solver).solver.step(&obj, &mut pos) } {
             Ok(rep) => write_report(x, out, &rep),
-            Err(e) => {
-                set_last_error(&e.to_string());
-                rgmin_status_t::RGMIN_INVALID_PARAMETER
-            }
+            Err(e) => status_from_error(&e),
         }
     })) {
         Ok(s) => s,
@@ -1483,10 +1470,7 @@ pub unsafe extern "C" fn rgmin_solver_step_hess_fg(
         let mut pos = Array1::from(init);
         match unsafe { (*solver).solver.step_hess(&obj, &mut pos) } {
             Ok(rep) => write_report(x, out, &rep),
-            Err(e) => {
-                set_last_error(&e.to_string());
-                rgmin_status_t::RGMIN_INVALID_PARAMETER
-            }
+            Err(e) => status_from_error(&e),
         }
     })) {
         Ok(s) => s,
