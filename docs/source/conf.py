@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 project = "rgmin"
 copyright = "2024--present, Rohit Goswami"
 author = "Rohit Goswami"
@@ -10,6 +12,13 @@ extensions = [
     "myst_parser",
     "sphinx.ext.intersphinx",
 ]
+try:
+    import sphinxcontrib_rust  # noqa: F401
+    import sphinx_rustdoc_postprocess  # noqa: F401
+
+    extensions.extend(["sphinxcontrib_rust", "sphinx_rustdoc_postprocess"])
+except ImportError:
+    pass
 
 templates_path = ["_templates"]
 exclude_patterns = []
@@ -18,7 +27,27 @@ intersphinx_timeout = 5
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
+    "rgpot": ("https://rgpot.rgoswami.me", None),
+    "eon": ("https://eondocs.org", None),
 }
+
+rust_crates = {
+    "rgmin": os.path.abspath("../../"),
+}
+rust_doc_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crates")
+rust_rustdoc_fmt = "rst"
+rust_generate_mode = "always"
+
+rustdoc_postprocess_toctree_target = "reference/rust-api.rst"
+rustdoc_postprocess_toctree_rst = """
+Rust API
+--------
+
+.. toctree::
+   :maxdepth: 2
+
+   ../crates/rgmin/lib
+"""
 
 html_theme = "shibuya"
 html_static_path = ["_static"]
@@ -35,19 +64,24 @@ html_theme_options = {
             "title": "Ecosystem",
             "children": [
                 {
-                    "title": "eindir",
-                    "url": "https://github.com/HaoZeke/eindir",
-                    "summary": "Differentiable objectives",
+                    "title": "rgsaddle",
+                    "url": "https://github.com/OmniPotentRPC/rgsaddle",
+                    "summary": "Band, min-mode, and IRC sessions over rgmin",
                 },
                 {
                     "title": "rgpot",
-                    "url": "https://github.com/OmniPotentRPC/rgpot",
+                    "url": "https://rgpot.rgoswami.me",
                     "summary": "Potential-energy library and RPC server",
                 },
                 {
                     "title": "eOn",
                     "url": "https://eondocs.org",
                     "summary": "Saddle-point search on potential energy surfaces",
+                },
+                {
+                    "title": "gpr_optim",
+                    "url": "https://github.com/TheochemUI/gpr_optim",
+                    "summary": "GP-NEB and IRCDriver host",
                 },
             ],
         },

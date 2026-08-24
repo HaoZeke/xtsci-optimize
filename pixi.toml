@@ -20,5 +20,7 @@ sphinx-sitemap = ">=2.9.0, <3"
 shibuya = ">=2026.1.9, <2027"
 myst-parser = ">=4.0, <5"
 sphinxcontrib-bibtex = ">=2.6, <3"
+sphinxcontrib-rust = ">=1.0.0, <2"
+sphinx-rustdoc-postprocess = ">=0.1.0, <0.2"
 
 [tasks]

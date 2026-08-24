@@ -31,9 +31,10 @@ rgmin
 
 * Overview
 
-~rgmin~ is the local-minimization crate of the OmniPotentRPC family, beside [[https://github.com/OmniPotentRPC/rgpot][rgpot]]; it was xtsci-optimize until the xtensor heritage stopped being true.
-Algorithms live only in Rust, over
-[[https://github.com/HaoZeke/eindir][eindir]] ~DifferentiableObjective~s.
+~rgmin~ is the local-minimization crate of the OmniPotentRPC family,
+beside [[https://github.com/OmniPotentRPC/rgpot][rgpot]] and [[https://github.com/OmniPotentRPC/rgsaddle][rgsaddle]]. Algorithms live only in Rust. A session
+takes one stepper step on an embedded manifold (~Euclidean~,
+~MwRigid~, ~Sphere~, and the rest) and reports. Hosts own the loop.
 
 C and C++ keep the old ~xts::optimize~ names through an hourglass C ABI
 (~rgmin_solver_t~ / ~rgmin_minimize~) that carries *dlpk*
@@ -41,16 +42,13 @@ C and C++ keep the old ~xts::optimize~ names through an hourglass C ABI
 ~include/xts/optimize.hpp~ is the C++ wrapper; ~include/xts/xtensor.hpp~
 adapts ~xt::xarray~. There is no second solver implementation in C++.
 
-The C ABI also accepts an ~eindir_objective_t*~ through
-~rgmin_minimize_eindir~. The caller supplies the ~eindir_abi_stamp_t~,
-retains ownership of the objective, and gets the same CPU f64 DLPack
-path. That is how rgpot's first-member ~eindir_objective_t~ embedding
-reaches the solvers without a callback shim in each consumer.
-
 The production unconstrained local method is limited-memory BFGS with
 the strong Wolfe conditions (Nocedal and Wright 7.4 and algorithms
 3.5--3.6). Hopping chains keep that solver's pair history on ~Lbfgs~;
 anneal's ~WarmLbfgs~ is a thin handle around it.
+
+Saddle, band, and IRC sessions live in ~rgsaddle~. They consume this
+crate's ~Solver~; they do not grow a second optimizer.
 
 #+begin_src bash
 git clone https://github.com/OmniPotentRPC/rgmin.git
@@ -72,6 +70,7 @@ cargo test --features capi
 
    howto/session
    howto/manifolds
+   howto/irc
    howto/embed-anneal
    howto/highs-qp
    howto/c-abi
@@ -92,6 +91,7 @@ cargo test --features capi
    :caption: Reference
 
    reference/architecture
+   reference/api
    reference/sota
    reference/proofs
    reference/bibliography

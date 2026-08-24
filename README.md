@@ -7,20 +7,15 @@
 Rust rewrite. `main` is this tree (current tag `v0.2.0`). The C++
 xtensor history is `0.0.1` on the previous `main`.
 
-Algorithms live only in Rust, over
-[`eindir`](https://github.com/HaoZeke/eindir) `DifferentiableObjective`s.
+Algorithms live only in Rust. A session takes one stepper step on an
+embedded manifold and reports. Saddle, band, and IRC sessions live in
+[`rgsaddle`](https://github.com/OmniPotentRPC/rgsaddle).
 
 C and C++ keep the old `xts::optimize` names through an hourglass C ABI
 (`rgmin_solver_t` / `rgmin_minimize`) that carries **dlpk**
 `DLManagedTensorVersioned` tensors.
 `include/xts/optimize.hpp` is the C++ wrapper; `include/xts/xtensor.hpp`
 adapts `xt::xarray`. There is no second solver implementation in C++.
-
-The C ABI also accepts an `eindir_objective_t*` directly through
-`rgmin_minimize_eindir`. The caller supplies the `eindir_abi_stamp_t`, retains
-ownership of the objective, and gets the same CPU f64 DLPack optimization path.
-This lets rgpot's first-member `eindir_objective_t` embedding reach xtsci
-without a callback shim in each consumer.
 
 CPU f64 is wired now. A non-CPU tensor returns `RGMIN_UNSUPPORTED_DEVICE`
 so a CUDA path does not change the ABI.
@@ -31,7 +26,8 @@ that type so hopping does not ship a second two-loop. Feature `highs` keeps the 
 HiGHS (`Q = I`) onto a box, trust region, or equalities.
 
 A session can retract onto an embedded manifold (`set_manifold`):
-Euclidean (default), sphere, SO(3), Stiefel `St(n,1)`, SE(3).
+Euclidean (default), sphere, SO(3), Stiefel `St(n,1)`, SE(3),
+SPD (affine-invariant, row-major `n x n`).
 
 Conjugacy: Fletcher-Reeves, Polak-Ribiere, Hestenes-Stiefel, Dai-Yuan,
 conjugate descent, Hager-Zhang, Liu-Storey, FR-PR, HybridizedConj.
@@ -53,19 +49,15 @@ Sphinx bibliography is the `rgmin-docs` ookcite collection exported to
 The mark is documented in [`branding/logo/`](branding/logo/README.md).
 
 ```rust
-use eindir_core::objectives::Rosenbrock;
 use ndarray::array;
-use rgmin::{Conjugacy, Control, LineSearch, Restart, minimize};
+use rgmin::Lbfgs;
 
-let obj = Rosenbrock::<2>::new();
-let report = minimize(
-    &obj,
-    array![-1.2, 1.0],
-    &Control::default(),
-    Conjugacy::PolakRibiere,
-    Restart::Never,
-    LineSearch::Brent { maxiter: 40, tol: 1e-10 },
-);
+let mut opt = Lbfgs::default();
+let (_f, x, _) = opt.minimize(array![-1.2, 1.0].view(), 200, |x| {
+    let a = 1.0 - x[0];
+    let b = x[1] - x[0] * x[0];
+    Some((a * a + 100.0 * b * b, array![-2.0 * a - 400.0 * x[0] * b, 200.0 * b]))
+});
 ```
 
 MIT. Build and test on the remote builder, not a laptop.

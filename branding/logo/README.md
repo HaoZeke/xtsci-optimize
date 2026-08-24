@@ -3,9 +3,10 @@
 Same LODE indigo / amber family as landfold, linkcell, and
 readcon-core. The geometry is an hourglass.
 
-**rgmin** is the local-minimization crate of the rgmin (formerly xtsci-optimize)
-family. Solvers live in Rust. C and C++ reach them through a
-narrow waist.
+**rgmin** is the local-minimization crate of the OmniPotentRPC
+family (rgmin, rgsaddle, rgpot). Solvers live in Rust. C and C++
+reach them through a narrow waist. The wordmark does not name
+the objective crate.
 
 ## Concept
 
