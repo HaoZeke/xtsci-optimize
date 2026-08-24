@@ -211,11 +211,11 @@ mod tests {
 
     #[test]
     fn not_the_sphere_and_not_symmetric() {
-        let x = array![0.0, 0.5, -0.5, 0.0];
-        let v = array![0.0, 0.2, -0.2, 0.0];
+        let x = array![0.0, 2.0, -2.0, 0.0];
+        let v = array![0.0, 0.5, -0.5, 0.0];
         let y = SkewSymmetric.retract(&x, &v);
         let fro2: f64 = y.iter().map(|a| a * a).sum();
-        assert!((fro2 - 1.0).abs() > 0.05, "must not be a unit sphere {y:?}");
+        assert!((fro2 - 1.0).abs() > 1.0, "must not be a unit sphere {y:?}");
         assert!(
             (y[1] - y[2]).abs() > 1.0,
             "must not land on the symmetric set {y:?}"
