@@ -1220,7 +1220,8 @@ pub enum rgmin_manifold_t {
     /// Mass-weighted Eckart (Sella IRC / Page–McIver). 3N, N >= 2.
     RGMIN_MANIFOLD_MW_RIGID = 6,
     /// Simplex `{x > 0, sum x = 1}`, Fisher metric. Length n >= 2.
-    RGMIN_MANIFOLD_MULTINOMIAL = 7,
+    /// Reserved table: 7 SPD .. 11 Oblique, 12 Multinomial.
+    RGMIN_MANIFOLD_MULTINOMIAL = 12,
 }
 
 #[unsafe(no_mangle)]
