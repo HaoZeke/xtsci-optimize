@@ -9,7 +9,7 @@
 //! This is not a 3N cluster. Isolated molecules use
 //! [`super::RigidQuotient`]. A single sphere uses [`super::Sphere`].
 
-#[cfg(feature = "par")]
+#[cfg(any(test, feature = "par"))]
 use ndarray::ArrayView1;
 use ndarray::{Array1, Array2, s};
 
