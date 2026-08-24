@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ManifoldKind::Oblique { n, m }`: manopt `obliquefactory`, product
+  of `m` unit spheres in `R^n`, packed column-major. Projection is
+  column-wise tangent, retraction stays on the product of spheres.
+  A 3N cluster is not this packing. C waist: `rgmin_solver_set_oblique`.
+
 - Matrix-free Newton: the `HessianVector` trait, a finite-difference
   action wrapper, Steihaug-Toint CG inside a Nocedal-Wright trust
   region (`minimize_newton_cg`), and preconditioned CG with the

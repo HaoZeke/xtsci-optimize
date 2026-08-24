@@ -15,7 +15,7 @@ direction. Wolfe line search stays on Energy / Nonmonotone.
 SCG C waist: closed ``xts_conjugacy_t`` on ``xts_scg_params_t``
 (FR=0 .. FrPr=7, dest leaf order). ``params==NULL`` is Netlab
 Polak-Ribiere. Unknown codes are ``RGMIN_INVALID_PARAMETER``.
-Stamp 1.12.3. Hybrid and Restart stay Rust-only. The gpr_optim
+Stamp 1.13.3. Hybrid and Restart stay Rust-only. The gpr_optim
 consumer that writes ``RGMIN_CONJUGACY_LIU_STOREY`` is
 ``RgminScg.inl``, not in-tree ``SCG.inl``.
 
@@ -29,8 +29,9 @@ or prefix-interpreted. Periodic bulk sets
 ``R^{3N}/T(3)``. Isolated stays ``R^{3N}/SE(3)``. ``abi_minor`` 10.
 
 Embedded manopt tokens: Euclidean (default), sphere, SO(3),
-Stiefel ``St(n,1)``, SE(3). Hourglass mark and the Diataxis book
-under ``docs/orgmode/``.
+Stiefel ``St(n,1)``, SE(3), oblique ``OB(n,m)`` (product of unit
+spheres, column-major ``n m``). Hourglass mark and the Diataxis
+book under ``docs/orgmode/``.
 
 0.2.0
 ~~~~~

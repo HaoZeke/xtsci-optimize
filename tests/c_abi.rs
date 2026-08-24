@@ -7,9 +7,6 @@ use std::os::raw::c_void;
 use dlpk::sys::{DLDeviceType, DLManagedTensorVersioned};
 use eindir_core::ffi::eindir_core_abi_stamp;
 use eindir_core::ffi::{eindir_objective_t, eindir_status_t};
-use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir};
-use rgpot_core::status::rgpot_status_t;
-use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 use rgmin::ffi::{
     rgmin_abi_compatible, rgmin_abi_stamp, rgmin_accept_t, rgmin_conjugacy_t, rgmin_control_t,
     rgmin_curv_fn, rgmin_last_error, rgmin_method_t, rgmin_minimize, rgmin_minimize_eindir,
@@ -17,6 +14,9 @@ use rgmin::ffi::{
     rgmin_solver_set_accept, rgmin_solver_step, rgmin_solver_step_fg, rgmin_status_t,
     rgmin_tensor_borrow_cpu_f64, rgmin_tensor_free,
 };
+use rgpot_core::eindir::{rgpot_potential_free_eindir, rgpot_potential_new_eindir};
+use rgpot_core::status::rgpot_status_t;
+use rgpot_core::types::{rgpot_force_input_t, rgpot_force_out_t};
 
 unsafe extern "C" fn quadratic_eval(
     _user: *mut c_void,
@@ -698,7 +698,7 @@ fn fused_evalgrad_is_one_callback_per_oracle() {
 fn abi_stamp_identifies_this_optimizer_layout() {
     let stamp = rgmin_abi_stamp();
     assert_eq!(stamp.abi_major, 1);
-    assert_eq!(stamp.abi_minor, 12);
+    assert_eq!(stamp.abi_minor, 13);
     assert_eq!(stamp.layout_revision, 3);
     assert_eq!(unsafe { rgmin_abi_compatible(&stamp) }, 1);
 }
@@ -759,8 +759,8 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
     use rgmin::ffi::{
         rgmin_manifold_t, rgmin_qn_step_t, rgmin_solver_forget, rgmin_solver_set_atom_maxmove,
         rgmin_solver_set_cautious, rgmin_solver_set_extra_updates, rgmin_solver_set_manifold,
-        rgmin_solver_set_masses, rgmin_solver_set_maxmove, rgmin_solver_set_periodic,
-        rgmin_solver_set_project_rigid, rgmin_solver_set_qn_step,
+        rgmin_solver_set_masses, rgmin_solver_set_maxmove, rgmin_solver_set_oblique,
+        rgmin_solver_set_periodic, rgmin_solver_set_project_rigid, rgmin_solver_set_qn_step,
     };
     let ctrl = rgmin_control_t {
         maxiter: 20,
@@ -783,6 +783,8 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_MW_RIGID);
         rgmin_solver_set_masses(session, masses.as_ptr(), masses.len());
         rgmin_solver_set_masses(session, std::ptr::null(), 0);
+        rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN);
+        rgmin_solver_set_oblique(session, 3, 2);
         rgmin_solver_set_manifold(session, rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN);
         rgmin_solver_forget(session);
     }
@@ -821,6 +823,7 @@ fn c_abi_every_setter_survives_live_and_null_sessions() {
         rgmin_solver_set_project_rigid(null, 1);
         rgmin_solver_set_periodic(null, 0);
         rgmin_solver_set_manifold(null, rgmin_manifold_t::RGMIN_MANIFOLD_SPHERE);
+        rgmin_solver_set_oblique(null, 3, 2);
         rgmin_solver_set_masses(null, masses.as_ptr(), masses.len());
         rgmin_solver_forget(null);
     }

@@ -59,7 +59,7 @@ pub struct rgmin_abi_stamp_t {
 }
 
 pub const RGMIN_ABI_VERSION_MAJOR: u16 = 1;
-pub const RGMIN_ABI_VERSION_MINOR: u16 = 12;
+pub const RGMIN_ABI_VERSION_MINOR: u16 = 13;
 pub const RGMIN_ABI_LAYOUT_REVISION: u16 = 3;
 
 /// Method tag. Keep this a closed C enum; Rust [`Method`] is the source.
@@ -1219,6 +1219,8 @@ pub enum rgmin_manifold_t {
     RGMIN_MANIFOLD_RIGID_QUOTIENT = 5,
     /// Mass-weighted Eckart (Sella IRC / Page–McIver). 3N, N >= 2.
     RGMIN_MANIFOLD_MW_RIGID = 6,
+    /// Product of unit spheres. Shape from `rgmin_solver_set_oblique`.
+    RGMIN_MANIFOLD_OBLIQUE = 7,
 }
 
 #[unsafe(no_mangle)]
@@ -1236,9 +1238,24 @@ pub unsafe extern "C" fn rgmin_solver_set_manifold(
         rgmin_manifold_t::RGMIN_MANIFOLD_SE3 => ManifoldKind::Se3,
         rgmin_manifold_t::RGMIN_MANIFOLD_RIGID_QUOTIENT => ManifoldKind::RigidQuotient,
         rgmin_manifold_t::RGMIN_MANIFOLD_MW_RIGID => ManifoldKind::MwRigid,
+        rgmin_manifold_t::RGMIN_MANIFOLD_OBLIQUE => ManifoldKind::Oblique { n: 0, m: 0 },
         rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN => ManifoldKind::Euclidean,
     };
     unsafe { (*solver).solver.set_manifold(kind) };
+}
+
+/// Oblique \(\mathrm{OB}(n,m)\): product of `m` unit spheres in `R^n`.
+/// Packed column-major, length `n*m`. Not a 3N cluster.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rgmin_solver_set_oblique(
+    solver: *mut rgmin_solver_t,
+    n: usize,
+    m: usize,
+) {
+    if solver.is_null() {
+        return;
+    }
+    unsafe { (*solver).solver.set_manifold(ManifoldKind::Oblique { n, m }) };
 }
 
 /// Per-atom masses for `RGMIN_MANIFOLD_MW_RIGID`. `n_atoms == 0` or a

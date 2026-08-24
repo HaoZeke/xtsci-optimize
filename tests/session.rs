@@ -1,7 +1,7 @@
 //! Persistent Session: one step is one outer iteration.
 
 use eindir_core::objectives::Rosenbrock;
-use ndarray::{array, Array1};
+use ndarray::{Array1, array};
 use rgmin::{Control, Method, Solver};
 
 fn control() -> Control {
@@ -433,6 +433,95 @@ fn se3_rejects_a_3n_cluster() {
 }
 
 #[test]
+fn oblique_rejects_a_3n_cluster() {
+    let obj = Rosenbrock::<114>::new();
+    let mut x = Array1::from_elem(114, 0.1);
+    let mut solver = Solver::new(Method::Steepest, control(), 114);
+    solver.set_manifold(rgmin::ManifoldKind::Oblique { n: 3, m: 2 });
+    let err = solver.step(&obj, &mut x).unwrap_err();
+    match err {
+        rgmin::Error::ManifoldDim { kind, got } => {
+            assert_eq!(kind, "oblique");
+            assert_eq!(got, 114);
+        }
+        other => panic!("expected ManifoldDim, got {other:?}"),
+    }
+}
+
+#[test]
+fn oblique_kind_is_not_sphere() {
+    assert_ne!(
+        rgmin::ManifoldKind::Oblique { n: 3, m: 1 },
+        rgmin::ManifoldKind::Sphere
+    );
+}
+
+#[test]
+fn oblique_session_stays_on_product_of_spheres() {
+    use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
+    use ndarray::ArrayView1;
+    use rgmin::ManifoldKind;
+
+    struct PairRay;
+    impl Objective<f64> for PairRay {
+        fn dim(&self) -> usize {
+            6
+        }
+        fn bounds(&self) -> &Bounds<f64> {
+            use std::sync::OnceLock;
+            static B: OnceLock<Bounds<f64>> = OnceLock::new();
+            B.get_or_init(|| {
+                Bounds::new(Array1::from_elem(6, -2.0), Array1::from_elem(6, 2.0), 0.0)
+            })
+        }
+        fn eval(&self, x: ArrayView1<f64>) -> f64 {
+            0.5 * (x[0] * x[0]
+                + 2.0 * x[1] * x[1]
+                + 3.0 * x[2] * x[2]
+                + x[3] * x[3]
+                + 2.0 * x[4] * x[4]
+                + 3.0 * x[5] * x[5])
+        }
+    }
+    impl Gradient<f64> for PairRay {
+        fn dim(&self) -> usize {
+            6
+        }
+        fn grad(&self, x: ArrayView1<f64>) -> Array1<f64> {
+            array![x[0], 2.0 * x[1], 3.0 * x[2], x[3], 2.0 * x[4], 3.0 * x[5]]
+        }
+    }
+    impl DifferentiableObjective<f64> for PairRay {
+        fn value_and_gradient(&self, x: ArrayView1<f64>) -> (f64, Array1<f64>) {
+            (self.eval(x), self.grad(x))
+        }
+    }
+
+    let obj = PairRay;
+    let s = (0.5_f64).sqrt();
+    let mut x = array![s, s, 0.0, 0.0, s, s];
+    let mut solver = Solver::new(
+        Method::Steepest,
+        Control {
+            maxiter: 30,
+            gtol: 1e-8,
+            istep: 0.2,
+            maxmove: None,
+        },
+        6,
+    );
+    solver.set_manifold(ManifoldKind::Oblique { n: 3, m: 2 });
+    solver.set_accept(rgmin::Accept::None);
+    for _ in 0..30 {
+        let _ = solver.step(&obj, &mut x).unwrap();
+        let n0 = (x[0] * x[0] + x[1] * x[1] + x[2] * x[2]).sqrt();
+        let n1 = (x[3] * x[3] + x[4] * x[4] + x[5] * x[5]).sqrt();
+        assert!((n0 - 1.0).abs() < 1e-10, "left sphere 0 {x:?}");
+        assert!((n1 - 1.0).abs() < 1e-10, "left sphere 1 {x:?}");
+    }
+}
+
+#[test]
 fn rigid_quotient_drops_translation_and_keeps_3n() {
     use eindir_core::{Bounds, DifferentiableObjective, Gradient, Objective};
     use ndarray::ArrayView1;
@@ -670,11 +759,7 @@ fn an_uphill_everywhere_oracle_is_refused_not_moved() {
         };
         (r, g)
     });
-    let mut solver = rgmin::Solver::new(
-        rgmin::Method::Steepest,
-        rgmin::Control::default(),
-        6,
-    );
+    let mut solver = rgmin::Solver::new(rgmin::Method::Steepest, rgmin::Control::default(), 6);
     solver.set_accept(rgmin::Accept::Energy);
     let mut x = Array1::from(vec![0.0; 6]);
     let rep = solver.step(&obj, &mut x).expect("step runs");

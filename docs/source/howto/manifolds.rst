@@ -44,6 +44,8 @@ Tokens
     +-------------------+---------------------------------------+-------------------------------------------+
     | ``Se3``           | row-major ``R`` then ``t``, length 12 | SO(3) on the rotation, Euclidean on ``t`` |
     +-------------------+---------------------------------------+-------------------------------------------+
+    | ``Oblique``       | ``n``-by-``m`` unit columns, ``n m``  | column-wise ``(x+v)/norm``                 |
+    +-------------------+---------------------------------------+-------------------------------------------+
 
 An isolated molecule or cluster lives on ``RigidQuotient``
 (``R^{3N}/SE(3)``): Sella Cartesian ``fix_translation`` plus
@@ -54,10 +56,12 @@ gpr\ :sub:`optim`\ ``IRCDriver`` (https://doi.org/10.1063/1.454172,
 https://doi.org/10.1063/1.434152). Call ``set_masses`` with N atomic masses;
 unit mass makes ``MwRigid`` identical to ``RigidQuotient``.
 
-``Sphere``, ``So3``, ``Stiefel``, and ``Se3`` are matrix-manifold
-embeddings. ``So3`` rejects any length other than 9. ``Se3`` rejects
-any length other than 12. They do not pack or prefix-interpret a
-3N cluster.
+``Sphere``, ``So3``, ``Stiefel``, ``Se3``, and ``Oblique`` are
+matrix-manifold embeddings. ``So3`` rejects any length other than
+9. ``Se3`` rejects any length other than 12. ``Oblique { n, m }``
+rejects any length other than ``n m``. They do not pack or
+prefix-interpret a 3N cluster. ``Oblique`` is not ``Sphere``: a
+single column is still the oblique token.
 
 Euclidean is the default. Existing eOn / rgpot / eindir paths do
 not change until a host calls the setter.
@@ -75,6 +79,7 @@ Rust
     let mut solver = Solver::new(Method::Steepest, Control::default(), 3);
     solver.set_manifold(ManifoldKind::Sphere);
     let _ = solver.step(&obj, &mut x).unwrap();
+    solver.set_manifold(ManifoldKind::Oblique { n: 3, m: 2 });
 
 First-order steps retract the taken increment. Quasi-Newton
 directions are projected into the tangent, then retracted by the
@@ -92,6 +97,7 @@ C
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SO3);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_STIEFEL);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_SE3);
+    rgmin_solver_set_oblique(s, 3, 2);
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_EUCLIDEAN);
 
 Changing the manifold drops method memory (``forget``).
@@ -117,6 +123,11 @@ Packing notes
 
 - ``Stiefel`` is ``St(n,1)``. A frame with ``p > 1`` is not a length
   token: ``n p`` does not name ``p``.
+
+- ``Oblique`` is the product of ``m`` unit spheres in ``R^n``,
+  packed column-major. ``set_oblique(n, m)`` /
+  ``ManifoldKind::Oblique { n, m }`` names the pack. A 3N cluster
+  is ``RigidQuotient``.
 
 - ``set_project_rigid`` is the same horizontal projection as
   ``RigidQuotient`` and stays available on Euclidean.

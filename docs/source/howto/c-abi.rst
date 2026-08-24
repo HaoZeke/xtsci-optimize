@@ -44,7 +44,7 @@ One-shot
     rgmin_status_t st = rgmin_minimize(eval, grad, user, x, &ctrl, RGMIN_LBFGS, &report);
 
 SCG is the same one-shot shape. Conjugacy is a field on
-``rgmin_scg_params_t``, not a different entry point. Stamp is 1.12.3
+``rgmin_scg_params_t``, not a different entry point. Stamp is 1.13.3
 (``xts_abi_compatible`` still checks major and layout only).
 
 .. code:: c

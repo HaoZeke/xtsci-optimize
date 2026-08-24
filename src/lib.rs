@@ -74,7 +74,7 @@ pub use lbfgs::{GradNorm, Lbfgs};
 #[cfg(feature = "highs")]
 pub use lbfgs_qp::HighsStep;
 pub use linesearch::LineSearch;
-pub use manifold::{Manifold, ManifoldKind};
+pub use manifold::{Manifold, ManifoldKind, Oblique};
 pub use method::Method;
 pub use minimize::{minimize, minimize_method, minimize_method_hess};
 pub use newton::{HessianObjective, HessianOracle, NewtonKind, minimize_newton};
