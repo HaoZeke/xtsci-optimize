@@ -29,7 +29,9 @@ or prefix-interpreted. Periodic bulk sets
 ``R^{3N}/T(3)``. Isolated stays ``R^{3N}/SE(3)``. ``abi_minor`` 10.
 
 Embedded manopt tokens: Euclidean (default), sphere, SO(3),
-Stiefel ``St(n,1)``, SE(3). Hourglass mark and the Diataxis book
+Stiefel ``St(n,1)``, Grassmann ``Gr(n,p)`` (``set_factor_shape``),
+SE(3). ``set_factor_shape`` drops method memory when ``(n, p)``
+changes. Hourglass mark and the Diataxis book
 under ``docs/orgmode/``.
 
 0.2.0

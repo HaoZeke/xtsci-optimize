@@ -101,6 +101,7 @@ C
     rgmin_solver_set_manifold(s, RGMIN_MANIFOLD_EUCLIDEAN);
 
 Changing the manifold drops method memory (``forget``).
+``set_factor_shape`` does the same when ``(n, p)`` changes.
 
 Packing notes
 ~~~~~~~~~~~~~

@@ -180,12 +180,17 @@ impl Solver {
     }
 
     /// `(n, p)` for [`ManifoldKind::Grassmann`]. `(0, 0)` clears to \(\mathrm{Gr}(n,1)\).
+    /// A different pair is a different geometry, so method memory is dropped.
     pub fn set_factor_shape(&mut self, n: usize, p: usize) {
-        if n == 0 || p == 0 {
-            self.factor_shape = None;
+        let next = if n == 0 || p == 0 {
+            None
         } else {
-            self.factor_shape = Some((n, p));
+            Some((n, p))
+        };
+        if next != self.factor_shape {
+            self.forget();
         }
+        self.factor_shape = next;
     }
 
     /// Per-atom masses for [`ManifoldKind::MwRigid`] (Page–McIver / Eckart).

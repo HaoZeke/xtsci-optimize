@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - An L-BFGS `Accept::None` direction is projected into the tangent
   before the retract, so a Grassmann two-loop step stays Riemannian.
+- `Solver::set_factor_shape` drops method memory when `(n, p)`
+  changes, so a Grassmann two-loop pair is not reused on a
+  different \(\mathrm{Gr}(n,p)\).
 - A non-finite gradient can no longer satisfy the convergence test
   under either gradient norm.
 - The energy-accept fallback faces the same test as the step it
