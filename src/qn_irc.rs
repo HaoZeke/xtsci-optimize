@@ -156,8 +156,11 @@ pub fn qn_irc_restricted(trust: &IrcTrust, evals: &Array1<f64>, evecs: &Array2<f
     let (s0_mw, _) = qn_irc_get_s(evals, evecs, &g_mw, &d1_mw, 0.0);
     let s0 = to_mw(&s0_mw, &trust.sqrtm, true);
     let cons0 = trust.cons(&s0);
+    // Sella IRCTrustRegion is a ball: take the unrestricted Newton
+    // step when it already sits inside. Radial growth would lock a
+    // roll-down into a dx oscillation about the well.
     if cons0 <= trust.dx + 1e-14 {
-        return trust.project(&s0);
+        return s0;
     }
     let s = alpha_search(trust, evals, evecs, &g_mw, &d1_mw);
     if trust.on_bound(&s, 1e-8) {
@@ -320,6 +323,21 @@ mod tests {
             trust.cons(&s),
             trust.dx
         );
+    }
+
+    #[test]
+    fn small_newton_stays_inside_the_ball() {
+        let masses = [1.0, 1.0];
+        let d1 = Array1::zeros(6);
+        let trust = IrcTrust::from_atom_masses(d1, &masses, 0.2);
+        let g = array![0.01, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let s = qn_irc_restricted_identity(&trust, &g);
+        assert!(
+            trust.cons(&s) < trust.dx - 1e-8,
+            "interior Newton must not be grown to dx: cons={}",
+            trust.cons(&s)
+        );
+        assert!((s[0] + g[0]).abs() < 1e-12);
     }
 
     #[test]
