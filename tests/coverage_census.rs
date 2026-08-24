@@ -5,8 +5,8 @@
 
 use ndarray::{array, Array1, ArrayView1};
 use rgmin::manifold::{
-    is_spd, is_symmetric, ComplexCircle, Manifold, Multinomial, MwRigid, Oblique, Spd, Sphere,
-    Stiefel, StiefelNp, Symmetric,
+    is_skewsymmetric, is_spd, is_symmetric, ComplexCircle, Manifold, Multinomial, MwRigid, Oblique,
+    SkewSymmetric, Spd, Sphere, Stiefel, StiefelNp, Symmetric,
 };
 use rgmin::IrcTrust;
 use rgmin::{
@@ -186,6 +186,25 @@ fn symmetric_retract_stays_on_the_set() {
     assert!((w[2] + 0.1).abs() < 1e-15);
     let det = y[0] * y[3] - y[1] * y[2];
     assert!(det < 0.0, "must not force SPD {y:?}");
+}
+
+/// manopt skewsymmetricfactory: retraction stays on the skew-symmetric
+/// matrices and the projection kills the symmetric part.
+#[test]
+fn skewsymmetric_retract_stays_on_the_set() {
+    let x = array![0.0, 1.0, -1.0, 0.0];
+    let v = array![0.2, 0.3, -0.1, -0.4];
+    let y = SkewSymmetric.retract(&x, &v);
+    assert!(is_skewsymmetric(&y), "left the skew-symmetric set {y:?}");
+    assert!((y[0]).abs() < 1e-15);
+    assert!((y[3]).abs() < 1e-15);
+    assert!((y[1] + y[2]).abs() < 1e-15);
+    let t = SkewSymmetric.project(&x, &v);
+    assert!((t[0]).abs() < 1e-15);
+    assert!((t[1] + t[2]).abs() < 1e-15);
+    let w = SkewSymmetric.transport(&x, &y, &v);
+    assert!((w[1] - 0.3).abs() < 1e-15);
+    assert!((w[2] + 0.1).abs() < 1e-15);
 }
 
 /// A quadratic bowl carrying its exact directional curvature. SCG with

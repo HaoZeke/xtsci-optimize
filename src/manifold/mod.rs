@@ -13,6 +13,7 @@
 //! / Symmetric-n² / SPD-n² / ComplexCircle-2n / Oblique-nm are
 //! matrix-manifold embeddings, not a 3N cluster.
 //! [`ManifoldKind::Symmetric`] is manopt `symmetricfactory`.
+//! [`ManifoldKind::SkewSymmetric`] is manopt `skewsymmetricfactory`.
 //! [`ManifoldKind::ComplexCircle`] is manopt `complexcirclefactory`.
 
 use ndarray::Array1;
@@ -24,6 +25,7 @@ mod mw_rigid;
 mod oblique;
 mod rigid_quotient;
 mod se3;
+mod skewsymmetric;
 mod so3;
 mod spd;
 mod sphere;
@@ -37,6 +39,10 @@ pub use mw_rigid::MwRigid;
 pub use oblique::Oblique;
 pub use rigid_quotient::RigidQuotient;
 pub use se3::Se3;
+pub use skewsymmetric::{
+    inner as inner_skew, is_skewsymmetric, pack as pack_skew, side as side_skew,
+    typical_dist as typical_dist_skew, unpack as unpack_skew, SkewSymmetric,
+};
 pub use so3::So3;
 pub use spd::{is_spd, pack as pack_spd, side as side_spd, unpack as unpack_spd, Spd};
 pub use sphere::Sphere;
@@ -44,6 +50,9 @@ pub use stiefel::{Stiefel, StiefelNp};
 pub use symmetric::{
     inner as inner_sym, is_symmetric, pack as pack_sym, side as side_sym,
     typical_dist as typical_dist_sym, unpack as unpack_sym, Symmetric,
+};
+pub use unitary::{
+    is_unitary, pack as pack_unitary, side as side_unitary, unpack as unpack_unitary, Unitary,
 };
 
 /// Which embedded geometry a session retracts onto.
@@ -92,11 +101,22 @@ pub enum ManifoldKind {
     /// Real symmetric n-by-n, row-major n².
     /// manopt `symmetricfactory` (Frobenius / Euclidean subspace).
     Symmetric,
+    /// Real skew-symmetric n-by-n, row-major n², `n >= 2`.
+    /// manopt `skewsymmetricfactory` (Frobenius / Euclidean subspace).
+    SkewSymmetric,
     /// Product of unit-modulus complex numbers \((S^1)^n\).
     /// Packed interleaved `(re, im)`, length `2 n`.
     /// manopt `complexcirclefactory(n)`. Not the sphere.
     ComplexCircle {
         /// Number of unit-modulus complex entries.
+        n: usize,
+    },
+    /// Unitary group \(\mathrm{U}(n)\) for `n >= 1`. Packed
+    /// interleaved `(re, im)` row-major, length `2 n^2`.
+    /// manopt `unitaryfactory(n)` at `k = 1`. Construct with
+    /// [`ManifoldKind::unitary`].
+    Unitary {
+        /// Matrix side. Must be `>= 1`.
         n: usize,
     },
 }
@@ -129,6 +149,11 @@ impl ManifoldKind {
         Self::ComplexCircle { n }
     }
 
+    /// \(\mathrm{U}(n)\), packed interleaved row-major length `2 n^2`.
+    pub fn unitary(n: usize) -> Self {
+        Self::Unitary { n }
+    }
+
     /// C ABI / INI token.
     pub fn as_str(self) -> &'static str {
         match self {
@@ -143,6 +168,7 @@ impl ManifoldKind {
             Self::Multinomial => "multinomial",
             Self::Spd => "spd",
             Self::Symmetric => "symmetric",
+            Self::SkewSymmetric => "skewsymmetric",
             Self::ComplexCircle { .. } => "complex_circle",
         }
     }
@@ -183,6 +209,7 @@ impl Manifold for ManifoldKind {
             Self::StiefelP { n: sn, p } => StiefelNp { n: *sn, p: *p }.required_dim(n),
             Self::Spd => Spd.required_dim(n),
             Self::Symmetric => Symmetric.required_dim(n),
+            Self::SkewSymmetric => SkewSymmetric.required_dim(n),
             Self::ComplexCircle { n: cn } => ComplexCircle { n: *cn }.required_dim(n),
         }
     }
@@ -201,6 +228,7 @@ impl Manifold for ManifoldKind {
             Self::StiefelP { n, p } => StiefelNp { n: *n, p: *p }.project(x, v),
             Self::Spd => Spd.project(x, v),
             Self::Symmetric => Symmetric.project(x, v),
+            Self::SkewSymmetric => SkewSymmetric.project(x, v),
             Self::ComplexCircle { n } => ComplexCircle { n: *n }.project(x, v),
         }
     }
@@ -219,6 +247,7 @@ impl Manifold for ManifoldKind {
             Self::StiefelP { n, p } => StiefelNp { n: *n, p: *p }.retract(x, v),
             Self::Spd => Spd.retract(x, v),
             Self::Symmetric => Symmetric.retract(x, v),
+            Self::SkewSymmetric => SkewSymmetric.retract(x, v),
             Self::ComplexCircle { n } => ComplexCircle { n: *n }.retract(x, v),
         }
     }
@@ -237,6 +266,7 @@ impl Manifold for ManifoldKind {
             Self::StiefelP { n, p } => StiefelNp { n: *n, p: *p }.transport(x_from, x_to, v),
             Self::Spd => Spd.transport(x_from, x_to, v),
             Self::Symmetric => Symmetric.transport(x_from, x_to, v),
+            Self::SkewSymmetric => SkewSymmetric.transport(x_from, x_to, v),
             Self::ComplexCircle { n } => ComplexCircle { n: *n }.transport(x_from, x_to, v),
         }
     }
