@@ -1220,7 +1220,8 @@ pub enum rgmin_manifold_t {
     /// Mass-weighted Eckart (Sella IRC / Page–McIver). 3N, N >= 2.
     RGMIN_MANIFOLD_MW_RIGID = 6,
     /// Open unit ball with the Poincare metric. Length-k, ||x|| < 1.
-    RGMIN_MANIFOLD_POINCARE_BALL = 7,
+    /// Reserved table: 7 SPD, 8 Grassmann, 9 Hyperbolic, 10 Poincare.
+    RGMIN_MANIFOLD_POINCARE_BALL = 10,
 }
 
 #[unsafe(no_mangle)]
