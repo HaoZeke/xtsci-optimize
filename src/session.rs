@@ -176,6 +176,18 @@ impl Solver {
         self.manifold = kind;
     }
 
+    /// Oblique \(\mathrm{OB}(n,m)\): product of `m` unit spheres in `R^n`.
+    /// Packed column-major, length `n*m`.
+    pub fn set_oblique(&mut self, n: usize, m: usize) {
+        self.set_manifold(ManifoldKind::Oblique { n, m });
+    }
+
+    /// Stiefel \(\mathrm{St}(n,p)\). `p = 1` is the sphere packing.
+    /// `p > 1` is column-major, length `n*p`.
+    pub fn set_stiefel(&mut self, n: usize, p: usize) {
+        self.set_manifold(ManifoldKind::stiefel(n, p));
+    }
+
     /// Product of `n` unit-modulus complex numbers. Packed length `2 n`.
     pub fn set_complex_circle(&mut self, n: usize) {
         self.set_manifold(ManifoldKind::ComplexCircle { n });

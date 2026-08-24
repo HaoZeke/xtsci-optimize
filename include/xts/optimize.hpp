@@ -204,6 +204,12 @@ public:
     }
     int set_highs(bool on) { return rgmin_solver_set_highs(ptr_, on ? 1 : 0); }
     void set_manifold(rgmin_manifold_t m) { rgmin_solver_set_manifold(ptr_, m); }
+    void set_oblique(std::size_t n, std::size_t m) {
+        rgmin_solver_set_oblique(ptr_, n, m);
+    }
+    void set_stiefel(std::size_t n, std::size_t p) {
+        rgmin_solver_set_stiefel(ptr_, n, p);
+    }
     void set_complex_circle(std::size_t n) {
         rgmin_solver_set_complex_circle(ptr_, n);
     }

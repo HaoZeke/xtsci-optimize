@@ -194,6 +194,8 @@ typedef struct xts_solver_t xts_solver_t;
 #define xts_solver_set_cautious rgmin_solver_set_cautious
 #define xts_solver_set_highs rgmin_solver_set_highs
 #define xts_solver_set_manifold rgmin_solver_set_manifold
+#define xts_solver_set_oblique rgmin_solver_set_oblique
+#define xts_solver_set_stiefel rgmin_solver_set_stiefel
 #define xts_solver_set_complex_circle rgmin_solver_set_complex_circle
 #define xts_solver_set_masses rgmin_solver_set_masses
 #define xts_solver_set_periodic rgmin_solver_set_periodic
@@ -237,7 +239,9 @@ int32_t xts_solver_set_highs(xts_solver_t *solver, int32_t enabled);
 /** Embedded manifold. Euclidean is the default.
  *  Molecular clusters use RIGID_QUOTIENT (Sella Cartesian T+R,
  *  R^{3N}/SE(3)) or MW_RIGID (Page-McIver / Sella IRC Eckart).
- *  SO3 is length 9; SE3 is length 12. */
+ *  SO3 is length 9; SE3 is length 12. Oblique is n-by-m via
+ *  xts_solver_set_oblique. Stiefel p>1 is xts_solver_set_stiefel.
+ *  Reserved: 7 SPD, 8 Grassmann, 9 Hyperbolic, 10 Poincare. */
 typedef enum xts_manifold_t {
     XTS_MANIFOLD_EUCLIDEAN = 0,
     XTS_MANIFOLD_SPHERE = 1,
@@ -246,10 +250,16 @@ typedef enum xts_manifold_t {
     XTS_MANIFOLD_SE3 = 4,
     XTS_MANIFOLD_RIGID_QUOTIENT = 5,
     XTS_MANIFOLD_MW_RIGID = 6,
+    XTS_MANIFOLD_OBLIQUE = 11,
+    XTS_MANIFOLD_MULTINOMIAL = 12,
     XTS_MANIFOLD_COMPLEX_CIRCLE = 13,
     XTS_MANIFOLD_SYMMETRIC = 14
 } xts_manifold_t;
 void xts_solver_set_manifold(xts_solver_t *solver, xts_manifold_t manifold);
+/** Oblique OB(n,m): product of m unit spheres in R^n, column-major. */
+void xts_solver_set_oblique(xts_solver_t *solver, size_t n, size_t m);
+/** Stiefel St(n,p). p = 1 is the sphere packing. p > 1 is n*p. */
+void xts_solver_set_stiefel(xts_solver_t *solver, size_t n, size_t p);
 /** n unit-modulus complex numbers. Packed interleaved, length 2n. */
 void xts_solver_set_complex_circle(xts_solver_t *solver, size_t n);
 /** Per-atom masses for MW_RIGID. n_atoms == 0 or masses == NULL

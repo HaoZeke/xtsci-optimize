@@ -1387,6 +1387,11 @@ pub enum rgmin_manifold_t {
     RGMIN_MANIFOLD_RIGID_QUOTIENT = 5,
     /// Mass-weighted Eckart (Sella IRC / Page–McIver). 3N, N >= 2.
     RGMIN_MANIFOLD_MW_RIGID = 6,
+    /// Reserved: 7 SPD, 8 Grassmann, 9 Hyperbolic, 10 Poincare.
+    /// Product of unit spheres. Shape from `rgmin_solver_set_oblique`.
+    RGMIN_MANIFOLD_OBLIQUE = 11,
+    /// Simplex with the Fisher metric. manopt `multinomialfactory` (m = 1).
+    RGMIN_MANIFOLD_MULTINOMIAL = 12,
     /// Product of unit circles (S^1)^n. Packed length 2n.
     /// Token defaults to n = 1; use rgmin_solver_set_complex_circle.
     RGMIN_MANIFOLD_COMPLEX_CIRCLE = 13,
@@ -1409,6 +1414,8 @@ pub unsafe extern "C" fn rgmin_solver_set_manifold(
         rgmin_manifold_t::RGMIN_MANIFOLD_SE3 => ManifoldKind::Se3,
         rgmin_manifold_t::RGMIN_MANIFOLD_RIGID_QUOTIENT => ManifoldKind::RigidQuotient,
         rgmin_manifold_t::RGMIN_MANIFOLD_MW_RIGID => ManifoldKind::MwRigid,
+        rgmin_manifold_t::RGMIN_MANIFOLD_OBLIQUE => ManifoldKind::Oblique { n: 0, m: 0 },
+        rgmin_manifold_t::RGMIN_MANIFOLD_MULTINOMIAL => ManifoldKind::Multinomial,
         rgmin_manifold_t::RGMIN_MANIFOLD_COMPLEX_CIRCLE => ManifoldKind::ComplexCircle { n: 1 },
         rgmin_manifold_t::RGMIN_MANIFOLD_SYMMETRIC => ManifoldKind::Symmetric,
         rgmin_manifold_t::RGMIN_MANIFOLD_EUCLIDEAN => ManifoldKind::Euclidean,
